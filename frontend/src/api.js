@@ -83,4 +83,21 @@ export const api = {
   getREProjects: () => request('/re/projects'),
   saveREProject: (data) => request('/re/projects', { method: 'POST', body: JSON.stringify(data) }),
   deleteREProject: (id) => request(`/re/projects/${id}`, { method: 'DELETE' }),
+
+  // FC Calculator
+  getFCPrograms: () => request('/fc/programs'),
+  getFCLevels: () => request('/fc/levels'),
+  calcCooldowns: (data) => request('/fc/cooldowns', { method: 'POST', body: JSON.stringify(data) }),
+  generateMacro: (data) => request('/fc/macro', { method: 'POST', body: JSON.stringify(data) }),
+  getFCLoadouts: () => request('/fc/loadouts'),
+  saveFCLoadout: (data) => request('/fc/loadouts', { method: 'POST', body: JSON.stringify(data) }),
+  deleteFCLoadout: (id) => request(`/fc/loadouts/${id}`, { method: 'DELETE' }),
+
+  // Best Sources (enhanced loot lookup)
+  getBestSources: (component, level, stat, value) => {
+    let url = `/gamedata/best-sources?component=${encodeURIComponent(component)}&level=${level}`;
+    if (stat) url += `&stat=${encodeURIComponent(stat)}`;
+    if (value) url += `&value=${value}`;
+    return request(url);
+  },
 };

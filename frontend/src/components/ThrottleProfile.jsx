@@ -20,7 +20,7 @@ export default function ThrottleProfile({ profile, chassis }) {
       <div className="card-header"><Activity size={16} /> THROTTLE PROFILE</div>
       <div className="p-3">
         {chassis && (
-          <div className="text-xs text-hull-300 mb-3 font-mono text-center">
+          <div className="text-xs text-hull-200 mb-3 font-mono text-center">
             Min: {chassis.min_throttle} / Opt: {chassis.opt_throttle} / Max: {chassis.max_throttle}
           </div>
         )}
@@ -29,7 +29,7 @@ export default function ThrottleProfile({ profile, chassis }) {
           <div className="w-16 space-y-0.5">
             <div className="text-[10px] font-display text-hull-400 text-center py-1">SPEED</div>
             {profile.map((p, i) => (
-              <div key={i} className="text-xs font-mono text-hull-300 text-center py-1">
+              <div key={i} className="text-xs font-mono text-hull-200 text-center py-1">
                 {p.throttle}
               </div>
             ))}
