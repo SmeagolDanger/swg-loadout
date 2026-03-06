@@ -99,6 +99,15 @@
     @apply fixed inset-0 z-50 bg-hull-900/95 backdrop-blur-md;
   }
 
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
   .tooltip {
     @apply absolute z-50 bg-hull-600 border border-hull-400 rounded-lg p-3 text-sm text-hull-50
            shadow-lg max-w-xs pointer-events-none;
