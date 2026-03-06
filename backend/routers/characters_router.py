@@ -16,11 +16,10 @@ Endpoints ported from the Node/Express collections backend:
 """
 
 from datetime import datetime
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import func, and_
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from auth import get_current_user, require_user
@@ -50,14 +49,14 @@ class CharacterCreate(BaseModel):
 
 
 class CharacterUpdate(BaseModel):
-    name: Optional[str] = None
-    server: Optional[str] = None
-    species: Optional[str] = None
-    profession: Optional[str] = None
-    combat_level: Optional[int] = None
-    guild: Optional[str] = None
-    bio: Optional[str] = None
-    is_public: Optional[bool] = None
+    name: str | None = None
+    server: str | None = None
+    species: str | None = None
+    profession: str | None = None
+    combat_level: int | None = None
+    guild: str | None = None
+    bio: str | None = None
+    is_public: bool | None = None
 
 
 class CollectRequest(BaseModel):
@@ -80,12 +79,12 @@ class CharacterOut(BaseModel):
     guild: str
     bio: str
     is_public: bool
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
     # Populated by queries, not the ORM directly
-    username: Optional[str] = None
-    owner_name: Optional[str] = None
-    collection_count: Optional[int] = None
+    username: str | None = None
+    owner_name: str | None = None
+    collection_count: int | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -97,7 +96,7 @@ def _own_or_admin(user: User, character: Character):
         raise HTTPException(status_code=403, detail="Not your character")
 
 
-def _visible(user: Optional[User], character: Character):
+def _visible(user: User | None, character: Character):
     if not character.is_public and (not user or user.id != character.user_id):
         raise HTTPException(status_code=403, detail="Character is private")
 
@@ -106,11 +105,11 @@ def _visible(user: Optional[User], character: Character):
 
 @router.get("/api/characters")
 def list_characters(
-    search: Optional[str] = None,
-    user_id: Optional[int] = None,
+    search: str | None = None,
+    user_id: int | None = None,
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
-    user: Optional[User] = Depends(get_current_user),
+    user: User | None = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     q = db.query(
@@ -124,9 +123,9 @@ def list_characters(
 
     # Visibility
     if user:
-        q = q.filter((Character.is_public == True) | (Character.user_id == user.id))
+        q = q.filter((Character.is_public.is_(True)) | (Character.user_id == user.id))
     else:
-        q = q.filter(Character.is_public == True)
+        q = q.filter(Character.is_public.is_(True))
 
     if search:
         like = f"%{search}%"
@@ -160,7 +159,7 @@ def list_characters(
 @router.get("/api/characters/{char_id}")
 def get_character(
     char_id: int,
-    user: Optional[User] = Depends(get_current_user),
+    user: User | None = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     char = db.query(Character).filter(Character.id == char_id).first()
@@ -337,7 +336,7 @@ def uncollect_item(
 @router.get("/api/characters/{char_id}/stats")
 def character_stats(
     char_id: int,
-    user: Optional[User] = Depends(get_current_user),
+    user: User | None = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     char = db.query(Character).filter(Character.id == char_id).first()
@@ -376,7 +375,7 @@ def global_stats(db: Session = Depends(get_db)):
     total_items = db.query(func.count(CollectionItem.id)).scalar()
     total_groups = db.query(func.count(CollectionGroup.id)).scalar()
     total_users = db.query(func.count(User.id)).scalar()
-    total_characters = db.query(func.count(Character.id)).filter(Character.is_public == True).scalar()
+    total_characters = db.query(func.count(Character.id)).filter(Character.is_public.is_(True)).scalar()
 
     top_characters = (
         db.query(
@@ -386,7 +385,7 @@ def global_stats(db: Session = Depends(get_db)):
         )
         .join(User, Character.user_id == User.id)
         .outerjoin(CharacterCollection, CharacterCollection.character_id == Character.id)
-        .filter(Character.is_public == True)
+        .filter(Character.is_public.is_(True))
         .group_by(Character.id, Character.name, Character.profession, Character.guild, User.display_name)
         .order_by(func.count(CharacterCollection.id).desc())
         .limit(10)
@@ -409,14 +408,14 @@ def global_stats(db: Session = Depends(get_db)):
 def leaderboard(
     limit: int = Query(25, ge=1, le=100),
     offset: int = Query(0, ge=0),
-    category: Optional[str] = None,
+    category: str | None = None,
     db: Session = Depends(get_db),
 ):
     if category:
         # Count of characters that have at least one item in this category
         total = (
             db.query(func.count(func.distinct(Character.id)))
-            .filter(Character.is_public == True)
+            .filter(Character.is_public.is_(True))
             .join(CharacterCollection, CharacterCollection.character_id == Character.id)
             .join(CollectionItem, CharacterCollection.item_id == CollectionItem.id)
             .join(CollectionGroup, CollectionItem.group_id == CollectionGroup.id)
@@ -452,7 +451,7 @@ def leaderboard(
             )
             .join(User, Character.user_id == User.id)
             .join(collected_sub, collected_sub.c.character_id == Character.id)
-            .filter(Character.is_public == True)
+            .filter(Character.is_public.is_(True))
             .order_by(collected_sub.c.collected.desc(), Character.name)
             .offset(offset).limit(limit)
             .all()
@@ -472,7 +471,7 @@ def leaderboard(
             "category": category,
         }
     else:
-        total = db.query(func.count(Character.id)).filter(Character.is_public == True).scalar()
+        total = db.query(func.count(Character.id)).filter(Character.is_public.is_(True)).scalar()
         total_items = db.query(func.count(CollectionItem.id)).scalar()
 
         collected_sub = (
@@ -493,7 +492,7 @@ def leaderboard(
             )
             .join(User, Character.user_id == User.id)
             .outerjoin(collected_sub, collected_sub.c.character_id == Character.id)
-            .filter(Character.is_public == True)
+            .filter(Character.is_public.is_(True))
             .order_by(func.coalesce(collected_sub.c.collected, 0).desc(), Character.name)
             .offset(offset).limit(limit)
             .all()

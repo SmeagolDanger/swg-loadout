@@ -2,8 +2,16 @@ import os
 from datetime import datetime
 
 from sqlalchemy import (
-    Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text,
-    UniqueConstraint, create_engine,
+    Boolean,
+    Column,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    create_engine,
 )
 from sqlalchemy.orm import DeclarativeBase, relationship, sessionmaker
 
@@ -207,4 +215,3 @@ def get_db():
 
 
 def init_db():
-    Base.metadata.create_all(bind=engine)
