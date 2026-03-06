@@ -31,20 +31,20 @@ export default function Navbar() {
   return (
     <>
       <nav className="fixed top-0 left-0 right-0 z-40 bg-hull-800/90 backdrop-blur-md border-b border-hull-500/40">
-        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+        <div className="max-w-[90rem] mx-auto px-4 h-16 flex items-center gap-4">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 group">
+          <Link to="/" className="flex items-center gap-2 group shrink-0 min-w-fit">
             <div className="w-8 h-8 rounded-lg bg-plasma-500/20 border border-plasma-500/40 flex items-center justify-center group-hover:shadow-glow transition-all">
               <Crosshair size={18} className="text-plasma-400" />
             </div>
-            <span className="font-display font-bold text-lg tracking-wider text-hull-100 hidden sm:block">
+            <span className="font-display font-bold text-lg tracking-wider text-hull-100 hidden sm:block whitespace-nowrap">
               SWG:L <span className="text-plasma-400">SPACE TOOLS</span>
             </span>
-            <span className="font-display font-bold text-lg tracking-wider text-plasma-400 sm:hidden">SWG:L</span>
+            <span className="font-display font-bold text-lg tracking-wider text-plasma-400 sm:hidden whitespace-nowrap">SWG:L</span>
           </Link>
 
           {/* Desktop nav */}
-          <div className="hidden lg:flex items-center gap-1">
+          <div className="hidden lg:flex items-center gap-1 flex-1 min-w-0 overflow-x-auto no-scrollbar">
             {visibleItems.map((item, i) => (
               <React.Fragment key={item.to}>
                 {/* Visual separator between loadout and collections sections */}
@@ -53,7 +53,7 @@ export default function Navbar() {
                 )}
                 <Link
                   to={item.to}
-                  className={`nav-link flex items-center gap-1.5 text-sm ${location.pathname === item.to ? 'nav-link-active' : ''}`}
+                  className={`nav-link flex items-center gap-1.5 text-sm whitespace-nowrap shrink-0 ${location.pathname === item.to ? 'nav-link-active' : ''}`}
                 >
                   <item.icon size={15} />
                   {item.label}
@@ -63,10 +63,10 @@ export default function Navbar() {
           </div>
 
           {/* Auth / Mobile toggle */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0 ml-auto">
             {user ? (
-              <div className="hidden lg:flex items-center gap-3">
-                <span className="text-sm text-hull-200 font-display">
+              <div className="hidden lg:flex items-center gap-2 xl:gap-3 shrink-0">
+                <span className="hidden 2xl:inline-flex items-center text-sm text-hull-200 font-display whitespace-nowrap">
                   <User size={14} className="inline mr-1" />{user.display_name || user.username}
                 </span>
                 <button onClick={logout} className="btn-ghost text-xs flex items-center gap-1">
