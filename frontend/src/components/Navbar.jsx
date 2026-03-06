@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Menu, X, Crosshair, Box, Search, Users, LogOut, User, Wrench } from 'lucide-react';
+import { Menu, X, Crosshair, Box, Search, Users, LogOut, User, Wrench, FlaskConical } from 'lucide-react';
 
 const NAV_ITEMS = [
   { to: '/', label: 'Loadout Builder', icon: Crosshair },
   { to: '/loadouts', label: 'My Loadouts', icon: Box, auth: true },
   { to: '/components', label: 'Components', icon: Wrench, auth: true },
+  { to: '/re', label: 'RE Calculator', icon: FlaskConical },
   { to: '/loot', label: 'Loot Lookup', icon: Search },
   { to: '/community', label: 'Community', icon: Users },
 ];
@@ -28,9 +29,9 @@ export default function Navbar() {
               <Crosshair size={18} className="text-plasma-400" />
             </div>
             <span className="font-display font-bold text-lg tracking-wider text-hull-100 hidden sm:block">
-              SERAPH'S <span className="text-plasma-400">LOADOUT TOOL</span>
+              SWG:L <span className="text-plasma-400">LOADOUT TOOL</span>
             </span>
-            <span className="font-display font-bold text-lg tracking-wider text-plasma-400 sm:hidden">SLT</span>
+            <span className="font-display font-bold text-lg tracking-wider text-plasma-400 sm:hidden">SWG:L</span>
           </Link>
 
           {/* Desktop nav */}

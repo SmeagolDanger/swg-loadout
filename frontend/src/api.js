@@ -73,4 +73,14 @@ export const api = {
         return r.json();
       });
   },
+
+  // RE Calculator
+  getREComponentTypes: () => request('/re/component-types'),
+  getRELevels: () => request('/re/levels'),
+  getREStats: (compType) => request(`/re/stats/${encodeURIComponent(compType)}`),
+  analyzeRE: (data) => request('/re/analyze', { method: 'POST', body: JSON.stringify(data) }),
+  getBrandTable: (data) => request('/re/brand-table', { method: 'POST', body: JSON.stringify(data) }),
+  getREProjects: () => request('/re/projects'),
+  saveREProject: (data) => request('/re/projects', { method: 'POST', body: JSON.stringify(data) }),
+  deleteREProject: (id) => request(`/re/projects/${id}`, { method: 'DELETE' }),
 };

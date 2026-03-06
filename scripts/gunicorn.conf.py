@@ -1,4 +1,4 @@
-"""Gunicorn production configuration for Seraph's Loadout Tool."""
+"""Gunicorn production configuration for SWG:L Loadout Tool."""
 
 import multiprocessing
 import os

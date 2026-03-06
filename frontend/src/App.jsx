@@ -6,6 +6,7 @@ import LoadoutBuilder from './components/LoadoutBuilder';
 import LoadoutManager from './components/LoadoutManager';
 import ComponentManager from './components/ComponentManager';
 import LootLookup from './components/LootLookup';
+import RECalculator from './components/RECalculator';
 import AuthPage from './components/AuthPage';
 import PublicLoadouts from './components/PublicLoadouts';
 
@@ -33,6 +34,7 @@ export default function App() {
           <Route path="/loadouts" element={user ? <LoadoutManager /> : <Navigate to="/auth" />} />
           <Route path="/components" element={user ? <ComponentManager /> : <Navigate to="/auth" />} />
           <Route path="/loot" element={<LootLookup />} />
+          <Route path="/re" element={<RECalculator />} />
           <Route path="/community" element={<PublicLoadouts />} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>

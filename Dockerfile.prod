@@ -1,5 +1,5 @@
 # ============================================================
-# Seraph's Loadout Tool — Production Dockerfile
+# SWG:L Loadout Tool — Production Dockerfile
 # Single-image deployment: Nginx → Gunicorn/Uvicorn + static
 # ============================================================
 

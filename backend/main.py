@@ -10,6 +10,7 @@ from routers.auth_router import router as auth_router
 from routers.gamedata_router import router as gamedata_router
 from routers.import_router import router as import_router
 from routers.loadout_router import router as loadout_router
+from routers.re_router import router as re_router
 
 
 @asynccontextmanager
@@ -18,7 +19,7 @@ async def lifespan(application: FastAPI):
     yield
 
 
-app = FastAPI(title="Seraph's Loadout Tool", version="2.0.0", lifespan=lifespan)
+app = FastAPI(title="SWG:L Loadout Tool", version="2.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -32,6 +33,7 @@ app.include_router(auth_router)
 app.include_router(gamedata_router)
 app.include_router(import_router)
 app.include_router(loadout_router)
+app.include_router(re_router)
 
 
 @app.get("/api/health")
