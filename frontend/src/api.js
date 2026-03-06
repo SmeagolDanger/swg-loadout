@@ -59,4 +59,18 @@ export const api = {
   createComponent: (data) => request('/components', { method: 'POST', body: JSON.stringify(data) }),
   updateComponent: (id, data) => request(`/components/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteComponent: (id) => request(`/components/${id}`, { method: 'DELETE' }),
+
+  // Import from desktop app
+  importSavedata: (file) => {
+    const form = new FormData();
+    form.append('file', file);
+    const token = getToken();
+    const headers = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    return fetch(`${BASE}/import/savedata`, { method: 'POST', headers, body: form })
+      .then(r => {
+        if (!r.ok) return r.json().then(e => { throw new Error(e.detail || 'Import failed'); });
+        return r.json();
+      });
+  },
 };
