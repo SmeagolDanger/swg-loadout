@@ -191,12 +191,8 @@ def calc_weapon_stats(
             {"slot": all_names[i], "pve": round(all_pve[i], 1), "pvp": round(all_pvp[i], 1)}
         )
 
-    # FIX: Run cap combat simulation inline so we have access to all data
-    cap_energy = try_float(weapons[0].get("_cap_energy", 0)) if weapons else 0
-    cap_recharge = try_float(weapons[0].get("_cap_recharge", 0)) if weapons else 0
-
-    # Cap combat data is returned separately via calc_cap_combat
-    # Store eps_list, refire_list, dp_shot_pve, co_gen_eff for the caller
+    # Cap combat data is returned separately via calc_cap_combat.
+    # Store eps_list, refire_list, dp_shot_pve, co_gen_eff for the caller.
     result["_eps_list"] = eps_list
     result["_refire_list"] = refire_list
     result["_dp_shot_pve"] = dp_shot_pve
