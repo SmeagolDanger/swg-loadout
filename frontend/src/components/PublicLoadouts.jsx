@@ -74,7 +74,7 @@ export default function PublicLoadouts() {
                     className="btn-ghost text-xs flex items-center gap-1">
                     <Eye size={12} /> {expanded === l.id ? 'Less' : 'Details'}
                   </button>
-                  <button onClick={() => navigate(`/?loadout=${l.id}`)}
+                  <button onClick={() => navigate(`/tools?loadout=${l.id}`)}
                     className="btn-ghost text-xs flex items-center gap-1">
                     <ExternalLink size={12} /> View in Builder
                   </button>

@@ -176,7 +176,7 @@ export default function LoadoutManager() {
               className={`card p-4 cursor-pointer transition-all hover:border-plasma-500/40
                 ${selected?.id === l.id ? 'border-plasma-500/50 shadow-plasma' : ''}`}
               onClick={() => setSelected(selected?.id === l.id ? null : l)}
-              onDoubleClick={() => navigate(`/?loadout=${l.id}`)}
+              onDoubleClick={() => navigate(`/tools?loadout=${l.id}`)}
             >
               <div className="flex items-start justify-between mb-2">
                 <div>
@@ -207,7 +207,7 @@ export default function LoadoutManager() {
 
               {selected?.id === l.id && (
                 <div className="flex gap-2 mt-3 pt-3 border-t border-hull-500/30 animate-slide-up">
-                  <button onClick={(e) => { e.stopPropagation(); navigate(`/?loadout=${l.id}`); }}
+                  <button onClick={(e) => { e.stopPropagation(); navigate(`/tools?loadout=${l.id}`); }}
                     className="btn-primary text-xs flex items-center gap-1"><ExternalLink size={12} /> Open in Builder</button>
                   <button onClick={(e) => { e.stopPropagation(); handleDuplicate(l); }}
                     className="btn-ghost text-xs flex items-center gap-1"><Copy size={12} /> Duplicate</button>

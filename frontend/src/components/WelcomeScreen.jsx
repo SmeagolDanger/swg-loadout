@@ -1,5 +1,5 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Crosshair, Trophy, ArrowRight, Wrench, Users } from 'lucide-react';
 
 const ENTRY_CARDS = [
@@ -26,6 +26,16 @@ const ENTRY_CARDS = [
 ];
 
 export default function WelcomeScreen() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    const loadoutId = searchParams.get('loadout');
+    if (loadoutId) {
+      navigate(`/tools?loadout=${loadoutId}`, { replace: true });
+    }
+  }, [searchParams, navigate]);
+
   return (
     <div className="relative overflow-hidden">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(0,212,255,0.14),transparent_35%),radial-gradient(circle_at_bottom_right,rgba(255,214,10,0.10),transparent_30%)] pointer-events-none" />
