@@ -1,6 +1,8 @@
 """Core SWG ship loadout calculations, ported from the desktop application."""
+
 import math
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Any
+
 from gamedata import get_fc_programs, get_ordnance_types
 
 
@@ -14,7 +16,7 @@ def try_float(x) -> float:
 def ceil_custom(x):
     try:
         return round(x + 0.5)
-    except:
+    except Exception:
         return 0
 
 
@@ -28,9 +30,17 @@ def calc_overload_multipliers(ro_level, eo_level, co_level, wo_level):
     """Calculate overload multipliers for all systems."""
     overloads = get_overload_data()
     result = {
-        "ro_gen_eff": 1, "eo_eff": 1, "eo_gen_eff": 1,
-        "co_eff": 1, "co_gen_eff": 1, "wo_eff": 1, "wo_gen_eff": 1,
-        "ro_desc": {}, "eo_desc": {}, "co_desc": {}, "wo_desc": {}
+        "ro_gen_eff": 1,
+        "eo_eff": 1,
+        "eo_gen_eff": 1,
+        "co_eff": 1,
+        "co_gen_eff": 1,
+        "wo_eff": 1,
+        "wo_gen_eff": 1,
+        "ro_desc": {},
+        "eo_desc": {},
+        "co_desc": {},
+        "wo_desc": {},
     }
 
     if ro_level is not None and ro_level != "None" and ro_level > 0:
@@ -45,10 +55,7 @@ def calc_overload_multipliers(ro_level, eo_level, co_level, wo_level):
             ee = try_float(overloads[idx]["energy_efficiency"])
             result["eo_eff"] = round(1 / ee, 2) if ee != 0 else 1
             result["eo_gen_eff"] = try_float(overloads[idx]["gen_efficiency"])
-            result["eo_desc"] = {
-                "ts_pyr": f"{result['eo_gen_eff']}x",
-                "drain": f"{result['eo_eff']}x"
-            }
+            result["eo_desc"] = {"ts_pyr": f"{result['eo_gen_eff']}x", "drain": f"{result['eo_eff']}x"}
 
     if co_level is not None and co_level != "None" and co_level > 0:
         idx = co_level + 7
@@ -56,10 +63,7 @@ def calc_overload_multipliers(ro_level, eo_level, co_level, wo_level):
             ee = try_float(overloads[idx]["energy_efficiency"])
             result["co_eff"] = round(1 / ee, 2) if ee != 0 else 1
             result["co_gen_eff"] = try_float(overloads[idx]["gen_efficiency"])
-            result["co_desc"] = {
-                "ce_rr": f"{result['co_gen_eff']}x",
-                "drain": f"{result['co_eff']}x"
-            }
+            result["co_desc"] = {"ce_rr": f"{result['co_gen_eff']}x", "drain": f"{result['co_eff']}x"}
 
     if wo_level is not None and wo_level != "None" and wo_level > 0:
         idx = wo_level + 11
@@ -67,10 +71,7 @@ def calc_overload_multipliers(ro_level, eo_level, co_level, wo_level):
             ee = try_float(overloads[idx]["energy_efficiency"])
             result["wo_eff"] = round(1 / ee, 2) if ee != 0 else 1
             result["wo_gen_eff"] = try_float(overloads[idx]["gen_efficiency"])
-            result["wo_desc"] = {
-                "damage": f"{result['wo_gen_eff']}x",
-                "drain_eps": f"{result['wo_eff']}x"
-            }
+            result["wo_desc"] = {"damage": f"{result['wo_gen_eff']}x", "drain_eps": f"{result['wo_eff']}x"}
 
     return result
 
@@ -92,19 +93,19 @@ def calc_shield_adjust(adjust_setting: str):
     return 1.0
 
 
-def calc_weapon_stats(weapons: List[Dict], slot_headers: List[str],
-                      packs: List[Dict], co_level, wo_level) -> Dict[str, Any]:
+def calc_weapon_stats(
+    weapons: list[dict], slot_headers: list[str], packs: list[dict], co_level, wo_level
+) -> dict[str, Any]:
     """Calculate weapon DPS, fire time, cap drain etc."""
     overloads = get_overload_data()
 
-    co_gen_eff = 1.0
     wo_eff = 1.0
     wo_gen_eff = 1.0
 
     if co_level is not None and co_level != "None" and co_level > 0:
         idx = co_level + 7
         if idx < len(overloads):
-            co_gen_eff = try_float(overloads[idx]["gen_efficiency"])
+            try_float(overloads[idx]["gen_efficiency"])
 
     if wo_level is not None and wo_level != "None" and wo_level > 0:
         idx = wo_level + 11
@@ -170,7 +171,7 @@ def calc_weapon_stats(weapons: List[Dict], slot_headers: List[str],
         "weapon_damages": [],
         "pilot_total_pve": round(pilot_pve, 1),
         "pilot_total_pvp": round(pilot_pvp, 1),
-        "cap_stats": {}
+        "cap_stats": {},
     }
 
     # Combine weapons and ordnance for display
@@ -179,18 +180,21 @@ def calc_weapon_stats(weapons: List[Dict], slot_headers: List[str],
     all_pvp = dp_shot_pvp + ord_damage_pvp
 
     for i in range(len(all_names)):
-        result["weapon_damages"].append({
-            "slot": all_names[i],
-            "pve": round(all_pve[i], 1),
-            "pvp": round(all_pvp[i], 1)
-        })
+        result["weapon_damages"].append(
+            {"slot": all_names[i], "pve": round(all_pve[i], 1), "pvp": round(all_pvp[i], 1)}
+        )
 
     return result
 
 
-def calc_cap_combat(cap_energy: float, cap_recharge: float,
-                    eps_list: List[float], refire_list: List[float],
-                    dp_shot_pve: List[float], co_gen_eff: float) -> Dict[str, Any]:
+def calc_cap_combat(
+    cap_energy: float,
+    cap_recharge: float,
+    eps_list: list[float],
+    refire_list: list[float],
+    dp_shot_pve: list[float],
+    co_gen_eff: float,
+) -> dict[str, Any]:
     """Simulate combat firing until cap is empty."""
     cap_energy *= co_gen_eff
     cap_recharge *= co_gen_eff
@@ -230,7 +234,7 @@ def calc_cap_combat(cap_energy: float, cap_recharge: float,
 
     try:
         cap_recharge_time = round(ceil_custom(cap_energy / (1.5 * cap_recharge)) * 1.5, 1)
-    except:
+    except Exception:
         cap_recharge_time = 0
 
     if fire_time > 0:
@@ -246,12 +250,11 @@ def calc_cap_combat(cap_energy: float, cap_recharge: float,
         "full_cap_damage": full_cap_damage,
         "fire_time": fire_time_str,
         "cap_recharge_time": f"{cap_recharge_time}s",
-        "firing_ratio": f"{firing_ratio}%" if firing_ratio else ""
+        "firing_ratio": f"{firing_ratio}%" if firing_ratio else "",
     }
 
 
-def calc_propulsion(chassis: Dict, engine: Optional[Dict], booster: Optional[Dict],
-                    eo_level) -> Dict[str, Any]:
+def calc_propulsion(chassis: dict, engine: dict | None, booster: dict | None, eo_level) -> dict[str, Any]:
     """Calculate top speed, boosted speed, boost distance, uptime."""
     overloads = get_overload_data()
 
@@ -300,7 +303,9 @@ def calc_propulsion(chassis: Dict, engine: Optional[Dict], booster: Optional[Dic
             booster_ts = try_float(booster.get("top_speed", 0))
 
             booster_uptime = ceil_custom(booster_energy / (booster_cons * 1.5)) * 1.5 if booster_cons > 0 else 0
-            booster_recharge_time = ceil_custom(booster_energy / (booster_recharge * 1.5)) * 1.5 if booster_recharge > 0 else 0
+            booster_recharge_time = (
+                ceil_custom(booster_energy / (booster_recharge * 1.5)) * 1.5 if booster_recharge > 0 else 0
+            )
 
             if booster_uptime + booster_recharge_time > 0:
                 result["booster_uptime"] = round(booster_uptime / (booster_uptime + booster_recharge_time) * 100, 1)
@@ -317,16 +322,20 @@ def calc_propulsion(chassis: Dict, engine: Optional[Dict], booster: Optional[Dic
             if speed_mod_foils and speed_mod_foils != speed_mod and speed_mod_foils != 0:
                 boosted_foils = (engine_ts * eo_gen_eff + booster_ts) * speed_mod_foils * 10
                 result["boosted_top_speed_foils"] = int(boosted_foils)
-                accel_time = (booster_ts * speed_mod_foils) / (booster_accel + accel) if (booster_accel + accel) > 0 else 0
+                accel_time = (
+                    (booster_ts * speed_mod_foils) / (booster_accel + accel) if (booster_accel + accel) > 0 else 0
+                )
                 decel_time = (booster_ts * speed_mod_foils) / decel if decel > 0 else 0
                 accel_loss = accel_time * booster_ts * speed_mod_foils / 2
                 decel_gain = decel_time * booster_ts * speed_mod_foils / 2
-                result["boost_distance_foils"] = int(round(boosted_foils / 10 * booster_uptime - accel_loss + decel_gain))
+                result["boost_distance_foils"] = int(
+                    round(boosted_foils / 10 * booster_uptime - accel_loss + decel_gain)
+                )
 
     return result
 
 
-def calc_throttle_profile(chassis: Dict) -> List[Dict[str, Any]]:
+def calc_throttle_profile(chassis: dict) -> list[dict[str, Any]]:
     """Calculate the throttle profile for a chassis."""
     min_throttle = try_float(chassis.get("min_throttle", 0))
     opt_throttle = try_float(chassis.get("opt_throttle", 0))
@@ -346,18 +355,20 @@ def calc_throttle_profile(chassis: Dict) -> List[Dict[str, Any]]:
         per = math.floor(per * 10 + 0.5) / 10
         pyr_pct = int(per * 100)
 
-        profile.append({
-            "throttle": f"{int(speed_pct * 100)}%",
-            "pyr_modifier": pyr_pct,
-        })
+        profile.append(
+            {
+                "throttle": f"{int(speed_pct * 100)}%",
+                "pyr_modifier": pyr_pct,
+            }
+        )
 
     return profile
 
 
-def calc_mass_summary(components: Dict[str, Any], chassis_mass: float) -> Dict[str, Any]:
+def calc_mass_summary(components: dict[str, Any], chassis_mass: float) -> dict[str, Any]:
     """Calculate total mass and utilization."""
     total = 0
-    for key, comp in components.items():
+    for _key, comp in components.items():
         if comp and isinstance(comp, dict) and "mass" in comp:
             total += try_float(comp["mass"])
 
@@ -370,12 +381,12 @@ def calc_mass_summary(components: Dict[str, Any], chassis_mass: float) -> Dict[s
             "chassis_mass": chassis_mass,
             "percent": pct,
             "remaining": remaining,
-            "over_limit": total > chassis_mass
+            "over_limit": total > chassis_mass,
         }
     return {"total_mass": total, "chassis_mass": 0, "percent": 0, "remaining": 0, "over_limit": False}
 
 
-def calc_drain_summary(components: Dict[str, Any], ro_level, eo_level, co_level, wo_level) -> Dict[str, Any]:
+def calc_drain_summary(components: dict[str, Any], ro_level, eo_level, co_level, wo_level) -> dict[str, Any]:
     """Calculate total energy drain and reactor utilization."""
     overloads = calc_overload_multipliers(ro_level, eo_level, co_level, wo_level)
 
@@ -417,18 +428,18 @@ def calc_drain_summary(components: Dict[str, Any], ro_level, eo_level, co_level,
         "overloaded_gen": overloaded_gen,
         "utilization": utilization,
         "over_limit": total_drain > overloaded_gen,
-        "min_gen_required": round(total_drain / ro_eff, 1) if ro_eff > 0 else 0
+        "min_gen_required": round(total_drain / ro_eff, 1) if ro_eff > 0 else 0,
     }
 
 
-def loot_lookup(search_term: str, search_type: str = "component") -> List[Dict[str, Any]]:
+def loot_lookup(search_term: str, search_type: str = "component") -> list[dict[str, Any]]:
     """Search for where a component drops or what an NPC drops."""
-    from gamedata import get_npc_ships, get_loot_groups, get_loot_tables, get_complib
+    from gamedata import get_complib, get_loot_groups, get_loot_tables, get_npc_ships
 
     npc_ships = get_npc_ships()
     loot_groups = get_loot_groups()
     loot_tables_data = get_loot_tables()
-    complib = get_complib()
+    get_complib()
 
     results = []
     search_lower = search_term.lower()
@@ -453,14 +464,16 @@ def loot_lookup(search_term: str, search_type: str = "component") -> List[Dict[s
         # Find which NPCs use these loot groups
         for npc in npc_ships:
             if npc["loot_group"] in matching_groups:
-                results.append({
-                    "npc_type": npc["type"],
-                    "npc_string": npc["string"],
-                    "loot_rolls": npc["loot_rolls"],
-                    "drop_rate": npc["drop_rate"],
-                    "loot_group": npc["loot_group"],
-                    "ship_type": npc["ship_type"]
-                })
+                results.append(
+                    {
+                        "npc_type": npc["type"],
+                        "npc_string": npc["string"],
+                        "loot_rolls": npc["loot_rolls"],
+                        "drop_rate": npc["drop_rate"],
+                        "loot_group": npc["loot_group"],
+                        "ship_type": npc["ship_type"],
+                    }
+                )
 
     elif search_type == "npc":
         for npc in npc_ships:
@@ -475,14 +488,16 @@ def loot_lookup(search_term: str, search_type: str = "component") -> List[Dict[s
                                 drops.extend(loot_tables_data[table])
                         break
 
-                results.append({
-                    "npc_type": npc["type"],
-                    "npc_string": npc["string"],
-                    "loot_rolls": npc["loot_rolls"],
-                    "drop_rate": npc["drop_rate"],
-                    "loot_group": npc["loot_group"],
-                    "ship_type": npc["ship_type"],
-                    "drops": list(set(drops))[:50]
-                })
+                results.append(
+                    {
+                        "npc_type": npc["type"],
+                        "npc_string": npc["string"],
+                        "loot_rolls": npc["loot_rolls"],
+                        "drop_rate": npc["drop_rate"],
+                        "loot_group": npc["loot_group"],
+                        "ship_type": npc["ship_type"],
+                        "drops": list(set(drops))[:50],
+                    }
+                )
 
     return results[:100]

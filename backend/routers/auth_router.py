@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, EmailStr
-from database import get_db, User
-from auth import verify_password, get_password_hash, create_access_token, require_user
+
+from auth import create_access_token, get_password_hash, require_user, verify_password
+from database import User, get_db
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -21,8 +22,7 @@ class UserResponse(BaseModel):
     email: str
     display_name: str
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class TokenResponse(BaseModel):
@@ -42,17 +42,14 @@ def register(req: RegisterRequest, db: Session = Depends(get_db)):
         username=req.username,
         email=req.email,
         hashed_password=get_password_hash(req.password),
-        display_name=req.display_name or req.username
+        display_name=req.display_name or req.username,
     )
     db.add(user)
     db.commit()
     db.refresh(user)
 
     token = create_access_token(data={"sub": user.username})
-    return TokenResponse(
-        access_token=token, token_type="bearer",
-        user=UserResponse.model_validate(user)
-    )
+    return TokenResponse(access_token=token, token_type="bearer", user=UserResponse.model_validate(user))
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -62,10 +59,7 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     token = create_access_token(data={"sub": user.username})
-    return TokenResponse(
-        access_token=token, token_type="bearer",
-        user=UserResponse.model_validate(user)
-    )
+    return TokenResponse(access_token=token, token_type="bearer", user=UserResponse.model_validate(user))
 
 
 @router.get("/me", response_model=UserResponse)

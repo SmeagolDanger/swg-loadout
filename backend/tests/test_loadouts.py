@@ -15,11 +15,26 @@ class TestLoadoutCRUD:
         "capacitor": "None",
         "cargo_hold": "None",
         "droid_interface": "None",
-        "slot1": "None", "slot2": "None", "slot3": "None", "slot4": "None",
-        "slot5": "None", "slot6": "None", "slot7": "None", "slot8": "None",
-        "pack1": "None", "pack2": "None", "pack3": "None", "pack4": "None",
-        "pack5": "None", "pack6": "None", "pack7": "None", "pack8": "None",
-        "ro_level": "None", "eo_level": "None", "co_level": "None", "wo_level": "None",
+        "slot1": "None",
+        "slot2": "None",
+        "slot3": "None",
+        "slot4": "None",
+        "slot5": "None",
+        "slot6": "None",
+        "slot7": "None",
+        "slot8": "None",
+        "pack1": "None",
+        "pack2": "None",
+        "pack3": "None",
+        "pack4": "None",
+        "pack5": "None",
+        "pack6": "None",
+        "pack7": "None",
+        "pack8": "None",
+        "ro_level": "None",
+        "eo_level": "None",
+        "co_level": "None",
+        "wo_level": "None",
         "shield_adjust": "None",
         "is_public": False,
     }
@@ -130,7 +145,12 @@ class TestComponentCRUD:
         "name": "Mark V Reactor, Elite",
         "stat1": 850.0,
         "stat2": 15000.0,
-        "stat3": 0, "stat4": 0, "stat5": 0, "stat6": 0, "stat7": 0, "stat8": 0,
+        "stat3": 0,
+        "stat4": 0,
+        "stat5": 0,
+        "stat6": 0,
+        "stat7": 0,
+        "stat8": 0,
     }
 
     def test_create_component(self, auth_client):
@@ -153,9 +173,7 @@ class TestComponentCRUD:
 
     def test_list_components(self, auth_client):
         auth_client.post("/api/components", json=self.COMP_PAYLOAD)
-        auth_client.post("/api/components", json={
-            **self.COMP_PAYLOAD, "comp_type": "engine", "name": "Fast Engine"
-        })
+        auth_client.post("/api/components", json={**self.COMP_PAYLOAD, "comp_type": "engine", "name": "Fast Engine"})
 
         res = auth_client.get("/api/components")
         assert res.status_code == 200
@@ -163,9 +181,7 @@ class TestComponentCRUD:
 
     def test_filter_components_by_type(self, auth_client):
         auth_client.post("/api/components", json=self.COMP_PAYLOAD)
-        auth_client.post("/api/components", json={
-            **self.COMP_PAYLOAD, "comp_type": "engine", "name": "Fast Engine"
-        })
+        auth_client.post("/api/components", json={**self.COMP_PAYLOAD, "comp_type": "engine", "name": "Fast Engine"})
 
         res = auth_client.get("/api/components?comp_type=reactor")
         assert res.status_code == 200

@@ -1,8 +1,9 @@
 """Read-only access to the SWG game data tables (tables.db)."""
+
 import os
 import sqlite3
 from functools import lru_cache
-from typing import List, Dict, Any, Optional
+from typing import Any
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "data", "tables.db")
 
@@ -14,25 +15,34 @@ def get_game_db():
 
 
 @lru_cache(maxsize=1)
-def get_chassis_list() -> List[Dict[str, Any]]:
+def get_chassis_list() -> list[dict[str, Any]]:
     db = get_game_db()
     rows = db.execute("SELECT * FROM chassis").fetchall()
     db.close()
     result = []
     for r in rows:
-        result.append({
-            "name": r[0], "mass": _float(r[1]),
-            "slots": [r[i] for i in range(2, 10)],
-            "accel": _float(r[10]), "decel": _float(r[11]),
-            "pitch_accel": _float(r[12]), "yaw_accel": _float(r[13]), "roll_accel": _float(r[14]),
-            "speed_mod": _float(r[15]), "speed_foils": _float(r[16]),
-            "min_throttle": _float(r[17]), "opt_throttle": _float(r[18]), "max_throttle": _float(r[19]),
-            "slide": _float(r[20])
-        })
+        result.append(
+            {
+                "name": r[0],
+                "mass": _float(r[1]),
+                "slots": [r[i] for i in range(2, 10)],
+                "accel": _float(r[10]),
+                "decel": _float(r[11]),
+                "pitch_accel": _float(r[12]),
+                "yaw_accel": _float(r[13]),
+                "roll_accel": _float(r[14]),
+                "speed_mod": _float(r[15]),
+                "speed_foils": _float(r[16]),
+                "min_throttle": _float(r[17]),
+                "opt_throttle": _float(r[18]),
+                "max_throttle": _float(r[19]),
+                "slide": _float(r[20]),
+            }
+        )
     return result
 
 
-def get_chassis(name: str) -> Optional[Dict[str, Any]]:
+def get_chassis(name: str) -> dict[str, Any] | None:
     for c in get_chassis_list():
         if c["name"] == name:
             return c
@@ -40,22 +50,24 @@ def get_chassis(name: str) -> Optional[Dict[str, Any]]:
 
 
 @lru_cache(maxsize=1)
-def get_component_stats() -> List[Dict[str, Any]]:
+def get_component_stats() -> list[dict[str, Any]]:
     db = get_game_db()
     rows = db.execute("SELECT * FROM component").fetchall()
     db.close()
     result = []
     for r in rows:
-        result.append({
-            "type": r[0],
-            "stat_names": [r[i] for i in range(1, 9)],
-            "stat_re_names": [r[i] for i in range(9, 17)],
-            "stat_display_names": [r[i] for i in range(17, 25)],
-        })
+        result.append(
+            {
+                "type": r[0],
+                "stat_names": [r[i] for i in range(1, 9)],
+                "stat_re_names": [r[i] for i in range(9, 17)],
+                "stat_display_names": [r[i] for i in range(17, 25)],
+            }
+        )
     return result
 
 
-def get_component_stat_info(comp_type: str) -> Optional[Dict]:
+def get_component_stat_info(comp_type: str) -> dict | None:
     for c in get_component_stats():
         if c["type"] and c["type"].lower() == comp_type.lower():
             return c
@@ -63,68 +75,102 @@ def get_component_stat_info(comp_type: str) -> Optional[Dict]:
 
 
 @lru_cache(maxsize=1)
-def get_fc_programs() -> List[Dict[str, Any]]:
+def get_fc_programs() -> list[dict[str, Any]]:
     db = get_game_db()
     rows = db.execute("SELECT * FROM fcprogram").fetchall()
     db.close()
     result = []
     for r in rows:
-        result.append({
-            "command": r[0], "name": r[1], "size": _float(r[2]),
-            "target": r[3], "delay": _float(r[4]),
-            "energy_efficiency": _float(r[5]), "gen_efficiency": _float(r[6]),
-            "comp_damage": _float(r[7]),
-            "front_to_back_reinf": _float(r[8]), "back_to_front_reinf": _float(r[9]),
-            "cap_reinf_percent": _float(r[10]), "front_shield_ratio": _float(r[11]),
-            "desc1": r[12], "desc2": r[13], "desc3": r[14], "desc4": r[15]
-        })
+        result.append(
+            {
+                "command": r[0],
+                "name": r[1],
+                "size": _float(r[2]),
+                "target": r[3],
+                "delay": _float(r[4]),
+                "energy_efficiency": _float(r[5]),
+                "gen_efficiency": _float(r[6]),
+                "comp_damage": _float(r[7]),
+                "front_to_back_reinf": _float(r[8]),
+                "back_to_front_reinf": _float(r[9]),
+                "cap_reinf_percent": _float(r[10]),
+                "front_shield_ratio": _float(r[11]),
+                "desc1": r[12],
+                "desc2": r[13],
+                "desc3": r[14],
+                "desc4": r[15],
+            }
+        )
     return result
 
 
 @lru_cache(maxsize=1)
-def get_ordnance_types() -> List[Dict[str, Any]]:
+def get_ordnance_types() -> list[dict[str, Any]]:
     db = get_game_db()
     rows = db.execute("SELECT * FROM ordnance").fetchall()
     db.close()
-    return [{"type": r[0], "multiplier": _float(r[1]), "shield_eff": _float(r[2]),
-             "armor_eff": _float(r[3]), "min_mass": _float(r[4]), "max_mass": _float(r[5]),
-             "min_max": _float(r[6]), "max_max": _float(r[7])} for r in rows]
+    return [
+        {
+            "type": r[0],
+            "multiplier": _float(r[1]),
+            "shield_eff": _float(r[2]),
+            "armor_eff": _float(r[3]),
+            "min_mass": _float(r[4]),
+            "max_mass": _float(r[5]),
+            "min_max": _float(r[6]),
+            "max_max": _float(r[7]),
+        }
+        for r in rows
+    ]
 
 
 @lru_cache(maxsize=1)
-def get_complib() -> List[Dict[str, Any]]:
+def get_complib() -> list[dict[str, Any]]:
     db = get_game_db()
     rows = db.execute("SELECT * FROM complib").fetchall()
     db.close()
-    return [{"type": r[0], "name": r[1],
-             "stats": [_float(r[i]) for i in range(2, 10)]} for r in rows]
+    return [{"type": r[0], "name": r[1], "stats": [_float(r[i]) for i in range(2, 10)]} for r in rows]
 
 
 @lru_cache(maxsize=1)
-def get_brands() -> List[Dict[str, Any]]:
+def get_brands() -> list[dict[str, Any]]:
     db = get_game_db()
     rows = db.execute("SELECT * FROM brands").fetchall()
     db.close()
     result = []
     for r in rows:
-        result.append({
-            "path": r[0], "name": r[1], "re_level": _float(r[2]), "weight": _float(r[3]),
-            "stats": [{"mean": _float(r[i*2+4]), "mod": _float(r[i*2+5])} for i in range(9)]
-        })
+        result.append(
+            {
+                "path": r[0],
+                "name": r[1],
+                "re_level": _float(r[2]),
+                "weight": _float(r[3]),
+                "stats": [{"mean": _float(r[i * 2 + 4]), "mod": _float(r[i * 2 + 5])} for i in range(9)],
+            }
+        )
     return result
 
 
 @lru_cache(maxsize=1)
-def get_npc_ships() -> List[Dict[str, Any]]:
+def get_npc_ships() -> list[dict[str, Any]]:
     db = get_game_db()
     rows = db.execute("SELECT * FROM npcships").fetchall()
     db.close()
-    return [{"type": r[0], "string": r[1], "loot_rolls": _float(r[2]),
-             "drop_rate": _float(r[3]), "loot_group": r[4], "ship_type": r[5]} for r in rows]
+    return [
+        {
+            "type": r[0],
+            "string": r[1],
+            "loot_rolls": _float(r[2]),
+            "drop_rate": _float(r[3]),
+            "loot_group": r[4],
+            "ship_type": r[5],
+        }
+        for r in rows
+    ]
 
 
 @lru_cache(maxsize=1)
-def get_loot_groups() -> List[Dict[str, Any]]:
+def get_loot_groups() -> list[dict[str, Any]]:
     db = get_game_db()
     rows = db.execute("SELECT * FROM lootgroups").fetchall()
     db.close()
@@ -132,7 +178,7 @@ def get_loot_groups() -> List[Dict[str, Any]]:
 
 
 @lru_cache(maxsize=1)
-def get_loot_tables() -> Dict[str, List[str]]:
+def get_loot_tables() -> dict[str, list[str]]:
     db = get_game_db()
     rows = db.execute("SELECT * FROM loottables").fetchall()
     db.close()
@@ -144,7 +190,7 @@ def get_loot_tables() -> Dict[str, List[str]]:
 
 
 @lru_cache(maxsize=1)
-def get_ship_types() -> List[Dict[str, Any]]:
+def get_ship_types() -> list[dict[str, Any]]:
     db = get_game_db()
     rows = db.execute("SELECT * FROM shiptypes").fetchall()
     db.close()
@@ -161,12 +207,19 @@ def get_ship_types() -> List[Dict[str, Any]]:
         for i in range(8):
             base = 24 + i * 9
             if base + 8 < len(r) and r[base]:
-                ship["weapons"].append({
-                    "type": r[base], "hp": _float(r[base+1]), "armor": _float(r[base+2]),
-                    "refire": _float(r[base+3]), "min_dam": _float(r[base+4]),
-                    "max_dam": _float(r[base+5]), "vss": _float(r[base+6]),
-                    "vsa": _float(r[base+7]), "ammo": _float(r[base+8]) if base+8 < len(r) else 0
-                })
+                ship["weapons"].append(
+                    {
+                        "type": r[base],
+                        "hp": _float(r[base + 1]),
+                        "armor": _float(r[base + 2]),
+                        "refire": _float(r[base + 3]),
+                        "min_dam": _float(r[base + 4]),
+                        "max_dam": _float(r[base + 5]),
+                        "vss": _float(r[base + 6]),
+                        "vsa": _float(r[base + 7]),
+                        "ammo": _float(r[base + 8]) if base + 8 < len(r) else 0,
+                    }
+                )
         result.append(ship)
     return result
 
