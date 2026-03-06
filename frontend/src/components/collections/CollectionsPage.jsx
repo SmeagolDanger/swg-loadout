@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 import { api } from '../../api';
 import {
   Trophy, ChevronDown, ChevronUp, Search, Filter, Clipboard, HelpCircle,
