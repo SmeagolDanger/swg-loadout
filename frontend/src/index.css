@@ -14,14 +14,14 @@
   }
 
   input, select, textarea {
-    @apply bg-hull-800 border border-hull-500 rounded-md px-3 py-2 text-hull-100 font-body
+    @apply bg-hull-800 border border-hull-500 rounded-md px-3 py-2 text-hull-50 font-body
            focus:outline-none focus:border-plasma-500 focus:ring-1 focus:ring-plasma-500/30
            transition-colors duration-200;
   }
 
   select {
     @apply appearance-none cursor-pointer;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239ca3bd' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23c8cdd8' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 0.75rem center;
     padding-right: 2.5rem;
@@ -52,9 +52,9 @@
   }
 
   .btn-ghost {
-    @apply text-hull-200 rounded-lg px-4 py-2
+    @apply text-hull-100 rounded-lg px-4 py-2
            font-display font-semibold tracking-wide uppercase text-sm
-           hover:bg-hull-600 hover:text-hull-100
+           hover:bg-hull-600 hover:text-hull-50
            active:scale-[0.98] transition-all duration-200;
   }
 
@@ -67,7 +67,7 @@
   }
 
   .stat-value {
-    @apply text-hull-100 font-mono font-medium tabular-nums;
+    @apply text-hull-50 font-mono font-medium tabular-nums;
   }
 
   .stat-value-good {
@@ -83,7 +83,7 @@
   }
 
   .nav-link {
-    @apply px-3 py-2 rounded-lg text-hull-200 hover:text-plasma-400 hover:bg-hull-700
+    @apply px-3 py-2 rounded-lg text-hull-100 hover:text-plasma-400 hover:bg-hull-700
            font-display font-medium tracking-wide transition-all duration-200;
   }
 
@@ -100,7 +100,7 @@
   }
 
   .tooltip {
-    @apply absolute z-50 bg-hull-600 border border-hull-400 rounded-lg p-3 text-sm text-hull-100
+    @apply absolute z-50 bg-hull-600 border border-hull-400 rounded-lg p-3 text-sm text-hull-50
            shadow-lg max-w-xs pointer-events-none;
   }
 }
