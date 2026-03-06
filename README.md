@@ -1,299 +1,291 @@
-# SWG:L Loadout Tool
+# SWG:L Space Tools
 
-A full-stack web application for building and analyzing starship loadouts in **Star Wars Galaxies: Jump to Lightspeed**. Based on the original desktop tool, [Seraph's Loadout Tool](https://github.com/SeraphExodus/Seraphs-Loadout-Tool) by SeraphExodus. Rebuilt from the ground up as a responsive web app for desktop and mobile browsers.
+Unified toolkit for SWG Legends — combines the **Loadout Builder** and **Collection Tracker** into a single application with shared authentication.
 
 ## Features
 
-### Core Loadout Builder
-- **52 chassis** with full stat data (mass, speed mods, throttle profiles, PYR, slide)
-- **Component selection** for all slot types: Reactor, Engine, Booster, Shield, Armor (front/rear), Capacitor, Cargo Hold, Droid Interface
-- **8 dynamic weapon/ordnance/countermeasure slots** per chassis
-- **Real-time calculations** for mass utilization, reactor drain, and overload effects
-- **Throttle profile visualization** with color-coded PYR modifier display
-- **Propulsion calculations**: top speed, boosted speed, boost distance, booster uptime
-- **Overload system**: Reactor, Engine, Capacitor, and Weapon overloads (Levels 1-4)
-- **Shield adjust** support with front/back HP ratios
+### Loadout Tool
+- Ship loadout builder with real-time stat calculations
+- Component library and custom component management
+- Reverse Engineering (RE) calculator with brand tables
+- Flight Computer (FC) calculator with macro generation
+- Loot source lookup with best-source analysis
+- Community loadout sharing
 
-### User Accounts (New)
-- Register and sign in with JWT-based authentication
-- Save unlimited loadouts to your account
-- Manage a personal component library
-- Share loadouts publicly with the community
-- Copy community loadouts to your own collection
+### Collection Tracker
+- 920+ trackable collection items across dozens of categories
+- Per-character progress tracking with completion stats
+- Category filtering and full-text search
+- Waypoint copy-to-clipboard for in-game use
+- Character directory with public profiles
+- Global leaderboard with category breakdowns
 
-### Tools
-- **Loot Lookup**: Search by component name or NPC to find drop sources
-- **Component Manager**: Full CRUD for your personal component database
+### Shared
+- Single user account works across all tools
+- Admin panel for user and collection data management
+- Responsive design — works on desktop and mobile
 
-### Design
-- **Responsive**: Works on desktop, tablet, and mobile
-- **Dark space-combat aesthetic** with plasma blue accents
-- Custom typography (Rajdhani, Exo 2, JetBrains Mono)
+---
 
-## Architecture
-
-| Layer    | Technology            | Purpose                              |
-|----------|-----------------------|--------------------------------------|
-| Frontend | React 18, Vite, Tailwind CSS | SPA with responsive UI        |
-| Backend  | Python FastAPI        | REST API, game calculations, auth    |
-| Database | PostgreSQL 16         | User data, loadouts, components      |
-| Game Data| SQLite (read-only)    | 52 chassis, 2565 NPCs, 959 brands, loot tables |
-| Proxy    | Nginx                 | Static files, API proxy, SPA routing |
-| Container| Docker Compose        | Full-stack orchestration             |
-
-## Quick Start
+## Quick Start (Development)
 
 ### Prerequisites
-- Docker and Docker Compose
+- Docker & Docker Compose
+- Node.js 20+ (for frontend dev)
+- Python 3.12+ (for backend dev)
 
-### Run
+### 1. Start the database
 
 ```bash
-# Clone and enter the project
-cd seraphs-loadout-tool-web
-
-# Copy environment file
-cp .env.example .env
-
-# Edit .env and set a secure SECRET_KEY
-
-# Build and start all services
-docker compose up --build
-
-# Access the app at http://localhost
+docker compose up -d
 ```
 
-### Development
+This starts PostgreSQL on port 5432. The backend auto-creates all tables and seeds the 920+ collection items on first boot.
 
-**Backend only:**
+### 2. Start the backend
+
 ```bash
 cd backend
 pip install -r requirements.txt
-DATABASE_URL=postgresql://slt_user:slt_pass@localhost:5432/slt_db uvicorn main:app --reload
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-**Frontend only:**
+### 3. Start the frontend
+
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-## API Endpoints
+Visit `http://localhost:5173`. The Vite dev server proxies API calls to the backend.
 
-### Authentication
-- `POST /api/auth/register` — Create account
-- `POST /api/auth/login` — Sign in (OAuth2 form)
-- `GET /api/auth/me` — Get current user
-
-### Game Data
-- `GET /api/gamedata/chassis` — List all chassis
-- `GET /api/gamedata/chassis/{name}` — Chassis details + throttle profile
-- `GET /api/gamedata/component-types` — Component stat definitions
-- `GET /api/gamedata/fc-programs` — Flight computer programs
-- `GET /api/gamedata/overload-levels` — Available overload levels
-- `GET /api/gamedata/shield-adjust-options` — Shield adjust programs
-- `POST /api/gamedata/calculate` — Run full loadout calculations
-- `GET /api/gamedata/loot-lookup?query=...&search_type=...` — Loot search
-
-### Loadouts (authenticated)
-- `GET /api/loadouts` — List user's loadouts
-- `GET /api/loadouts/public` — Community loadouts
-- `POST /api/loadouts` — Create loadout
-- `PUT /api/loadouts/{id}` — Update loadout
-- `POST /api/loadouts/{id}/duplicate` — Copy a loadout
-- `DELETE /api/loadouts/{id}` — Delete loadout
-
-### Components (authenticated)
-- `GET /api/components` — List user's components
-- `POST /api/components` — Create component
-- `PUT /api/components/{id}` — Update component
-- `DELETE /api/components/{id}` — Delete component
-
-## CI/CD Pipeline
-
-The project includes a full GitHub Actions workflow (`.github/workflows/ci.yml`) that runs automatically:
-
-### On every push to `main` / `develop` and on PRs:
-
-| Stage | What it does |
-|-------|-------------|
-| **Backend Lint** | Ruff linter + format check, Pyright type check |
-| **Backend Tests** | pytest against a PostgreSQL service container (auth, gamedata, loadouts, calculations) |
-| **Frontend Build** | `npm ci` + `npm run build` — verifies the React app compiles cleanly |
-| **Docker Build** | Builds 3 images (backend, frontend, production) with multi-arch (amd64 + arm64) |
-| **Registry Push** | Pushes to GitHub Container Registry (`ghcr.io`) with branch/tag/SHA tags |
-
-### On version tags (`v*`):
-
-| Stage | What it does |
-|-------|-------------|
-| **Deploy** | SSH into production server, pulls latest images, rolling restart, health check verification |
-
-### Branch strategy
-
-```
-feature/* → PR → develop → PR → main → tag v2.1.0 → auto-deploy
-```
+---
 
 ## Production Deployment
 
-### Option A: Single-image deploy (recommended)
+### Option A: Docker (recommended)
 
-The `Dockerfile.prod` builds a single production image containing nginx + gunicorn + the compiled frontend. This is the simplest deployment path.
+#### 1. Create a `.env` file
 
 ```bash
-# Clone the repo
-git clone https://github.com/OWNER/REPO.git && cd REPO
+POSTGRES_PASSWORD=your-secure-password-here
+SECRET_KEY=your-jwt-secret-here-at-least-32-chars
+POSTGRES_DB=slt_db
+POSTGRES_USER=slt_user
+```
 
-# Generate secrets and start
-cp .env.example .env
-sed -i "s/CHANGE_ME_TO_RANDOM_PASSWORD/$(openssl rand -hex 16)/" .env
-sed -i "s/CHANGE_ME_TO_RANDOM_SECRET/$(openssl rand -hex 32)/" .env
+#### 2. Build and deploy
 
-# Build and launch
+```bash
 docker compose -f docker-compose.prod.yml up -d --build
 ```
 
-The production image includes:
-- **Nginx** — static file serving, SPA routing, API reverse proxy, gzip, security headers, rate limiting, SSL-ready
-- **Gunicorn + Uvicorn workers** — async Python, auto-scaled to CPU count, Unix socket IPC
-- **Supervisor** — process manager keeping both nginx and gunicorn alive
-- **Non-root execution** — app runs as `slt` user inside the container
-- **Health check** — built-in `HEALTHCHECK` on `/api/health`
+This builds a single container with Nginx + Gunicorn + the compiled frontend, plus a PostgreSQL container. The app will be available on port 80.
 
-### Option B: Automated setup script
+On first startup:
+- All database tables are created automatically
+- The 920+ collection items are seeded from `collections-data.json`
+
+#### 3. Create your admin user
+
+After the app is running, register a normal account through the UI, then promote it to admin via the database:
 
 ```bash
-chmod +x scripts/deploy.sh
-./scripts/deploy.sh
+docker compose -f docker-compose.prod.yml exec db \
+  psql -U slt_user -d slt_db \
+  -c "UPDATE users SET is_admin = true WHERE username = 'your-username';"
 ```
 
-This script:
-1. Checks prerequisites (Docker, git)
-2. Creates `/opt/slt` deploy directory
-3. Generates `.env` with cryptographically random secrets
-4. Builds and starts all containers
-5. Waits for health check confirmation
+### Option B: Manual deployment
 
-### SSL / HTTPS
+#### 1. Build the frontend
 
-The production nginx config has SSL directives pre-written but commented out. To enable:
+```bash
+cd frontend
+npm install
+npm run build
+```
 
-1. Place your cert files:
-   ```
-   certs/slt.crt
-   private/slt.key
-   ```
+This outputs to `frontend/dist/`.
 
-2. Uncomment the SSL lines in `nginx/nginx.prod.conf`:
-   ```nginx
-   listen 443 ssl http2;
-   ssl_certificate     /etc/ssl/certs/slt.crt;
-   ssl_certificate_key /etc/ssl/private/slt.key;
-   ```
+#### 2. Copy frontend build to backend
 
-3. Uncomment the cert volume mounts in `docker-compose.prod.yml`
+```bash
+cp -r frontend/dist backend/static
+```
 
-4. Restart: `docker compose -f docker-compose.prod.yml up -d`
-
-### Environment variables
-
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `POSTGRES_PASSWORD` | Yes | — | Database password |
-| `SECRET_KEY` | Yes | — | JWT signing key (use `openssl rand -hex 32`) |
-| `POSTGRES_DB` | No | `slt_db` | Database name |
-| `POSTGRES_USER` | No | `slt_user` | Database user |
-| `LOG_LEVEL` | No | `info` | Gunicorn log level |
-| `HTTP_PORT` | No | `80` | Host HTTP port |
-| `HTTPS_PORT` | No | `443` | Host HTTPS port |
-
-### Security hardening in production
-
-The production config includes:
-- **Rate limiting**: Auth endpoints at 5 req/min, API at 30 req/s, general at 60 req/s
-- **Security headers**: CSP, X-Frame-Options, X-Content-Type-Options, XSS protection, Referrer-Policy, Permissions-Policy
-- **Request size limits**: 2MB max body
-- **Hidden server version**: `server_tokens off`
-- **Dotfile blocking**: `location ~ /\. { deny all; }`
-- **Non-root process**: gunicorn runs as `slt` user
-- **Gunicorn hardening**: max requests with jitter (prevents memory leaks), preloaded app, request size limits
-
-## Testing
+#### 3. Run the backend with Gunicorn
 
 ```bash
 cd backend
+pip install -r requirements.txt gunicorn
 
-# Install test dependencies
-pip install -r requirements.txt
-pip install pytest pytest-asyncio httpx ruff
-
-# Run all tests (needs PostgreSQL running)
-DATABASE_URL=postgresql://slt_test:slt_test_pass@localhost:5432/slt_test_db \
-  pytest tests/ -v
-
-# Run specific test files
-pytest tests/test_calculations.py -v    # Pure unit tests (no DB needed for calc functions)
-pytest tests/test_auth.py -v            # Auth endpoints
-pytest tests/test_gamedata.py -v        # Game data endpoints
-pytest tests/test_loadouts.py -v        # CRUD endpoints
-
-# Lint
-ruff check .
-ruff format --check .
+DATABASE_URL="postgresql://user:pass@localhost:5432/slt_db" \
+SECRET_KEY="your-secret-key" \
+gunicorn main:app -k uvicorn.workers.UvicornWorker \
+  --bind 0.0.0.0:8000 --workers 4
 ```
 
-## Project structure
+#### 4. Put Nginx in front
 
+Use the provided `nginx/nginx.prod.conf` as a starting point, adjusting the upstream to point at your Gunicorn socket or port.
+
+---
+
+## Domain Configuration
+
+### If migrating from separate subdomains
+
+Previously:
 ```
-slt-web/
-├── .github/workflows/
-│   └── ci.yml                    # CI/CD pipeline
-├── backend/
-│   ├── data/tables.db            # Read-only game data (52 chassis, 2565 NPCs, etc.)
-│   ├── routers/
-│   │   ├── auth_router.py        # Register, login, JWT
-│   │   ├── gamedata_router.py    # Chassis, components, calculations, loot
-│   │   └── loadout_router.py     # Loadout + component CRUD
-│   ├── tests/
-│   │   ├── conftest.py           # Test fixtures, DB setup, auth helper
-│   │   ├── test_auth.py          # Auth endpoint tests
-│   │   ├── test_calculations.py  # Calculation engine unit tests
-│   │   ├── test_gamedata.py      # Game data API tests
-│   │   └── test_loadouts.py      # CRUD endpoint tests
-│   ├── auth.py                   # JWT + bcrypt
-│   ├── calculations.py           # All game math (ported from desktop app)
-│   ├── database.py               # SQLAlchemy models
-│   ├── gamedata.py               # SQLite reader for tables.db
-│   ├── main.py                   # FastAPI app
-│   ├── Dockerfile                # Dev backend image
-│   ├── pyproject.toml            # Ruff + pytest config
-│   └── requirements.txt
-├── frontend/
-│   ├── src/
-│   │   ├── components/           # React UI components
-│   │   ├── context/AuthContext.jsx
-│   │   ├── api.js                # API client
-│   │   ├── App.jsx               # Router + layout
-│   │   └── main.jsx              # Entry point
-│   ├── Dockerfile                # Dev frontend image (nginx)
-│   ├── nginx.conf                # Dev nginx config
-│   └── ...config files
-├── nginx/
-│   └── nginx.prod.conf           # Production nginx (security headers, rate limits, SSL)
-├── scripts/
-│   ├── deploy.sh                 # Automated server setup
-│   ├── gunicorn.conf.py          # Production gunicorn config
-│   └── supervisord.conf          # Process manager config
-├── docker-compose.yml            # Development (3 services)
-├── docker-compose.prod.yml       # Production (2 services: db + app)
-├── Dockerfile.prod               # Unified production image
-└── .env.example
+space.jawatracks.com       → loadout tool
+collections.jawatracks.com → collections tracker
 ```
 
-## Credits
+Now everything runs at `space.jawatracks.com`. Add a redirect for the old collections domain:
 
-- **Original Desktop Tool**: [Seraph's Loadout Tool](https://github.com/SeraphExodus/Seraphs-Loadout-Tool) by SeraphExodus — all game data, calculation logic, and component schemas originate from this project
-- **Game Data**: Star Wars Galaxies: Jump to Lightspeed
-- **Web Conversion**: Built with FastAPI, React, and Docker
+```nginx
+server {
+    listen 80;
+    server_name collections.jawatracks.com;
+    return 301 https://space.jawatracks.com/collections$request_uri;
+}
+```
+
+### URL structure
+
+| Path | Page |
+|------|------|
+| `/` | Loadout Builder |
+| `/auth` | Sign In / Register |
+| `/loadouts` | My Loadouts |
+| `/components` | My Components |
+| `/re` | RE Calculator |
+| `/fc` | FC Calculator |
+| `/loot` | Loot Lookup |
+| `/community` | Community Loadouts |
+| `/collections` | Collection Tracker |
+| `/characters` | Character Directory |
+| `/leaderboard` | Collection Leaderboard |
+
+---
+
+## Architecture
+
+```
+┌─────────────────────────────────────────┐
+│  Nginx (port 80/443)                    │
+│  ├─ /assets/*  → static files (cached)  │
+│  ├─ /api/*     → Gunicorn (FastAPI)      │
+│  └─ /*         → index.html (SPA)        │
+├─────────────────────────────────────────┤
+│  FastAPI Backend                         │
+│  ├─ auth_router      (JWT + bcrypt)      │
+│  ├─ loadout_router   (CRUD)              │
+│  ├─ gamedata_router  (chassis, calcs)    │
+│  ├─ re_router        (RE calculator)     │
+│  ├─ fc_router        (FC calculator)     │
+│  ├─ import_router    (save file import)  │
+│  ├─ collections_router (groups/items)    │
+│  └─ characters_router  (chars, tracking) │
+├─────────────────────────────────────────┤
+│  PostgreSQL                              │
+│  ├─ users                                │
+│  ├─ loadouts, user_components            │
+│  ├─ fc_loadouts, re_projects             │
+│  ├─ characters                           │
+│  ├─ collection_groups, collection_items  │
+│  └─ character_collections                │
+└─────────────────────────────────────────┘
+```
+
+### Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Frontend | React 18, React Router, Tailwind CSS, Vite, Lucide icons |
+| Backend | Python 3.12, FastAPI, SQLAlchemy, Pydantic |
+| Database | PostgreSQL 16 |
+| Auth | JWT (python-jose) + bcrypt, 7-day token expiry |
+| Server | Nginx + Gunicorn/Uvicorn |
+| Deploy | Docker Compose |
+
+---
+
+## Environment Variables
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `DATABASE_URL` | Yes | `postgresql://slt_user:slt_pass@db:5432/slt_db` | PostgreSQL connection string |
+| `SECRET_KEY` | Yes (prod) | dev default | JWT signing key |
+| `POSTGRES_PASSWORD` | Yes (docker) | — | PostgreSQL password |
+| `POSTGRES_DB` | No | `slt_db` | Database name |
+| `POSTGRES_USER` | No | `slt_user` | Database user |
+| `LOG_LEVEL` | No | `info` | Gunicorn log level |
+
+---
+
+## Collection Data
+
+The 920+ collection items are stored in `backend/data/collections-data.json`. This file is auto-seeded into the database on first startup. To update collection data:
+
+1. Edit `collections-data.json`
+2. Delete existing entries: `TRUNCATE collection_groups CASCADE;`
+3. Restart the app — it will re-seed from the JSON
+
+The JSON structure:
+```json
+{
+  "Group Name": {
+    "icon": "emoji",
+    "category": "exploration|combat|loot|profession|event|badge|space|other",
+    "description": "Group description",
+    "items": {
+      "Item Name": {
+        "notes": "In-game hints, waypoints, etc.",
+        "difficulty": "easy|medium|hard|rare"
+      }
+    }
+  }
+}
+```
+
+---
+
+## API Reference
+
+All endpoints are prefixed with `/api`.
+
+### Auth
+- `POST /api/auth/register` — create account
+- `POST /api/auth/login` — sign in (returns JWT)
+- `GET /api/auth/me` — current user info
+
+### Loadout Tool
+- `GET/POST /api/loadouts` — list/create loadouts
+- `GET/PUT/DELETE /api/loadouts/:id` — manage loadout
+- `GET/POST /api/components` — list/create custom components
+- `GET /api/gamedata/*` — chassis, component library, calculations
+- `POST /api/re/analyze` — RE analysis
+- `POST /api/fc/cooldowns` — FC calculations
+
+### Collections
+- `GET /api/collections` — all groups with items
+- `GET /api/collections/:id` — single group
+- `GET /api/characters` — search/list characters
+- `GET /api/characters/:id` — character with completed collections
+- `POST /api/characters` — create character
+- `POST /api/characters/:id/collections` — mark item collected
+- `POST /api/characters/:id/collections/bulk` — bulk collect
+- `DELETE /api/characters/:cid/collections/:iid` — uncollect
+- `GET /api/characters/:id/stats` — category breakdown
+- `GET /api/stats` — global statistics
+- `GET /api/leaderboard` — ranked leaderboard
+
+### Admin (requires `is_admin = true`)
+- `PUT /api/admin/collections/groups/:id` — edit group
+- `POST /api/admin/collections/groups` — create group
+- `PUT /api/admin/collections/items/:id` — edit item
+- `POST /api/admin/collections/items` — create item
+- `DELETE /api/admin/collections/items/:id` — delete item

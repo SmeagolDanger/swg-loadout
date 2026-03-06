@@ -1,9 +1,13 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Menu, X, Crosshair, Box, Search, Users, LogOut, User, Wrench, FlaskConical, Cpu } from 'lucide-react';
+import {
+  Menu, X, Crosshair, Box, Search, Users, LogOut, User, Wrench,
+  FlaskConical, Cpu, Trophy, Medal, UserCircle
+} from 'lucide-react';
 
 const NAV_ITEMS = [
+  // ── Loadout Tool ──
   { to: '/', label: 'Builder', icon: Crosshair },
   { to: '/loadouts', label: 'Loadouts', icon: Box, auth: true },
   { to: '/components', label: 'Components', icon: Wrench, auth: true },
@@ -11,6 +15,10 @@ const NAV_ITEMS = [
   { to: '/fc', label: 'FC Calc', icon: Cpu },
   { to: '/loot', label: 'Loot', icon: Search },
   { to: '/community', label: 'Community', icon: Users },
+  // ── Collections (NEW) ──
+  { to: '/collections', label: 'Collections', icon: Trophy, divider: true },
+  { to: '/characters', label: 'Characters', icon: UserCircle },
+  { to: '/leaderboard', label: 'Leaderboard', icon: Medal },
 ];
 
 export default function Navbar() {
@@ -30,22 +38,27 @@ export default function Navbar() {
               <Crosshair size={18} className="text-plasma-400" />
             </div>
             <span className="font-display font-bold text-lg tracking-wider text-hull-100 hidden sm:block">
-              SWG:L <span className="text-plasma-400">LOADOUT TOOL</span>
+              SWG:L <span className="text-plasma-400">SPACE TOOLS</span>
             </span>
             <span className="font-display font-bold text-lg tracking-wider text-plasma-400 sm:hidden">SWG:L</span>
           </Link>
 
           {/* Desktop nav */}
           <div className="hidden lg:flex items-center gap-1">
-            {visibleItems.map(item => (
-              <Link
-                key={item.to}
-                to={item.to}
-                className={`nav-link flex items-center gap-1.5 text-sm ${location.pathname === item.to ? 'nav-link-active' : ''}`}
-              >
-                <item.icon size={15} />
-                {item.label}
-              </Link>
+            {visibleItems.map((item, i) => (
+              <React.Fragment key={item.to}>
+                {/* Visual separator between loadout and collections sections */}
+                {item.divider && (
+                  <div className="w-px h-6 bg-hull-500/40 mx-1" />
+                )}
+                <Link
+                  to={item.to}
+                  className={`nav-link flex items-center gap-1.5 text-sm ${location.pathname === item.to ? 'nav-link-active' : ''}`}
+                >
+                  <item.icon size={15} />
+                  {item.label}
+                </Link>
+              </React.Fragment>
             ))}
           </div>
 
@@ -75,16 +88,18 @@ export default function Navbar() {
         <div className="mobile-drawer lg:hidden" onClick={() => setMobileOpen(false)}>
           <div className="pt-20 px-6 space-y-2" onClick={e => e.stopPropagation()}>
             {visibleItems.map(item => (
-              <Link
-                key={item.to}
-                to={item.to}
-                onClick={() => setMobileOpen(false)}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-lg font-display tracking-wide transition-all
-                  ${location.pathname === item.to ? 'bg-hull-700 text-plasma-400 shadow-glow' : 'text-hull-200 hover:bg-hull-700'}`}
-              >
-                <item.icon size={20} />
-                {item.label}
-              </Link>
+              <React.Fragment key={item.to}>
+                {item.divider && <div className="section-divider" />}
+                <Link
+                  to={item.to}
+                  onClick={() => setMobileOpen(false)}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl text-lg font-display tracking-wide transition-all
+                    ${location.pathname === item.to ? 'bg-hull-700 text-plasma-400 shadow-glow' : 'text-hull-200 hover:bg-hull-700'}`}
+                >
+                  <item.icon size={20} />
+                  {item.label}
+                </Link>
+              </React.Fragment>
             ))}
             <div className="section-divider" />
             {user ? (
