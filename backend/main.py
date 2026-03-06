@@ -8,7 +8,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from database import (
-    CollectionGroup, CollectionItem, SessionLocal, init_db,
+    CollectionGroup,
+    CollectionItem,
+    SessionLocal,
+    init_db,
 )
 from routers.auth_router import router as auth_router
 from routers.characters_router import router as characters_router
@@ -53,8 +56,7 @@ def seed_collections():
             db.flush()
             group_order += 1
 
-            item_order = 0
-            for item_name, item_data in group_data.get("items", {}).items():
+            for item_order, (item_name, item_data) in enumerate(group_data.get("items", {}).items()):
                 db.add(CollectionItem(
                     group_id=group.id,
                     name=item_name,
@@ -62,7 +64,6 @@ def seed_collections():
                     difficulty=item_data.get("difficulty", "medium"),
                     sort_order=item_order,
                 ))
-                item_order += 1
                 total_items += 1
 
         db.commit()
@@ -109,4 +110,3 @@ def health():
 # Serve frontend static files in production
 frontend_path = os.path.join(os.path.dirname(__file__), "static")
 if os.path.exists(frontend_path):
-    app.mount("/", StaticFiles(directory=frontend_path, html=True), name="frontend")

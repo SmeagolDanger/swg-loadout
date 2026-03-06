@@ -11,18 +11,14 @@ Endpoints ported from the Node/Express collections backend:
   DELETE /api/admin/collections/items/:id  - delete item (admin)
 """
 
-from datetime import datetime
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from auth import get_current_user, require_user
+from auth import require_user
 from database import (
-    Character,
-    CharacterCollection,
     CollectionGroup,
     CollectionItem,
     User,
@@ -60,10 +56,10 @@ class CollectionGroupOut(BaseModel):
 
 
 class GroupUpdate(BaseModel):
-    name: Optional[str] = None
-    icon: Optional[str] = None
-    category: Optional[str] = None
-    description: Optional[str] = None
+    name: str | None = None
+    icon: str | None = None
+    category: str | None = None
+    description: str | None = None
 
 
 class GroupCreate(BaseModel):
@@ -74,9 +70,9 @@ class GroupCreate(BaseModel):
 
 
 class ItemUpdate(BaseModel):
-    name: Optional[str] = None
-    notes: Optional[str] = None
-    difficulty: Optional[str] = None
+    name: str | None = None
+    notes: str | None = None
+    difficulty: str | None = None
 
 
 class ItemCreate(BaseModel):
