@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
-import { Users, Copy, Eye, User } from 'lucide-react';
+import { Users, Copy, Eye, User, ExternalLink } from 'lucide-react';
 
 export default function PublicLoadouts() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [loadouts, setLoadouts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(null);
@@ -71,6 +73,10 @@ export default function PublicLoadouts() {
                   <button onClick={() => setExpanded(expanded === l.id ? null : l.id)}
                     className="btn-ghost text-xs flex items-center gap-1">
                     <Eye size={12} /> {expanded === l.id ? 'Less' : 'Details'}
+                  </button>
+                  <button onClick={() => navigate(`/?loadout=${l.id}`)}
+                    className="btn-ghost text-xs flex items-center gap-1">
+                    <ExternalLink size={12} /> View in Builder
                   </button>
                   {user && (
                     <button onClick={() => handleCopy(l)}

@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import ThrottleProfile from './ThrottleProfile';
 import {
-  Crosshair, Zap, Shield, Gauge, Layers, Box, Save,
+  Crosshair, Zap, Shield, Gauge, Layers, Box, Save, FolderOpen,
   ChevronDown, Info, Cpu, Rocket, Target, Package
 } from 'lucide-react';
 
@@ -48,6 +49,8 @@ function StatBlock({ label, value, warn, powerStatus }) {
 
 export default function LoadoutBuilder() {
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [chassisList, setChassisList] = useState([]);
   const [selectedChassis, setSelectedChassis] = useState('');
   const [chassisData, setChassisData] = useState(null);
@@ -61,6 +64,8 @@ export default function LoadoutBuilder() {
   const [chassisMass, setChassisMass] = useState(0);
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
+  const [loadoutId, setLoadoutId] = useState(null);        // Track loaded loadout for Save vs Save As
+  const [loadingLoadout, setLoadingLoadout] = useState(false);
 
   // Load initial data
   useEffect(() => {
@@ -70,6 +75,105 @@ export default function LoadoutBuilder() {
       api.getComponents().then(setUserComps).catch(console.error);
     }
   }, [user]);
+
+  // Load a saved loadout by ID — matches component names from the loadout
+  // against the user's component library to restore full stat arrays.
+  const loadSavedLoadout = useCallback(async (id, comps) => {
+    setLoadingLoadout(true);
+    try {
+      const loadout = await api.getLoadout(id);
+      const userComponents = comps || userComps;
+
+      // Helper: find a component by name and type in the user's library
+      const findComp = (name, typeKey) => {
+        if (!name || name === 'None') return { name: 'None', stats: [] };
+        const type = typeKey.replace('_', '');
+        const match = userComponents.find(c => {
+          const ct = c.comp_type.toLowerCase().replace('_', '');
+          return c.name === name && (ct === type || ct === typeKey.replace('_', ''));
+        });
+        if (match) {
+          return {
+            name: match.name,
+            stats: [match.stat1, match.stat2, match.stat3, match.stat4, match.stat5, match.stat6, match.stat7, match.stat8],
+          };
+        }
+        // Component not in library — show name but no stats (user may need to re-add it)
+        return { name, stats: [], _missing: true };
+      };
+
+      // Helper: find a slot component (weapon/ord/cm) by name
+      const findSlotComp = (name) => {
+        if (!name || name === 'None') return { name: 'None', stats: [], comp_type: '' };
+        const match = userComponents.find(c => c.name === name);
+        if (match) {
+          const ct = match.comp_type.toLowerCase();
+          return {
+            name: match.name,
+            stats: [match.stat1, match.stat2, match.stat3, match.stat4, match.stat5, match.stat6, match.stat7, match.stat8],
+            comp_type: ct.includes('weapon') ? 'weapon' : ct.includes('ordnance') ? 'ordnance' : 'countermeasure',
+          };
+        }
+        return { name, stats: [], comp_type: 'weapon', _missing: true };
+      };
+
+      // Set chassis first (triggers chassisData load via useEffect)
+      setSelectedChassis(loadout.chassis);
+
+      // Set loadout metadata
+      setLoadoutName(loadout.name);
+      setLoadoutId(loadout.id);
+      if (loadout.mass) setChassisMass(loadout.mass);
+
+      // Set overloads
+      setOverloads({
+        ro: loadout.ro_level || 'None',
+        eo: loadout.eo_level || 'None',
+        co: loadout.co_level || 'None',
+        wo: loadout.wo_level || 'None',
+      });
+      setShieldAdjust(loadout.shield_adjust || 'None');
+
+      // Build component map from saved names
+      const newComponents = {};
+      for (const ct of COMP_TYPES) {
+        const savedName = loadout[ct.key];
+        if (savedName && savedName !== 'None') {
+          newComponents[ct.key] = findComp(savedName, ct.type || ct.key);
+        }
+      }
+      // Weapon slots
+      for (let i = 1; i <= 8; i++) {
+        const savedName = loadout[`slot${i}`];
+        if (savedName && savedName !== 'None') {
+          newComponents[`slot${i}`] = findSlotComp(savedName);
+        }
+      }
+
+      setComponents(newComponents);
+    } catch (err) {
+      console.error('Failed to load loadout:', err);
+      setSaveMsg('Failed to load loadout');
+      setTimeout(() => setSaveMsg(''), 3000);
+    } finally {
+      setLoadingLoadout(false);
+    }
+  }, [userComps]);
+
+  // Load from URL param ?loadout=ID when ready
+  useEffect(() => {
+    const loadoutParam = searchParams.get('loadout');
+    if (!loadoutParam) return;
+    const id = parseInt(loadoutParam, 10);
+    if (isNaN(id)) return;
+
+    // For logged-in users, wait for component library to load so we can match stats.
+    // For anonymous users (viewing public loadouts), load immediately with names only.
+    if (user && userComps.length === 0) return;  // Still loading user comps, wait
+
+    loadSavedLoadout(id, userComps);
+    setSearchParams({}, { replace: true });
+  }, [searchParams, user, userComps, loadSavedLoadout, setSearchParams]);
 
   // Load chassis data when selection changes
   useEffect(() => {
@@ -195,6 +299,16 @@ export default function LoadoutBuilder() {
     setComponents(prev => ({ ...prev, [key]: comp }));
   };
 
+  // Clear loaded-loadout tracking when user changes chassis manually
+  const handleChassisChange = (newChassis) => {
+    setSelectedChassis(newChassis);
+    setComponents({});
+    if (!loadingLoadout) {
+      setLoadoutId(null);
+      setLoadoutName('');
+    }
+  };
+
   const handleSave = async () => {
     if (!user) return;
     if (!loadoutName.trim() || !selectedChassis) return;
@@ -222,14 +336,81 @@ export default function LoadoutBuilder() {
         co_level: overloads.co, wo_level: overloads.wo,
         shield_adjust: shieldAdjust,
       };
-      await api.createLoadout(data);
-      setSaveMsg('Loadout saved!');
+
+      if (loadoutId) {
+        // Update existing loadout
+        await api.updateLoadout(loadoutId, data);
+        setSaveMsg('Loadout updated!');
+      } else {
+        // Create new loadout
+        const result = await api.createLoadout(data);
+        setLoadoutId(result.id);
+        setSaveMsg('Loadout saved!');
+      }
       setTimeout(() => setSaveMsg(''), 3000);
     } catch (err) {
       setSaveMsg(err.message);
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleSaveAs = async () => {
+    const newName = prompt('Save as new loadout name:', loadoutName ? `${loadoutName} (Copy)` : '');
+    if (!newName || !newName.trim()) return;
+    const prevId = loadoutId;
+    const prevName = loadoutName;
+    setLoadoutId(null);
+    setLoadoutName(newName.trim());
+    // Wait for state to settle then trigger save
+    setSaving(true);
+    setSaveMsg('');
+    try {
+      const data = {
+        name: newName.trim(), chassis: selectedChassis, mass: chassisMass,
+        reactor: components.reactor?.name || 'None',
+        engine: components.engine?.name || 'None',
+        booster: components.booster?.name || 'None',
+        shield: components.shield?.name || 'None',
+        front_armor: components.front_armor?.name || 'None',
+        rear_armor: components.rear_armor?.name || 'None',
+        capacitor: components.capacitor?.name || 'None',
+        cargo_hold: components.cargo_hold?.name || 'None',
+        droid_interface: components.droid_interface?.name || 'None',
+        slot1: components.slot1?.name || 'None', slot2: components.slot2?.name || 'None',
+        slot3: components.slot3?.name || 'None', slot4: components.slot4?.name || 'None',
+        slot5: components.slot5?.name || 'None', slot6: components.slot6?.name || 'None',
+        slot7: components.slot7?.name || 'None', slot8: components.slot8?.name || 'None',
+        pack1: 'None', pack2: 'None', pack3: 'None', pack4: 'None',
+        pack5: 'None', pack6: 'None', pack7: 'None', pack8: 'None',
+        ro_level: overloads.ro, eo_level: overloads.eo,
+        co_level: overloads.co, wo_level: overloads.wo,
+        shield_adjust: shieldAdjust,
+      };
+      const result = await api.createLoadout(data);
+      setLoadoutId(result.id);
+      setSaveMsg('Saved as new loadout!');
+      setTimeout(() => setSaveMsg(''), 3000);
+    } catch (err) {
+      // Revert on failure
+      setLoadoutId(prevId);
+      setLoadoutName(prevName);
+      setSaveMsg(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleNewLoadout = () => {
+    setLoadoutId(null);
+    setLoadoutName('');
+    setSelectedChassis('');
+    setComponents({});
+    setOverloads({ ro: 'None', eo: 'None', co: 'None', wo: 'None' });
+    setShieldAdjust('None');
+    setCalcResults(null);
+    setChassisMass(0);
+    setChassisData(null);
   };
 
   // Helper to look up power status for a component key
@@ -252,7 +433,7 @@ export default function LoadoutBuilder() {
         <div className="flex-1">
           <select
             value={selectedChassis}
-            onChange={e => { setSelectedChassis(e.target.value); setComponents({}); }}
+            onChange={e => handleChassisChange(e.target.value)}
             className="w-full text-lg font-display"
           >
             <option value="">Select Chassis...</option>
@@ -262,7 +443,7 @@ export default function LoadoutBuilder() {
           </select>
         </div>
         {user && (
-          <div className="flex gap-2 items-center">
+          <div className="flex gap-2 items-center flex-wrap">
             <input
               value={loadoutName}
               onChange={e => setLoadoutName(e.target.value)}
@@ -271,14 +452,34 @@ export default function LoadoutBuilder() {
             />
             <button onClick={handleSave} disabled={saving || !loadoutName || !selectedChassis}
               className="btn-primary flex items-center gap-1.5 whitespace-nowrap">
-              <Save size={14} /> Save
+              <Save size={14} /> {loadoutId ? 'Save' : 'Save New'}
             </button>
+            {loadoutId && (
+              <button onClick={handleSaveAs} disabled={saving || !selectedChassis}
+                className="btn-ghost flex items-center gap-1.5 whitespace-nowrap text-xs">
+                <Save size={12} /> Save As
+              </button>
+            )}
+            {(loadoutId || selectedChassis) && (
+              <button onClick={handleNewLoadout}
+                className="btn-ghost flex items-center gap-1.5 whitespace-nowrap text-xs">
+                <FolderOpen size={12} /> New
+              </button>
+            )}
             {saveMsg && <span className={`text-xs ${saveMsg.includes('!') ? 'text-laser-green' : 'text-laser-red'}`}>{saveMsg}</span>}
           </div>
         )}
       </div>
 
-      {!selectedChassis ? (
+      {/* Loading indicator */}
+      {loadingLoadout && (
+        <div className="text-center py-12">
+          <div className="w-8 h-8 border-2 border-plasma-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-hull-200 font-display text-sm tracking-wider">LOADING LOADOUT...</p>
+        </div>
+      )}
+
+      {!selectedChassis && !loadingLoadout ? (
         <div className="text-center py-20">
           <Crosshair size={48} className="text-hull-400 mx-auto mb-4" />
           <h2 className="font-display text-xl text-hull-200 tracking-wider">SELECT A CHASSIS TO BEGIN</h2>
