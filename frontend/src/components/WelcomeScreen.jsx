@@ -49,7 +49,7 @@ export default function WelcomeScreen() {
             SWG:L <span className="text-plasma-400">COMMAND DECK</span>
           </h1>
           <p className="text-hull-200 text-sm md:text-base leading-relaxed">
-            Start in the section you actually want instead of cramming every tool into one header like a garage drawer full of mystery screws.
+            Choose where to start. Adventure Awaits!
           </p>
         </div>
 
@@ -90,23 +90,6 @@ export default function WelcomeScreen() {
               </div>
             </Link>
           ))}
-        </div>
-
-        <div className="grid md:grid-cols-2 gap-4 mt-6">
-          <div className="card p-4 flex items-start gap-3">
-            <Crosshair size={18} className="text-plasma-400 mt-0.5 shrink-0" />
-            <div>
-              <h3 className="font-display text-sm tracking-wider text-hull-50">Focused tools view</h3>
-              <p className="text-hull-300 text-sm">Loadout tools only show loadout navigation. Less header soup, fewer crimes against spacing.</p>
-            </div>
-          </div>
-          <div className="card p-4 flex items-start gap-3">
-            <Users size={18} className="text-laser-yellow mt-0.5 shrink-0" />
-            <div>
-              <h3 className="font-display text-sm tracking-wider text-hull-50">Focused collections view</h3>
-              <p className="text-hull-300 text-sm">Collections pages keep their own navigation grouped together instead of elbowing calculators in the ribs.</p>
-            </div>
-          </div>
         </div>
       </div>
     </div>
