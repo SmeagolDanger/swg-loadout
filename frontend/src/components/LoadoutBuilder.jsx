@@ -250,7 +250,33 @@ export default function LoadoutBuilder() {
             <div className="card">
               <div className="card-header"><Layers size={16} /> SHIP STATUS</div>
               <div className="p-3 space-y-1">
-                <StatBlock label="Chassis Mass" value={chassisMass ? `${chassisMass.toLocaleString()}` : '—'} />
+                <div className="stat-row">
+                  <span className="stat-label">Chassis Mass</span>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="number"
+                      value={chassisMass}
+                      onChange={e => {
+                        const v = parseFloat(e.target.value);
+                        setChassisMass(isNaN(v) ? 0 : v);
+                      }}
+                      className="w-24 text-right text-sm font-mono py-0.5 px-1.5 !bg-hull-800 !border-hull-500"
+                    />
+                    {chassisData && chassisMass !== chassisData.mass && (
+                      <button
+                        onClick={() => setChassisMass(chassisData.mass)}
+                        className="text-[10px] text-hull-400 hover:text-plasma-400 transition-colors"
+                        title={`Reset to max: ${chassisData.mass.toLocaleString()}`}
+                      >↺</button>
+                    )}
+                  </div>
+                </div>
+                {chassisData && (
+                  <div className="stat-row">
+                    <span className="stat-label text-hull-400 text-xs">Max (Capped)</span>
+                    <span className="stat-value text-hull-400 text-xs">{chassisData.mass.toLocaleString()}</span>
+                  </div>
+                )}
                 {mass && (
                   <>
                     <StatBlock label="Total Mass" value={`${mass.total_mass} / ${mass.chassis_mass} (${mass.percent}%)`} warn={mass.over_limit} />

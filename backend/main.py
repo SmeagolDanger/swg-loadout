@@ -8,6 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from database import init_db
 from routers.auth_router import router as auth_router
 from routers.gamedata_router import router as gamedata_router
+from routers.import_router import router as import_router
 from routers.loadout_router import router as loadout_router
 
 
@@ -29,6 +30,7 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(gamedata_router)
+app.include_router(import_router)
 app.include_router(loadout_router)
 
 
