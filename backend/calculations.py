@@ -96,22 +96,29 @@ def calc_shield_adjust(adjust_setting: str):
 def calc_weapon_stats(
     weapons: list[dict], slot_headers: list[str], packs: list[dict], co_level, wo_level
 ) -> dict[str, Any]:
-    """Calculate weapon DPS, fire time, cap drain etc."""
+    """Calculate weapon DPS, fire time, cap drain etc.
+
+    FIX: co_gen_eff was computed but discarded (never assigned).
+    FIX: wo_eff must use the RAW energy_efficiency for EPS division
+         (matching Seraph: epsList.append(tryFloat(stats[6]) / woEff)
+          where woEff is the raw energy_efficiency from the overload table).
+    """
     overloads = get_overload_data()
 
-    wo_eff = 1.0
-    wo_gen_eff = 1.0
+    co_gen_eff = 1.0  # FIX: was computed but never stored
+    wo_eff = 1.0      # raw energy_efficiency (for dividing EPS)
+    wo_gen_eff = 1.0   # gen_efficiency (for multiplying damage)
 
     if co_level is not None and co_level != "None" and co_level > 0:
         idx = co_level + 7
         if idx < len(overloads):
-            try_float(overloads[idx]["gen_efficiency"])
+            co_gen_eff = try_float(overloads[idx]["gen_efficiency"])  # FIX: now assigned
 
     if wo_level is not None and wo_level != "None" and wo_level > 0:
         idx = wo_level + 11
         if idx < len(overloads):
             ee = try_float(overloads[idx]["energy_efficiency"])
-            wo_eff = ee if ee != 0 else 1
+            wo_eff = ee if ee != 0 else 1  # raw energy_efficiency for EPS division
             wo_gen_eff = try_float(overloads[idx]["gen_efficiency"])
 
     dp_shot_pve = []
@@ -183,6 +190,17 @@ def calc_weapon_stats(
         result["weapon_damages"].append(
             {"slot": all_names[i], "pve": round(all_pve[i], 1), "pvp": round(all_pvp[i], 1)}
         )
+
+    # FIX: Run cap combat simulation inline so we have access to all data
+    cap_energy = try_float(weapons[0].get("_cap_energy", 0)) if weapons else 0
+    cap_recharge = try_float(weapons[0].get("_cap_recharge", 0)) if weapons else 0
+
+    # Cap combat data is returned separately via calc_cap_combat
+    # Store eps_list, refire_list, dp_shot_pve, co_gen_eff for the caller
+    result["_eps_list"] = eps_list
+    result["_refire_list"] = refire_list
+    result["_dp_shot_pve"] = dp_shot_pve
+    result["_co_gen_eff"] = co_gen_eff
 
     return result
 
@@ -386,37 +404,137 @@ def calc_mass_summary(components: dict[str, Any], chassis_mass: float) -> dict[s
     return {"total_mass": total, "chassis_mass": 0, "percent": 0, "remaining": 0, "over_limit": False}
 
 
+def _find_last_cm_index(components: dict[str, Any]) -> int:
+    """Find the index of the countermeasure that is the 'last loaded' weapon slot.
+
+    FIX: In Seraph, the code reverses the slot list and finds the first CM
+    that appears before any non-null component. If a CM is the very last
+    loaded slot, its drain is reduced to 1/10.
+
+    Returns the 1-based slot index (1-8) of the last-loaded CM, or 0 if none.
+    """
+    comp_types = []
+    for i in range(1, 9):
+        slot = components.get(f"slot{i}", {})
+        if slot and slot.get("comp_type"):
+            comp_types.append(slot["comp_type"])
+        else:
+            comp_types.append("Null")
+
+    # Reverse and find first CM before any non-null component
+    comp_types_rev = list(reversed(comp_types))
+    cm_index = 0
+    for i, ct in enumerate(comp_types_rev):
+        if ct == "countermeasure":
+            cm_index = 8 - i  # Convert back to 1-based forward index
+            break
+        if ct != "Null":
+            cm_index = 0
+            break
+
+    return cm_index
+
+
 def calc_drain_summary(components: dict[str, Any], ro_level, eo_level, co_level, wo_level) -> dict[str, Any]:
-    """Calculate total energy drain and reactor utilization."""
+    """Calculate total energy drain and reactor utilization.
+
+    FIX 1: Countermeasure and ordnance drains must also be affected by weapon overload.
+            In Seraph, ALL slot drains go through: drain / woEff (raw energy_efficiency).
+            The wiki confirms: 'weapon overload increases your weapon, ordnance, and
+            countermeasure drain by 5x'.
+
+    FIX 2: Added countermeasure 'last loaded' 1/10 drain reduction. When a CM is the
+            last-loaded weapon slot (i.e., nothing is loaded after it), it only uses
+            1/10 of its drain. This matches Seraph's updateDrainStrings logic.
+
+    FIX 3: Added per-component power status (powered/partial/unpowered) to match
+            Seraph's green/yellow/red reactor priority visualization.
+    """
     overloads = calc_overload_multipliers(ro_level, eo_level, co_level, wo_level)
 
     reactor_gen = try_float(components.get("reactor", {}).get("generation", 0))
     ro_eff = overloads["ro_gen_eff"]
 
-    total_drain = 0
-    # Engine drain
-    engine_drain = try_float(components.get("engine", {}).get("drain", 0))
-    total_drain += engine_drain * overloads["eo_eff"]
-    # Booster drain
-    total_drain += try_float(components.get("booster", {}).get("drain", 0))
-    # Shield drain
-    total_drain += try_float(components.get("shield", {}).get("drain", 0))
-    # DI drain
-    total_drain += try_float(components.get("droid_interface", {}).get("drain", 0))
-    # Capacitor drain
-    cap_drain = try_float(components.get("capacitor", {}).get("drain", 0))
-    total_drain += cap_drain * overloads["co_eff"]
+    # Find last-loaded CM index for 1/10 drain reduction
+    cm_index = _find_last_cm_index(components)
 
-    # Weapon drains
+    # Build ordered drain list matching Seraph's priority order:
+    # engine, shield, capacitor, booster, droid_interface, slot1..slot8
+    powered_keys = ["engine", "shield", "capacitor", "booster", "droid_interface"]
     for i in range(1, 9):
-        slot = components.get(f"slot{i}", {})
-        if slot and slot.get("comp_type") == "weapon":
-            total_drain += try_float(slot.get("drain", 0)) * overloads["wo_eff"]
-        elif slot and slot.get("comp_type") in ("countermeasure", "ordnance"):
-            total_drain += try_float(slot.get("drain", 0))
+        powered_keys.append(f"slot{i}")
+
+    drains = []
+    for key in powered_keys:
+        comp = components.get(key, {})
+        if not comp:
+            drains.append(0)
+            continue
+
+        raw_drain = try_float(comp.get("drain", 0))
+
+        if key == "engine":
+            drains.append(raw_drain * overloads["eo_eff"])
+        elif key == "capacitor":
+            drains.append(raw_drain * overloads["co_eff"])
+        elif key.startswith("slot"):
+            slot_idx = int(key[4:])
+            ct = comp.get("comp_type", "")
+            # FIX 1: ALL slot types (weapon, ordnance, countermeasure) get wo_eff
+            effective_drain = raw_drain * overloads["wo_eff"]
+
+            # FIX 2: Last-loaded CM gets 1/10 drain
+            if ct == "countermeasure" and slot_idx == cm_index and cm_index != 0:
+                effective_drain = effective_drain / 10
+
+            drains.append(effective_drain)
+        else:
+            # shield, booster, droid_interface — no overload modifier
+            drains.append(raw_drain)
+
+    overloaded_gen = round(reactor_gen * ro_eff, 1)
+
+    # FIX 3: Calculate per-component power status
+    total_drain = 0
+    reactor_remaining = overloaded_gen
+    component_power = []
+
+    for i, key in enumerate(powered_keys):
+        comp = components.get(key, {})
+        has_component = comp and (comp.get("name", "None") != "None" if "name" in comp else comp.get("drain", 0) != 0 or comp.get("comp_type"))
+
+        current_drain = drains[i]
+
+        if has_component and current_drain > 0:
+            if reactor_remaining <= 0:
+                status = "unpowered"
+            elif current_drain > reactor_remaining:
+                if reactor_remaining < 0.1 * current_drain:
+                    status = "unpowered"
+                else:
+                    # Special case: last-loaded CM with partial power still counts as powered
+                    if key.startswith("slot"):
+                        slot_idx = int(key[4:])
+                        ct = comp.get("comp_type", "")
+                        if ct == "countermeasure" and slot_idx == cm_index and cm_index != 0 and reactor_remaining >= 0.1 * current_drain:
+                            status = "powered"
+                        else:
+                            status = "partial"
+                    else:
+                        status = "partial"
+            else:
+                status = "powered"
+
+            total_drain += current_drain
+            reactor_remaining -= current_drain
+        elif has_component:
+            status = "powered"
+        else:
+            status = "none"
+
+        component_power.append({"key": key, "drain": round(current_drain, 2), "status": status})
 
     total_drain = round(total_drain, 1)
-    overloaded_gen = round(reactor_gen * ro_eff, 1)
 
     if overloaded_gen > 0:
         utilization = round(total_drain / overloaded_gen * 100, 1)
@@ -429,6 +547,7 @@ def calc_drain_summary(components: dict[str, Any], ro_level, eo_level, co_level,
         "utilization": utilization,
         "over_limit": total_drain > overloaded_gen,
         "min_gen_required": round(total_drain / ro_eff, 1) if ro_eff > 0 else 0,
+        "component_power": component_power,  # FIX 3: per-component power status
     }
 
 

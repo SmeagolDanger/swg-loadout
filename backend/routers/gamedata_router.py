@@ -2,12 +2,14 @@ from fastapi import APIRouter, Query
 from pydantic import BaseModel
 
 from calculations import (
+    calc_cap_combat,
     calc_drain_summary,
     calc_mass_summary,
     calc_overload_multipliers,
     calc_propulsion,
     calc_shield_adjust,
     calc_throttle_profile,
+    calc_weapon_stats,
     loot_lookup,
     try_float,
 )
@@ -143,6 +145,38 @@ def calculate_loadout(req: CalcRequest):
         "back_hp": round(shield_hp * (2 - shield_front_ratio), 1) if shield_front_ratio != 1 else None,
     }
 
+    # FIX: Wire up weapon damage and cap combat calculations (were dead code before)
+    slot_headers = chassis.get("slots", [])
+    weapons = []
+    packs = []
+    for i in range(1, 9):
+        slot = req.components.get(f"slot{i}")
+        if slot:
+            weapons.append(slot)
+        else:
+            weapons.append(None)
+        pack = req.components.get(f"pack{i}")
+        packs.append(pack)
+
+    weapon_stats = calc_weapon_stats(weapons, slot_headers, packs, co, wo)
+
+    # Run cap combat simulation
+    cap_data = req.components.get("capacitor", {})
+    cap_energy = try_float(cap_data.get("energy", 0))
+    cap_recharge = try_float(cap_data.get("recharge", 0))
+
+    cap_combat = calc_cap_combat(
+        cap_energy,
+        cap_recharge,
+        weapon_stats.get("_eps_list", []),
+        weapon_stats.get("_refire_list", []),
+        weapon_stats.get("_dp_shot_pve", []),
+        weapon_stats.get("_co_gen_eff", 1.0),
+    )
+
+    # Clean internal keys from weapon_stats before returning
+    clean_weapon_stats = {k: v for k, v in weapon_stats.items() if not k.startswith("_")}
+
     return {
         "overloads": overloads,
         "throttle_profile": throttle,
@@ -150,6 +184,8 @@ def calculate_loadout(req: CalcRequest):
         "mass": mass,
         "drain": drain,
         "shield": shield_info,
+        "weapon_stats": clean_weapon_stats,  # FIX: now included
+        "cap_combat": cap_combat,             # FIX: now included
     }
 
 
