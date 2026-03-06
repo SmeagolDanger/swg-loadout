@@ -49,7 +49,7 @@ export default function WelcomeScreen() {
             SWG:L <span className="text-plasma-400">COMMAND DECK</span>
           </h1>
           <p className="text-hull-200 text-sm md:text-base leading-relaxed">
-            Choose where to start. Adventure Awaits!
+            Choose where to start. Adventure awaits!
           </p>
         </div>
 
