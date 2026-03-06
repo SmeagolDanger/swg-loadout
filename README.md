@@ -1,6 +1,6 @@
-# Seraph's Loadout Tool 2.0 — Web Edition
+# SWG:L Loadout Tool
 
-A full-stack web application for building and analyzing starship loadouts in **Star Wars Galaxies: Jump to Lightspeed**. This is a web-based reimagining of the original desktop tool by [SeraphExodus](https://github.com/SeraphExodus/Seraphs-Loadout-Tool), built for both desktop and mobile browsers.
+A full-stack web application for building and analyzing starship loadouts in **Star Wars Galaxies: Jump to Lightspeed**. Based on the original desktop tool, [Seraph's Loadout Tool](https://github.com/SeraphExodus/Seraphs-Loadout-Tool) by SeraphExodus. Rebuilt from the ground up as a responsive web app for desktop and mobile browsers.
 
 ## Features
 
@@ -294,6 +294,6 @@ slt-web/
 
 ## Credits
 
-- **Original Tool**: [SeraphExodus](https://github.com/SeraphExodus/Seraphs-Loadout-Tool)
+- **Original Desktop Tool**: [Seraph's Loadout Tool](https://github.com/SeraphExodus/Seraphs-Loadout-Tool) by SeraphExodus — all game data, calculation logic, and component schemas originate from this project
 - **Game Data**: Star Wars Galaxies: Jump to Lightspeed
 - **Web Conversion**: Built with FastAPI, React, and Docker

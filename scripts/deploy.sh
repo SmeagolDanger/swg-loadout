@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # ============================================================
-# Seraph's Loadout Tool — Server Setup Script
+# SWG:L Loadout Tool — Server Setup Script
 #
 # Usage:
 #   curl -sSL https://raw.githubusercontent.com/OWNER/REPO/main/scripts/deploy.sh | bash
@@ -16,7 +16,7 @@ DEPLOY_DIR="${DEPLOY_PATH:-/opt/slt}"
 COMPOSE_FILE="docker-compose.prod.yml"
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "  Seraph's Loadout Tool — Deployment Setup"
+echo "  SWG:L Loadout Tool — Deployment Setup"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 # Check prerequisites
