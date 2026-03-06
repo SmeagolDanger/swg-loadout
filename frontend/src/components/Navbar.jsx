@@ -1,38 +1,52 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   Menu, X, Crosshair, Box, Search, Users, LogOut, User, Wrench,
-  FlaskConical, Cpu, Trophy, Medal, UserCircle
+  FlaskConical, Cpu, Trophy, Medal, UserCircle, ChevronRight
 } from 'lucide-react';
 
-const NAV_ITEMS = [
-  // ── Loadout Tool ──
-  { to: '/', label: 'Builder', icon: Crosshair },
-  { to: '/loadouts', label: 'Loadouts', icon: Box, auth: true },
-  { to: '/components', label: 'Components', icon: Wrench, auth: true },
-  { to: '/re', label: 'RE Calc', icon: FlaskConical },
-  { to: '/fc', label: 'FC Calc', icon: Cpu },
-  { to: '/loot', label: 'Loot', icon: Search },
-  { to: '/community', label: 'Community', icon: Users },
-  // ── Collections (NEW) ──
-  { to: '/collections', label: 'Collections', icon: Trophy, divider: true },
-  { to: '/characters', label: 'Characters', icon: UserCircle },
-  { to: '/leaderboard', label: 'Leaderboard', icon: Medal },
+const TOOL_NAV_ITEMS = [
+  { to: '/tools', label: 'Builder', icon: Crosshair },
+  { to: '/tools/loadouts', label: 'Loadouts', icon: Box, auth: true },
+  { to: '/tools/components', label: 'Components', icon: Wrench, auth: true },
+  { to: '/tools/re', label: 'RE Calc', icon: FlaskConical },
+  { to: '/tools/fc', label: 'FC Calc', icon: Cpu },
+  { to: '/tools/loot', label: 'Loot', icon: Search },
+  { to: '/tools/community', label: 'Community', icon: Users },
 ];
+
+const COLLECTION_NAV_ITEMS = [
+  { to: '/collections', label: 'Tracker', icon: Trophy },
+  { to: '/collections/characters', label: 'Characters', icon: UserCircle },
+  { to: '/collections/leaderboard', label: 'Leaderboard', icon: Medal },
+];
+
+function isActive(pathname, itemPath) {
+  if (itemPath === '/tools' || itemPath === '/collections') {
+    return pathname === itemPath;
+  }
+  return pathname === itemPath || pathname.startsWith(`${itemPath}/`);
+}
 
 export default function Navbar() {
   const { user, logout } = useAuth();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const visibleItems = NAV_ITEMS.filter(i => !i.auth || user);
+  const section = useMemo(() => {
+    if (location.pathname.startsWith('/collections')) return 'collections';
+    if (location.pathname.startsWith('/tools')) return 'tools';
+    return 'home';
+  }, [location.pathname]);
+
+  const navItems = section === 'collections' ? COLLECTION_NAV_ITEMS : TOOL_NAV_ITEMS;
+  const visibleItems = navItems.filter(i => !i.auth || user);
 
   return (
     <>
       <nav className="fixed top-0 left-0 right-0 z-40 bg-hull-800/90 backdrop-blur-md border-b border-hull-500/40">
         <div className="max-w-[90rem] mx-auto px-4 h-16 flex items-center gap-4">
-          {/* Logo */}
           <Link to="/" className="flex items-center gap-2 group shrink-0 min-w-fit">
             <div className="w-8 h-8 rounded-lg bg-plasma-500/20 border border-plasma-500/40 flex items-center justify-center group-hover:shadow-glow transition-all">
               <Crosshair size={18} className="text-plasma-400" />
@@ -43,26 +57,38 @@ export default function Navbar() {
             <span className="font-display font-bold text-lg tracking-wider text-plasma-400 sm:hidden whitespace-nowrap">SWG:L</span>
           </Link>
 
-          {/* Desktop nav */}
-          <div className="hidden lg:flex items-center gap-1 flex-1 min-w-0 overflow-x-auto no-scrollbar">
-            {visibleItems.map((item, i) => (
-              <React.Fragment key={item.to}>
-                {/* Visual separator between loadout and collections sections */}
-                {item.divider && (
-                  <div className="w-px h-6 bg-hull-500/40 mx-1" />
-                )}
+          <div className="hidden lg:flex items-center gap-2 shrink-0">
+            <Link to="/tools" className={`section-pill ${section === 'tools' ? 'section-pill-active' : ''}`}>
+              <Crosshair size={14} />
+              Space Tools
+            </Link>
+            <Link to="/collections" className={`section-pill ${section === 'collections' ? 'section-pill-active section-pill-collections' : ''}`}>
+              <Trophy size={14} />
+              Collections
+            </Link>
+          </div>
+
+          {section !== 'home' ? (
+            <div className="hidden lg:flex items-center gap-1 flex-1 min-w-0 overflow-x-auto no-scrollbar">
+              <div className="w-px h-6 bg-hull-500/40 mx-1 shrink-0" />
+              {visibleItems.map((item) => (
                 <Link
+                  key={item.to}
                   to={item.to}
-                  className={`nav-link flex items-center gap-1.5 text-sm whitespace-nowrap shrink-0 ${location.pathname === item.to ? 'nav-link-active' : ''}`}
+                  className={`nav-link flex items-center gap-1.5 text-sm whitespace-nowrap shrink-0 ${isActive(location.pathname, item.to) ? 'nav-link-active' : ''}`}
                 >
                   <item.icon size={15} />
                   {item.label}
                 </Link>
-              </React.Fragment>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="hidden lg:flex items-center gap-2 text-sm text-hull-300 font-display tracking-wide flex-1 min-w-0">
+              <ChevronRight size={14} className="text-plasma-400 shrink-0" />
+              <span className="truncate">Choose a section to keep the interface from becoming a landfill of tabs.</span>
+            </div>
+          )}
 
-          {/* Auth / Mobile toggle */}
           <div className="flex items-center gap-2 shrink-0 ml-auto">
             {user ? (
               <div className="hidden lg:flex items-center gap-2 xl:gap-3 shrink-0">
@@ -83,23 +109,39 @@ export default function Navbar() {
         </div>
       </nav>
 
-      {/* Mobile drawer */}
       {mobileOpen && (
         <div className="mobile-drawer lg:hidden" onClick={() => setMobileOpen(false)}>
           <div className="pt-20 px-6 space-y-2" onClick={e => e.stopPropagation()}>
-            {visibleItems.map(item => (
-              <React.Fragment key={item.to}>
-                {item.divider && <div className="section-divider" />}
-                <Link
-                  to={item.to}
-                  onClick={() => setMobileOpen(false)}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-xl text-lg font-display tracking-wide transition-all
-                    ${location.pathname === item.to ? 'bg-hull-700 text-plasma-400 shadow-glow' : 'text-hull-200 hover:bg-hull-700'}`}
-                >
-                  <item.icon size={20} />
-                  {item.label}
-                </Link>
-              </React.Fragment>
+            <Link
+              to="/tools"
+              onClick={() => setMobileOpen(false)}
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-lg font-display tracking-wide transition-all ${section === 'tools' ? 'bg-hull-700 text-plasma-400 shadow-glow' : 'text-hull-200 hover:bg-hull-700'}`}
+            >
+              <Crosshair size={20} />
+              Space Tools
+            </Link>
+            <Link
+              to="/collections"
+              onClick={() => setMobileOpen(false)}
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-lg font-display tracking-wide transition-all ${section === 'collections' ? 'bg-hull-700 text-laser-yellow shadow-glow' : 'text-hull-200 hover:bg-hull-700'}`}
+            >
+              <Trophy size={20} />
+              Collections
+            </Link>
+
+            {section !== 'home' && <div className="section-divider" />}
+
+            {section !== 'home' && visibleItems.map(item => (
+              <Link
+                key={item.to}
+                to={item.to}
+                onClick={() => setMobileOpen(false)}
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-lg font-display tracking-wide transition-all
+                  ${isActive(location.pathname, item.to) ? 'bg-hull-700 text-plasma-400 shadow-glow' : 'text-hull-200 hover:bg-hull-700'}`}
+              >
+                <item.icon size={20} />
+                {item.label}
+              </Link>
             ))}
             <div className="section-divider" />
             {user ? (
