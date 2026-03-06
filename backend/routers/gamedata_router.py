@@ -1,12 +1,25 @@
 from fastapi import APIRouter, Query
-from typing import Optional, List
-from gamedata import (get_chassis_list, get_chassis, get_component_stats,
-                      get_fc_programs, get_ordnance_types, get_complib, get_brands)
-from calculations import (calc_throttle_profile, calc_overload_multipliers,
-                          calc_propulsion, calc_weapon_stats, calc_cap_combat,
-                          calc_mass_summary, calc_drain_summary, loot_lookup,
-                          calc_shield_adjust, try_float)
 from pydantic import BaseModel
+
+from calculations import (
+    calc_drain_summary,
+    calc_mass_summary,
+    calc_overload_multipliers,
+    calc_propulsion,
+    calc_shield_adjust,
+    calc_throttle_profile,
+    loot_lookup,
+    try_float,
+)
+from gamedata import (
+    get_brands,
+    get_chassis,
+    get_chassis_list,
+    get_complib,
+    get_component_stats,
+    get_fc_programs,
+    get_ordnance_types,
+)
 
 router = APIRouter(prefix="/api/gamedata", tags=["gamedata"])
 
@@ -41,7 +54,7 @@ def list_ordnance_types():
 
 
 @router.get("/complib")
-def list_complib(comp_type: Optional[str] = None):
+def list_complib(comp_type: str | None = None):
     items = get_complib()
     if comp_type:
         items = [i for i in items if i["type"] and comp_type.lower() in i["type"].lower()]
@@ -49,7 +62,7 @@ def list_complib(comp_type: Optional[str] = None):
 
 
 @router.get("/brands")
-def list_brands(path: Optional[str] = None):
+def list_brands(path: str | None = None):
     items = get_brands()
     if path:
         items = [i for i in items if i["path"] and path.lower() in i["path"].lower()]
@@ -84,11 +97,11 @@ def get_shield_adjust_options():
 class CalcRequest(BaseModel):
     chassis_name: str
     components: dict = {}
-    ro_level: Optional[str] = "None"
-    eo_level: Optional[str] = "None"
-    co_level: Optional[str] = "None"
-    wo_level: Optional[str] = "None"
-    shield_adjust: Optional[str] = "None"
+    ro_level: str | None = "None"
+    eo_level: str | None = "None"
+    co_level: str | None = "None"
+    wo_level: str | None = "None"
+    shield_adjust: str | None = "None"
 
 
 @router.post("/calculate")
@@ -102,7 +115,7 @@ def calculate_loadout(req: CalcRequest):
             return None
         try:
             return int(v)
-        except:
+        except (TypeError, ValueError):
             return None
 
     ro = parse_level(req.ro_level)

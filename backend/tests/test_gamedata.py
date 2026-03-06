@@ -105,14 +105,17 @@ class TestComplib:
 
 class TestCalculate:
     def test_calculate_basic(self, client):
-        res = client.post("/api/gamedata/calculate", json={
-            "chassis_name": "A-Wing",
-            "components": {},
-            "ro_level": "None",
-            "eo_level": "None",
-            "co_level": "None",
-            "wo_level": "None",
-        })
+        res = client.post(
+            "/api/gamedata/calculate",
+            json={
+                "chassis_name": "A-Wing",
+                "components": {},
+                "ro_level": "None",
+                "eo_level": "None",
+                "co_level": "None",
+                "wo_level": "None",
+            },
+        )
         assert res.status_code == 200
         data = res.json()
         assert "overloads" in data
@@ -122,14 +125,17 @@ class TestCalculate:
         assert "drain" in data
 
     def test_calculate_with_overloads(self, client):
-        res = client.post("/api/gamedata/calculate", json={
-            "chassis_name": "X-Wing",
-            "components": {},
-            "ro_level": "2",
-            "eo_level": "1",
-            "co_level": "None",
-            "wo_level": "3",
-        })
+        res = client.post(
+            "/api/gamedata/calculate",
+            json={
+                "chassis_name": "X-Wing",
+                "components": {},
+                "ro_level": "2",
+                "eo_level": "1",
+                "co_level": "None",
+                "wo_level": "3",
+            },
+        )
         assert res.status_code == 200
         data = res.json()
         assert data["overloads"]["ro_gen_eff"] != 1
@@ -137,10 +143,13 @@ class TestCalculate:
         assert data["overloads"]["wo_gen_eff"] != 1
 
     def test_calculate_invalid_chassis(self, client):
-        res = client.post("/api/gamedata/calculate", json={
-            "chassis_name": "FakeShip",
-            "components": {},
-        })
+        res = client.post(
+            "/api/gamedata/calculate",
+            json={
+                "chassis_name": "FakeShip",
+                "components": {},
+            },
+        )
         assert res.status_code == 200
         assert "error" in res.json()
 

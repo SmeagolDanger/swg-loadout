@@ -1,14 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
-from typing import Optional, List
-from database import get_db, Loadout, UserComponent, User
-from auth import require_user, get_current_user
+
+from auth import get_current_user, require_user
+from database import Loadout, User, UserComponent, get_db
 
 router = APIRouter(prefix="/api", tags=["loadouts"])
 
 
 # --- Loadout models ---
+
 
 class LoadoutCreate(BaseModel):
     name: str
@@ -83,44 +84,43 @@ class LoadoutResponse(BaseModel):
     wo_level: str
     shield_adjust: str
     is_public: bool
-    owner_name: Optional[str] = None
+    owner_name: str | None = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
-@router.get("/loadouts", response_model=List[LoadoutResponse])
+@router.get("/loadouts", response_model=list[LoadoutResponse])
 def list_loadouts(user: User = Depends(require_user), db: Session = Depends(get_db)):
     loadouts = db.query(Loadout).filter(Loadout.user_id == user.id).all()
     result = []
-    for l in loadouts:
-        r = LoadoutResponse.model_validate(l)
+    for lo in loadouts:
+        r = LoadoutResponse.model_validate(lo)
         r.owner_name = user.display_name or user.username
         result.append(r)
     return result
 
 
-@router.get("/loadouts/public", response_model=List[LoadoutResponse])
+@router.get("/loadouts/public", response_model=list[LoadoutResponse])
 def list_public_loadouts(db: Session = Depends(get_db)):
-    loadouts = db.query(Loadout).filter(Loadout.is_public == True).limit(100).all()
+    loadouts = db.query(Loadout).filter(Loadout.is_public).limit(100).all()
     result = []
-    for l in loadouts:
-        r = LoadoutResponse.model_validate(l)
-        owner = db.query(User).filter(User.id == l.user_id).first()
+    for lo in loadouts:
+        r = LoadoutResponse.model_validate(lo)
+        owner = db.query(User).filter(User.id == lo.user_id).first()
         r.owner_name = owner.display_name or owner.username if owner else "Unknown"
         result.append(r)
     return result
 
 
 @router.get("/loadouts/{loadout_id}", response_model=LoadoutResponse)
-def get_loadout(loadout_id: int, user: Optional[User] = Depends(get_current_user), db: Session = Depends(get_db)):
-    l = db.query(Loadout).filter(Loadout.id == loadout_id).first()
-    if not l:
+def get_loadout(loadout_id: int, user: User | None = Depends(get_current_user), db: Session = Depends(get_db)):
+    lo = db.query(Loadout).filter(Loadout.id == loadout_id).first()
+    if not lo:
         raise HTTPException(status_code=404, detail="Loadout not found")
-    if not l.is_public and (not user or l.user_id != user.id):
+    if not lo.is_public and (not user or lo.user_id != user.id):
         raise HTTPException(status_code=403, detail="Access denied")
-    r = LoadoutResponse.model_validate(l)
-    owner = db.query(User).filter(User.id == l.user_id).first()
+    r = LoadoutResponse.model_validate(lo)
+    owner = db.query(User).filter(User.id == lo.user_id).first()
     r.owner_name = owner.display_name or owner.username if owner else "Unknown"
     return r
 
@@ -141,44 +141,73 @@ def create_loadout(req: LoadoutCreate, user: User = Depends(require_user), db: S
 
 
 @router.put("/loadouts/{loadout_id}", response_model=LoadoutResponse)
-def update_loadout(loadout_id: int, req: LoadoutCreate, user: User = Depends(require_user), db: Session = Depends(get_db)):
-    l = db.query(Loadout).filter(Loadout.id == loadout_id, Loadout.user_id == user.id).first()
-    if not l:
+def update_loadout(
+    loadout_id: int, req: LoadoutCreate, user: User = Depends(require_user), db: Session = Depends(get_db)
+):
+    lo = db.query(Loadout).filter(Loadout.id == loadout_id, Loadout.user_id == user.id).first()
+    if not lo:
         raise HTTPException(status_code=404, detail="Loadout not found")
 
     for key, val in req.model_dump().items():
-        setattr(l, key, val)
+        setattr(lo, key, val)
     db.commit()
-    db.refresh(l)
-    r = LoadoutResponse.model_validate(l)
+    db.refresh(lo)
+    r = LoadoutResponse.model_validate(lo)
     r.owner_name = user.display_name or user.username
     return r
 
 
 @router.post("/loadouts/{loadout_id}/duplicate", response_model=LoadoutResponse)
-def duplicate_loadout(loadout_id: int, new_name: str = "", user: User = Depends(require_user), db: Session = Depends(get_db)):
-    l = db.query(Loadout).filter(Loadout.id == loadout_id).first()
-    if not l:
+def duplicate_loadout(
+    loadout_id: int, new_name: str = "", user: User = Depends(require_user), db: Session = Depends(get_db)
+):
+    lo = db.query(Loadout).filter(Loadout.id == loadout_id).first()
+    if not lo:
         raise HTTPException(status_code=404, detail="Loadout not found")
-    if not l.is_public and l.user_id != user.id:
+    if not lo.is_public and lo.user_id != user.id:
         raise HTTPException(status_code=403, detail="Access denied")
 
-    name = new_name or f"{l.name} (Copy)"
+    name = new_name or f"{lo.name} (Copy)"
     existing = db.query(Loadout).filter(Loadout.user_id == user.id, Loadout.name == name).first()
     if existing:
         raise HTTPException(status_code=400, detail="A loadout with this name already exists")
 
     new_loadout = Loadout(
-        user_id=user.id, name=name, chassis=l.chassis, mass=l.mass,
-        reactor=l.reactor, engine=l.engine, booster=l.booster, shield=l.shield,
-        front_armor=l.front_armor, rear_armor=l.rear_armor, capacitor=l.capacitor,
-        cargo_hold=l.cargo_hold, droid_interface=l.droid_interface,
-        slot1=l.slot1, slot2=l.slot2, slot3=l.slot3, slot4=l.slot4,
-        slot5=l.slot5, slot6=l.slot6, slot7=l.slot7, slot8=l.slot8,
-        pack1=l.pack1, pack2=l.pack2, pack3=l.pack3, pack4=l.pack4,
-        pack5=l.pack5, pack6=l.pack6, pack7=l.pack7, pack8=l.pack8,
-        ro_level=l.ro_level, eo_level=l.eo_level, co_level=l.co_level,
-        wo_level=l.wo_level, shield_adjust=l.shield_adjust, is_public=False
+        user_id=user.id,
+        name=name,
+        chassis=lo.chassis,
+        mass=lo.mass,
+        reactor=lo.reactor,
+        engine=lo.engine,
+        booster=lo.booster,
+        shield=lo.shield,
+        front_armor=lo.front_armor,
+        rear_armor=lo.rear_armor,
+        capacitor=lo.capacitor,
+        cargo_hold=lo.cargo_hold,
+        droid_interface=lo.droid_interface,
+        slot1=lo.slot1,
+        slot2=lo.slot2,
+        slot3=lo.slot3,
+        slot4=lo.slot4,
+        slot5=lo.slot5,
+        slot6=lo.slot6,
+        slot7=lo.slot7,
+        slot8=lo.slot8,
+        pack1=lo.pack1,
+        pack2=lo.pack2,
+        pack3=lo.pack3,
+        pack4=lo.pack4,
+        pack5=lo.pack5,
+        pack6=lo.pack6,
+        pack7=lo.pack7,
+        pack8=lo.pack8,
+        ro_level=lo.ro_level,
+        eo_level=lo.eo_level,
+        co_level=lo.co_level,
+        wo_level=lo.wo_level,
+        shield_adjust=lo.shield_adjust,
+        is_public=False,
     )
     db.add(new_loadout)
     db.commit()
@@ -190,15 +219,16 @@ def duplicate_loadout(loadout_id: int, new_name: str = "", user: User = Depends(
 
 @router.delete("/loadouts/{loadout_id}")
 def delete_loadout(loadout_id: int, user: User = Depends(require_user), db: Session = Depends(get_db)):
-    l = db.query(Loadout).filter(Loadout.id == loadout_id, Loadout.user_id == user.id).first()
-    if not l:
+    lo = db.query(Loadout).filter(Loadout.id == loadout_id, Loadout.user_id == user.id).first()
+    if not lo:
         raise HTTPException(status_code=404, detail="Loadout not found")
-    db.delete(l)
+    db.delete(lo)
     db.commit()
     return {"message": "Loadout deleted"}
 
 
 # --- Components ---
+
 
 class ComponentCreate(BaseModel):
     comp_type: str
@@ -226,12 +256,11 @@ class ComponentResponse(BaseModel):
     stat7: float
     stat8: float
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
-@router.get("/components", response_model=List[ComponentResponse])
-def list_components(comp_type: Optional[str] = None, user: User = Depends(require_user), db: Session = Depends(get_db)):
+@router.get("/components", response_model=list[ComponentResponse])
+def list_components(comp_type: str | None = None, user: User = Depends(require_user), db: Session = Depends(get_db)):
     q = db.query(UserComponent).filter(UserComponent.user_id == user.id)
     if comp_type:
         q = q.filter(UserComponent.comp_type == comp_type)
@@ -240,11 +269,13 @@ def list_components(comp_type: Optional[str] = None, user: User = Depends(requir
 
 @router.post("/components", response_model=ComponentResponse)
 def create_component(req: ComponentCreate, user: User = Depends(require_user), db: Session = Depends(get_db)):
-    existing = db.query(UserComponent).filter(
-        UserComponent.user_id == user.id,
-        UserComponent.comp_type == req.comp_type,
-        UserComponent.name == req.name
-    ).first()
+    existing = (
+        db.query(UserComponent)
+        .filter(
+            UserComponent.user_id == user.id, UserComponent.comp_type == req.comp_type, UserComponent.name == req.name
+        )
+        .first()
+    )
     if existing:
         raise HTTPException(status_code=400, detail="A component with this name and type already exists")
 
@@ -256,7 +287,9 @@ def create_component(req: ComponentCreate, user: User = Depends(require_user), d
 
 
 @router.put("/components/{comp_id}", response_model=ComponentResponse)
-def update_component(comp_id: int, req: ComponentCreate, user: User = Depends(require_user), db: Session = Depends(get_db)):
+def update_component(
+    comp_id: int, req: ComponentCreate, user: User = Depends(require_user), db: Session = Depends(get_db)
+):
     comp = db.query(UserComponent).filter(UserComponent.id == comp_id, UserComponent.user_id == user.id).first()
     if not comp:
         raise HTTPException(status_code=404, detail="Component not found")

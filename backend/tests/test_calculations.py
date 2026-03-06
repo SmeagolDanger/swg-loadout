@@ -1,9 +1,12 @@
 """Unit tests for the calculation engine (pure functions)."""
-import pytest
+
 from calculations import (
-    try_float, ceil_custom, calc_throttle_profile,
-    calc_mass_summary, calc_overload_multipliers,
-    calc_propulsion
+    calc_mass_summary,
+    calc_overload_multipliers,
+    calc_propulsion,
+    calc_throttle_profile,
+    ceil_custom,
+    try_float,
 )
 
 
@@ -38,7 +41,8 @@ class TestCeilCustom:
         assert ceil_custom(3.0) == 4  # 3.0 + 0.5 = 3.5 → round = 4
 
     def test_zero(self):
-        assert ceil_custom(0) == 1  # 0 + 0.5 = 0.5 → round = 0... actually round(0.5) = 0 in Python banker's rounding
+        # round(0.5) == 0 in Python (banker's rounding to even) — matches original desktop app behavior
+        assert ceil_custom(0) == 0
 
 
 class TestThrottleProfile:
@@ -119,8 +123,8 @@ class TestOverloadMultipliers:
 
     def test_reactor_overload(self):
         result = calc_overload_multipliers(1, None, None, None)
-        # RO level 1 should modify gen efficiency
-        assert result["ro_gen_eff"] != 1 or result["ro_gen_eff"] == 1  # Depends on data
+        # RO level 1 → gen_efficiency = 1.1x from game data
+        assert result["ro_gen_eff"] == 1.1
         assert "ro_desc" in result
 
     def test_all_overloads(self):
@@ -134,10 +138,14 @@ class TestOverloadMultipliers:
 class TestPropulsion:
     def test_no_engine(self):
         chassis = {
-            "speed_mod": 0.95, "speed_foils": 0,
-            "accel": 25, "decel": 30,
-            "pitch_accel": 300, "yaw_accel": 200,
-            "roll_accel": 150, "slide": 1.5,
+            "speed_mod": 0.95,
+            "speed_foils": 0,
+            "accel": 25,
+            "decel": 30,
+            "pitch_accel": 300,
+            "yaw_accel": 200,
+            "roll_accel": 150,
+            "slide": 1.5,
         }
         result = calc_propulsion(chassis, None, None, None)
         assert result["top_speed"] is None
@@ -146,10 +154,14 @@ class TestPropulsion:
 
     def test_engine_only(self):
         chassis = {
-            "speed_mod": 0.95, "speed_foils": 0,
-            "accel": 25, "decel": 30,
-            "pitch_accel": 300, "yaw_accel": 200,
-            "roll_accel": 150, "slide": 1.5,
+            "speed_mod": 0.95,
+            "speed_foils": 0,
+            "accel": 25,
+            "decel": 30,
+            "pitch_accel": 300,
+            "yaw_accel": 200,
+            "roll_accel": 150,
+            "slide": 1.5,
         }
         engine = {"top_speed": 80.0}
         result = calc_propulsion(chassis, engine, None, None)
@@ -159,15 +171,21 @@ class TestPropulsion:
 
     def test_engine_and_booster(self):
         chassis = {
-            "speed_mod": 1.0, "speed_foils": 0,
-            "accel": 25, "decel": 30,
-            "pitch_accel": 300, "yaw_accel": 200,
-            "roll_accel": 150, "slide": 1.5,
+            "speed_mod": 1.0,
+            "speed_foils": 0,
+            "accel": 25,
+            "decel": 30,
+            "pitch_accel": 300,
+            "yaw_accel": 200,
+            "roll_accel": 150,
+            "slide": 1.5,
         }
         engine = {"top_speed": 80.0}
         booster = {
-            "top_speed": 20.0, "energy": 500.0,
-            "recharge_rate": 10.0, "consumption": 15.0,
+            "top_speed": 20.0,
+            "energy": 500.0,
+            "recharge_rate": 10.0,
+            "consumption": 15.0,
             "acceleration": 5.0,
         }
         result = calc_propulsion(chassis, engine, booster, None)
@@ -178,10 +196,14 @@ class TestPropulsion:
 
     def test_foils(self):
         chassis = {
-            "speed_mod": 0.95, "speed_foils": 0.9025,
-            "accel": 25, "decel": 30,
-            "pitch_accel": 300, "yaw_accel": 200,
-            "roll_accel": 150, "slide": 1.5,
+            "speed_mod": 0.95,
+            "speed_foils": 0.9025,
+            "accel": 25,
+            "decel": 30,
+            "pitch_accel": 300,
+            "yaw_accel": 200,
+            "roll_accel": 150,
+            "slide": 1.5,
         }
         engine = {"top_speed": 80.0}
         result = calc_propulsion(chassis, engine, None, None)
