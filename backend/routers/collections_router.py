@@ -11,7 +11,6 @@ Endpoints ported from the Node/Express collections backend:
   DELETE /api/admin/collections/items/:id  - delete item (admin)
 """
 
-
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import func
@@ -29,6 +28,7 @@ router = APIRouter(tags=["collections"])
 
 
 # ── Schemas ──────────────────────────────────────────────────────────
+
 
 class CollectionItemOut(BaseModel):
     id: int
@@ -84,12 +84,14 @@ class ItemCreate(BaseModel):
 
 # ── Helpers ──────────────────────────────────────────────────────────
 
+
 def _require_admin(user: User):
     if not user or not getattr(user, "is_admin", False):
         raise HTTPException(status_code=403, detail="Admin access required")
 
 
 # ── Public endpoints ─────────────────────────────────────────────────
+
 
 @router.get("/api/collections", response_model=list[CollectionGroupOut])
 def list_collections(db: Session = Depends(get_db)):
@@ -106,6 +108,7 @@ def get_collection_group(group_id: int, db: Session = Depends(get_db)):
 
 
 # ── Admin endpoints ──────────────────────────────────────────────────
+
 
 @router.put("/api/admin/collections/groups/{group_id}")
 def update_group(
@@ -173,10 +176,7 @@ def create_item(
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
     max_order = (
-        db.query(func.max(CollectionItem.sort_order))
-        .filter(CollectionItem.group_id == data.group_id)
-        .scalar()
-        or 0
+        db.query(func.max(CollectionItem.sort_order)).filter(CollectionItem.group_id == data.group_id).scalar() or 0
     )
     item = CollectionItem(
         group_id=data.group_id,

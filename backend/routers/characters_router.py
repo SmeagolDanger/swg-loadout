@@ -37,6 +37,7 @@ router = APIRouter(tags=["characters"])
 
 # ── Schemas ──────────────────────────────────────────────────────────
 
+
 class CharacterCreate(BaseModel):
     name: str
     server: str = "Legends"
@@ -91,6 +92,7 @@ class CharacterOut(BaseModel):
 
 # ── Helpers ──────────────────────────────────────────────────────────
 
+
 def _own_or_admin(user: User, character: Character):
     if character.user_id != user.id and not getattr(user, "is_admin", False):
         raise HTTPException(status_code=403, detail="Not your character")
@@ -103,6 +105,7 @@ def _visible(user: User | None, character: Character):
 
 # ── CRUD ─────────────────────────────────────────────────────────────
 
+
 @router.get("/api/characters")
 def list_characters(
     search: str | None = None,
@@ -112,14 +115,17 @@ def list_characters(
     user: User | None = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    q = db.query(
-        Character,
-        User.username,
-        User.display_name.label("owner_name"),
-        func.count(CharacterCollection.id).label("collection_count"),
-    ).join(User, Character.user_id == User.id).outerjoin(
-        CharacterCollection, CharacterCollection.character_id == Character.id
-    ).group_by(Character.id, User.username, User.display_name)
+    q = (
+        db.query(
+            Character,
+            User.username,
+            User.display_name.label("owner_name"),
+            func.count(CharacterCollection.id).label("collection_count"),
+        )
+        .join(User, Character.user_id == User.id)
+        .outerjoin(CharacterCollection, CharacterCollection.character_id == Character.id)
+        .group_by(Character.id, User.username, User.display_name)
+    )
 
     # Visibility
     if user:
@@ -144,12 +150,21 @@ def list_characters(
     characters = []
     for char, username, owner_name, cc_count in rows:
         d = {
-            "id": char.id, "user_id": char.user_id, "name": char.name,
-            "server": char.server, "species": char.species, "profession": char.profession,
-            "combat_level": char.combat_level, "guild": char.guild, "bio": char.bio,
-            "is_public": char.is_public, "created_at": char.created_at,
-            "updated_at": char.updated_at, "username": username,
-            "owner_name": owner_name, "collection_count": cc_count,
+            "id": char.id,
+            "user_id": char.user_id,
+            "name": char.name,
+            "server": char.server,
+            "species": char.species,
+            "profession": char.profession,
+            "combat_level": char.combat_level,
+            "guild": char.guild,
+            "bio": char.bio,
+            "is_public": char.is_public,
+            "created_at": char.created_at,
+            "updated_at": char.updated_at,
+            "username": username,
+            "owner_name": owner_name,
+            "collection_count": cc_count,
         }
         characters.append(d)
 
@@ -187,19 +202,33 @@ def get_character(
 
     completed_list = [
         {
-            "id": cc.id, "item_id": cc.item_id, "character_id": cc.character_id,
-            "completed_at": cc.completed_at, "notes": cc.notes,
-            "item_name": item_name, "item_notes": item_notes,
-            "difficulty": diff, "group_name": gname, "icon": icon, "category": cat,
+            "id": cc.id,
+            "item_id": cc.item_id,
+            "character_id": cc.character_id,
+            "completed_at": cc.completed_at,
+            "notes": cc.notes,
+            "item_name": item_name,
+            "item_notes": item_notes,
+            "difficulty": diff,
+            "group_name": gname,
+            "icon": icon,
+            "category": cat,
         }
         for cc, item_name, item_notes, diff, gname, icon, cat in completed
     ]
 
     return {
-        "id": char.id, "user_id": char.user_id, "name": char.name,
-        "server": char.server, "species": char.species, "profession": char.profession,
-        "combat_level": char.combat_level, "guild": char.guild, "bio": char.bio,
-        "is_public": char.is_public, "created_at": char.created_at,
+        "id": char.id,
+        "user_id": char.user_id,
+        "name": char.name,
+        "server": char.server,
+        "species": char.species,
+        "profession": char.profession,
+        "combat_level": char.combat_level,
+        "guild": char.guild,
+        "bio": char.bio,
+        "is_public": char.is_public,
+        "created_at": char.created_at,
         "updated_at": char.updated_at,
         "username": owner.username if owner else None,
         "owner_name": owner.display_name if owner else None,
@@ -255,6 +284,7 @@ def delete_character(
 
 # ── Collection tracking ──────────────────────────────────────────────
 
+
 @router.post("/api/characters/{char_id}/collections")
 def collect_item(
     char_id: int,
@@ -267,10 +297,14 @@ def collect_item(
         raise HTTPException(status_code=404, detail="Character not found")
     _own_or_admin(user, char)
 
-    existing = db.query(CharacterCollection).filter(
-        CharacterCollection.character_id == char_id,
-        CharacterCollection.item_id == data.item_id,
-    ).first()
+    existing = (
+        db.query(CharacterCollection)
+        .filter(
+            CharacterCollection.character_id == char_id,
+            CharacterCollection.item_id == data.item_id,
+        )
+        .first()
+    )
     if existing:
         return {"success": True, "message": "Already collected"}
 
@@ -294,7 +328,8 @@ def bulk_collect(
     _own_or_admin(user, char)
 
     existing_ids = set(
-        r[0] for r in db.query(CharacterCollection.item_id)
+        r[0]
+        for r in db.query(CharacterCollection.item_id)
         .filter(CharacterCollection.character_id == char_id, CharacterCollection.item_id.in_(data.item_ids))
         .all()
     )
@@ -320,10 +355,14 @@ def uncollect_item(
         raise HTTPException(status_code=404, detail="Character not found")
     _own_or_admin(user, char)
 
-    cc = db.query(CharacterCollection).filter(
-        CharacterCollection.character_id == char_id,
-        CharacterCollection.item_id == item_id,
-    ).first()
+    cc = (
+        db.query(CharacterCollection)
+        .filter(
+            CharacterCollection.character_id == char_id,
+            CharacterCollection.item_id == item_id,
+        )
+        .first()
+    )
     if cc:
         db.delete(cc)
         char.updated_at = datetime.utcnow()
@@ -332,6 +371,7 @@ def uncollect_item(
 
 
 # ── Stats & Leaderboard ─────────────────────────────────────────────
+
 
 @router.get("/api/characters/{char_id}/stats")
 def character_stats(
@@ -360,10 +400,16 @@ def character_stats(
             )
             .scalar()
         )
-        breakdown.append({
-            "group_id": g.id, "group_name": g.name, "category": g.category,
-            "icon": g.icon, "total_items": item_count, "completed_items": completed_count,
-        })
+        breakdown.append(
+            {
+                "group_id": g.id,
+                "group_name": g.name,
+                "category": g.category,
+                "icon": g.icon,
+                "total_items": item_count,
+                "completed_items": completed_count,
+            }
+        )
         total_items += item_count
         total_completed += completed_count
 
@@ -379,7 +425,9 @@ def global_stats(db: Session = Depends(get_db)):
 
     top_characters = (
         db.query(
-            Character.name, Character.profession, Character.guild,
+            Character.name,
+            Character.profession,
+            Character.guild,
             User.display_name.label("owner"),
             func.count(CharacterCollection.id).label("count"),
         )
@@ -444,26 +492,38 @@ def leaderboard(
 
         entries = (
             db.query(
-                Character.id, Character.name, Character.species, Character.profession,
-                Character.combat_level, Character.guild,
-                User.display_name.label("owner"), User.username,
+                Character.id,
+                Character.name,
+                Character.species,
+                Character.profession,
+                Character.combat_level,
+                Character.guild,
+                User.display_name.label("owner"),
+                User.username,
                 collected_sub.c.collected,
             )
             .join(User, Character.user_id == User.id)
             .join(collected_sub, collected_sub.c.character_id == Character.id)
             .filter(Character.is_public.is_(True))
             .order_by(collected_sub.c.collected.desc(), Character.name)
-            .offset(offset).limit(limit)
+            .offset(offset)
+            .limit(limit)
             .all()
         )
 
         return {
             "entries": [
                 {
-                    "id": e.id, "name": e.name, "species": e.species,
-                    "profession": e.profession, "combat_level": e.combat_level,
-                    "guild": e.guild, "owner": e.owner, "username": e.username,
-                    "collected": e.collected, "total_in_cat": total_in_cat,
+                    "id": e.id,
+                    "name": e.name,
+                    "species": e.species,
+                    "profession": e.profession,
+                    "combat_level": e.combat_level,
+                    "guild": e.guild,
+                    "owner": e.owner,
+                    "username": e.username,
+                    "collected": e.collected,
+                    "total_in_cat": total_in_cat,
                 }
                 for e in entries
             ],
@@ -485,25 +545,36 @@ def leaderboard(
 
         entries = (
             db.query(
-                Character.id, Character.name, Character.species, Character.profession,
-                Character.combat_level, Character.guild,
-                User.display_name.label("owner"), User.username,
+                Character.id,
+                Character.name,
+                Character.species,
+                Character.profession,
+                Character.combat_level,
+                Character.guild,
+                User.display_name.label("owner"),
+                User.username,
                 func.coalesce(collected_sub.c.collected, 0).label("collected"),
             )
             .join(User, Character.user_id == User.id)
             .outerjoin(collected_sub, collected_sub.c.character_id == Character.id)
             .filter(Character.is_public.is_(True))
             .order_by(func.coalesce(collected_sub.c.collected, 0).desc(), Character.name)
-            .offset(offset).limit(limit)
+            .offset(offset)
+            .limit(limit)
             .all()
         )
 
         return {
             "entries": [
                 {
-                    "id": e.id, "name": e.name, "species": e.species,
-                    "profession": e.profession, "combat_level": e.combat_level,
-                    "guild": e.guild, "owner": e.owner, "username": e.username,
+                    "id": e.id,
+                    "name": e.name,
+                    "species": e.species,
+                    "profession": e.profession,
+                    "combat_level": e.combat_level,
+                    "guild": e.guild,
+                    "owner": e.owner,
+                    "username": e.username,
                     "collected": e.collected,
                 }
                 for e in entries

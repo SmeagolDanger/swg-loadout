@@ -57,13 +57,15 @@ def seed_collections():
             group_order += 1
 
             for item_order, (item_name, item_data) in enumerate(group_data.get("items", {}).items()):
-                db.add(CollectionItem(
-                    group_id=group.id,
-                    name=item_name,
-                    notes=item_data.get("notes", ""),
-                    difficulty=item_data.get("difficulty", "medium"),
-                    sort_order=item_order,
-                ))
+                db.add(
+                    CollectionItem(
+                        group_id=group.id,
+                        name=item_name,
+                        notes=item_data.get("notes", ""),
+                        difficulty=item_data.get("difficulty", "medium"),
+                        sort_order=item_order,
+                    )
+                )
                 total_items += 1
 
         db.commit()
