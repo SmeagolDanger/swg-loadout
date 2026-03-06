@@ -110,3 +110,4 @@ def health():
 # Serve frontend static files in production
 frontend_path = os.path.join(os.path.dirname(__file__), "static")
 if os.path.exists(frontend_path):
+    app.mount("/", StaticFiles(directory=frontend_path, html=True), name="frontend")
