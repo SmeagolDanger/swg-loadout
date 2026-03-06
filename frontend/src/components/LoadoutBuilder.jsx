@@ -23,10 +23,24 @@ const WEAPON_STATS = ['Drain', 'Mass', 'Min Dmg', 'Max Dmg', 'Vs Shields', 'Vs A
 const ORD_STATS = ['Drain', 'Mass', 'Min Dmg', 'Max Dmg', 'Vs Shields', 'Vs Armor', 'Ammo', 'PvE Mult'];
 const CM_STATS = ['Drain', 'Mass', 'Ammo'];
 
-function StatBlock({ label, value, warn }) {
+/** Power status indicator dot */
+function PowerDot({ status }) {
+  if (!status || status === 'none') return null;
+  const colors = {
+    powered: 'bg-green-500',
+    partial: 'bg-yellow-400',
+    unpowered: 'bg-red-500',
+  };
+  return <span className={`inline-block w-2 h-2 rounded-full ${colors[status] || ''} mr-1.5`} />;
+}
+
+function StatBlock({ label, value, warn, powerStatus }) {
   return (
     <div className="stat-row">
-      <span className="stat-label">{label}</span>
+      <span className="stat-label flex items-center">
+        {powerStatus && <PowerDot status={powerStatus} />}
+        {label}
+      </span>
       <span className={warn ? 'stat-value-bad' : 'stat-value'}>{value || '—'}</span>
     </div>
   );
@@ -102,15 +116,34 @@ export default function LoadoutBuilder() {
       }
     }
 
-    // Add weapon slots
+    // FIX: Add weapon slots with FULL stats for weapon damage calculations
+    // Previously only sent drain and mass; now sends all stats needed for
+    // damage, EPS, refire, vs_shields, vs_armor calculations
     for (let i = 1; i <= 8; i++) {
       const slot = components[`slot${i}`];
       if (slot && slot.name !== 'None') {
-        compData[`slot${i}`] = {
-          comp_type: slot.comp_type || 'weapon',
+        const compType = slot.comp_type || 'weapon';
+        const slotData = {
+          comp_type: compType,
           drain: slot.stats?.[0] || 0,
           mass: slot.stats?.[1] || 0,
         };
+
+        if (compType === 'weapon') {
+          slotData.min_damage = slot.stats?.[2] || 0;
+          slotData.max_damage = slot.stats?.[3] || 0;
+          slotData.vs_shields = slot.stats?.[4] || 0;
+          slotData.vs_armor = slot.stats?.[5] || 0;
+          slotData.energy_per_shot = slot.stats?.[6] || 0;
+          slotData.refire_rate = slot.stats?.[7] || 0;
+        } else if (compType === 'ordnance') {
+          slotData.min_damage = slot.stats?.[2] || 0;
+          slotData.max_damage = slot.stats?.[3] || 0;
+          slotData.vs_shields = slot.stats?.[4] || 0;
+          slotData.vs_armor = slot.stats?.[5] || 0;
+        }
+
+        compData[`slot${i}`] = slotData;
       }
     }
 
@@ -199,9 +232,18 @@ export default function LoadoutBuilder() {
     }
   };
 
+  // Helper to look up power status for a component key
+  const getPowerStatus = (key) => {
+    if (!calcResults?.drain?.component_power) return null;
+    const entry = calcResults.drain.component_power.find(p => p.key === key);
+    return entry?.status || null;
+  };
+
   const mass = calcResults?.mass;
   const drain = calcResults?.drain;
   const prop = calcResults?.propulsion;
+  const weaponStats = calcResults?.weapon_stats;
+  const capCombat = calcResults?.cap_combat;
 
   return (
     <div className="max-w-7xl mx-auto px-3 md:px-6 py-4 md:py-6">
@@ -289,12 +331,13 @@ export default function LoadoutBuilder() {
                     <StatBlock label="Total Drain" value={drain.total_drain} warn={drain.over_limit} />
                     <StatBlock label="Reactor Gen" value={drain.overloaded_gen} />
                     <StatBlock label="Utilization" value={`${drain.utilization}%`} warn={drain.over_limit} />
+                    <StatBlock label="Min Gen Required" value={drain.min_gen_required} />
                   </>
                 )}
               </div>
             </div>
 
-            {/* Core components */}
+            {/* Core components with power status indicators */}
             {COMP_TYPES.map(ct => (
               <CompSelector
                 key={ct.key}
@@ -302,6 +345,7 @@ export default function LoadoutBuilder() {
                 options={getCompOptions(ct)}
                 selected={components[ct.key]}
                 onSelect={comp => selectComp(ct.key, comp)}
+                powerStatus={getPowerStatus(ct.key)}
               />
             ))}
           </div>
@@ -366,9 +410,11 @@ export default function LoadoutBuilder() {
                 {chassisData?.slots.map((header, i) => {
                   if (!header) return null;
                   const options = getSlotOptions(i);
+                  const slotPower = getPowerStatus(`slot${i + 1}`);
                   return (
                     <div key={i}>
-                      <label className="block text-xs font-display text-hull-200 mb-1">
+                      <label className="block text-xs font-display text-hull-200 mb-1 flex items-center">
+                        {slotPower && <PowerDot status={slotPower} />}
                         {header}
                       </label>
                       <select
@@ -423,6 +469,49 @@ export default function LoadoutBuilder() {
               </div>
             )}
 
+            {/* FIX: Weapon Damage section (was completely missing) */}
+            {weaponStats && weaponStats.weapon_damages?.length > 0 && (
+              <div className="card">
+                <div className="card-header"><Crosshair size={16} /> WEAPON DAMAGE</div>
+                <div className="p-3 space-y-1">
+                  <div className="flex justify-between text-xs font-display text-hull-300 mb-1">
+                    <span className="w-1/2">Slot</span>
+                    <span className="w-1/4 text-right">PvE</span>
+                    <span className="w-1/4 text-right">PvP</span>
+                  </div>
+                  {weaponStats.weapon_damages.map((wd, i) => (
+                    <div key={i} className="flex justify-between text-xs">
+                      <span className="w-1/2 text-hull-200 truncate">{wd.slot}:</span>
+                      <span className="w-1/4 text-right font-mono text-hull-100">{wd.pve}</span>
+                      <span className="w-1/4 text-right font-mono text-hull-100">{wd.pvp}</span>
+                    </div>
+                  ))}
+                  <div className="section-divider" />
+                  <div className="flex justify-between text-xs font-display">
+                    <span className="w-1/2 text-hull-200">Pilot Gun Total:</span>
+                    <span className="w-1/4 text-right font-mono text-plasma-400">{weaponStats.pilot_total_pve}</span>
+                    <span className="w-1/4 text-right font-mono text-plasma-400">{weaponStats.pilot_total_pvp}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* FIX: Cap Combat section (was completely missing) */}
+            {capCombat && capCombat.overloaded_ce && (
+              <div className="card">
+                <div className="card-header"><Cpu size={16} /> CAP COMBAT</div>
+                <div className="p-3 space-y-1">
+                  <StatBlock label={capCombat.overloaded_ce !== calcResults?.drain?.overloaded_gen ? "Overloaded CE" : "Cap Energy"} value={capCombat.overloaded_ce} />
+                  <StatBlock label={capCombat.overloaded_rr !== calcResults?.drain?.overloaded_gen ? "Overloaded RR" : "Cap Recharge"} value={capCombat.overloaded_rr} />
+                  <div className="section-divider" />
+                  <StatBlock label="Full Cap Damage" value={capCombat.full_cap_damage} />
+                  <StatBlock label="Fire Time" value={capCombat.fire_time} />
+                  <StatBlock label="Cap Recharge Time" value={capCombat.cap_recharge_time} />
+                  <StatBlock label="Firing Ratio" value={capCombat.firing_ratio || '—'} />
+                </div>
+              </div>
+            )}
+
             {/* Shield Info */}
             {calcResults?.shield && components.shield?.name !== 'None' && components.shield && (
               <div className="card">
@@ -461,7 +550,7 @@ export default function LoadoutBuilder() {
   );
 }
 
-function CompSelector({ compType, options, selected, onSelect }) {
+function CompSelector({ compType, options, selected, onSelect, powerStatus }) {
   const [expanded, setExpanded] = useState(false);
   const Icon = compType.icon;
 
@@ -471,6 +560,7 @@ function CompSelector({ compType, options, selected, onSelect }) {
         onClick={() => setExpanded(!expanded)}
         className="w-full card-header cursor-pointer hover:bg-hull-600/50 transition-colors"
       >
+        {powerStatus && <PowerDot status={powerStatus} />}
         <Icon size={16} />
         <span className="flex-1 text-left">{compType.label.toUpperCase()}</span>
         <span className="text-xs text-hull-200 font-mono normal-case tracking-normal">
