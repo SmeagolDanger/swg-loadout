@@ -52,7 +52,7 @@ export default function Navbar() {
               <Crosshair size={18} className="text-plasma-400" />
             </div>
             <span className="font-display font-bold text-lg tracking-wider text-hull-100 hidden sm:block whitespace-nowrap">
-              SWG:L <span className="text-plasma-400">SPACE TOOLS</span>
+              SWG:L <span className="text-plasma-400">TOOLS</span>
             </span>
             <span className="font-display font-bold text-lg tracking-wider text-plasma-400 sm:hidden whitespace-nowrap">SWG:L</span>
           </Link>
