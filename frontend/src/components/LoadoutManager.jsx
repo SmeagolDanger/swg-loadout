@@ -114,7 +114,7 @@ export default function LoadoutManager() {
                 <p className="text-hull-200 text-sm font-display">
                   Drop <span className="text-plasma-400 font-mono">savedata.db</span> here or click to browse
                 </p>
-                <p className="text-hull-400 text-xs mt-1">
+                <p className="text-hull-200 text-xs mt-1">
                   Found in <span className="font-mono">%APPDATA%\Seraph's Loadout Tool\savedata.db</span>
                 </p>
                 <p className="text-hull-500 text-xs mt-0.5">
@@ -143,9 +143,9 @@ export default function LoadoutManager() {
                   </div>
                   <div className="grid grid-cols-2 gap-x-4 text-hull-200 text-xs">
                     <span>Loadouts imported: <span className="text-hull-100 font-mono">{importResult.loadouts_imported}</span></span>
-                    <span>Loadouts skipped: <span className="text-hull-300 font-mono">{importResult.loadouts_skipped}</span></span>
+                    <span>Loadouts skipped: <span className="text-hull-200 font-mono">{importResult.loadouts_skipped}</span></span>
                     <span>Components imported: <span className="text-hull-100 font-mono">{importResult.components_imported}</span></span>
-                    <span>Components skipped: <span className="text-hull-300 font-mono">{importResult.components_skipped}</span></span>
+                    <span>Components skipped: <span className="text-hull-200 font-mono">{importResult.components_skipped}</span></span>
                   </div>
                   {importResult.errors?.length > 0 && (
                     <div className="mt-1 pt-1 border-t border-hull-500/30 text-xs text-laser-yellow">
@@ -161,11 +161,11 @@ export default function LoadoutManager() {
 
       {/* Loadout list */}
       {loading ? (
-        <div className="text-center py-12 text-hull-400">Loading loadouts...</div>
+        <div className="text-center py-12 text-hull-200">Loading loadouts...</div>
       ) : loadouts.length === 0 ? (
         <div className="text-center py-16">
           <Box size={48} className="text-hull-500 mx-auto mb-4" />
-          <p className="text-hull-400 text-lg">No loadouts saved yet.</p>
+          <p className="text-hull-200 text-lg">No loadouts saved yet.</p>
           <p className="text-hull-500 text-sm mt-1">Use the Loadout Builder to create and save your first build, or import from the desktop app above.</p>
         </div>
       ) : (
@@ -188,14 +188,14 @@ export default function LoadoutManager() {
                       <Globe size={10} className="inline mr-0.5" />PUBLIC
                     </span>
                   ) : (
-                    <span className="text-[10px] bg-hull-600 text-hull-300 border border-hull-500 rounded px-1.5 py-0.5 font-display">
+                    <span className="text-[10px] bg-hull-600 text-hull-200 border border-hull-500 rounded px-1.5 py-0.5 font-display">
                       <Lock size={10} className="inline mr-0.5" />PRIVATE
                     </span>
                   )}
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-x-4 gap-y-0.5 text-xs text-hull-300">
+              <div className="grid grid-cols-3 gap-x-4 gap-y-0.5 text-xs text-hull-200">
                 <span>Reactor: <span className="text-hull-100">{l.reactor !== 'None' ? l.reactor : '—'}</span></span>
                 <span>Engine: <span className="text-hull-100">{l.engine !== 'None' ? l.engine : '—'}</span></span>
                 <span>Shield: <span className="text-hull-100">{l.shield !== 'None' ? l.shield : '—'}</span></span>

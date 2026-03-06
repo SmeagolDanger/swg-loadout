@@ -239,8 +239,8 @@ export default function LoadoutBuilder() {
       {!selectedChassis ? (
         <div className="text-center py-20">
           <Crosshair size={48} className="text-hull-400 mx-auto mb-4" />
-          <h2 className="font-display text-xl text-hull-300 tracking-wider">SELECT A CHASSIS TO BEGIN</h2>
-          <p className="text-hull-400 text-sm mt-2">Choose your ship frame from the dropdown above</p>
+          <h2 className="font-display text-xl text-hull-200 tracking-wider">SELECT A CHASSIS TO BEGIN</h2>
+          <p className="text-hull-200 text-sm mt-2">Choose your ship frame from the dropdown above</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
@@ -319,7 +319,7 @@ export default function LoadoutBuilder() {
                   { key: 'wo', label: 'Weapon OL' },
                 ].map(ol => (
                   <div key={ol.key}>
-                    <label className="block text-xs font-display text-hull-300 mb-1">{ol.label}</label>
+                    <label className="block text-xs font-display text-hull-200 mb-1">{ol.label}</label>
                     <select
                       value={overloads[ol.key]}
                       onChange={e => setOverloads(prev => ({ ...prev, [ol.key]: e.target.value }))}
@@ -331,7 +331,7 @@ export default function LoadoutBuilder() {
                   </div>
                 ))}
                 <div className="col-span-2">
-                  <label className="block text-xs font-display text-hull-300 mb-1">Shield Adjust</label>
+                  <label className="block text-xs font-display text-hull-200 mb-1">Shield Adjust</label>
                   <select
                     value={shieldAdjust}
                     onChange={e => setShieldAdjust(e.target.value)}
@@ -341,7 +341,7 @@ export default function LoadoutBuilder() {
                   </select>
                 </div>
                 {calcResults?.overloads && (
-                  <div className="col-span-2 text-xs text-hull-300 space-y-0.5 mt-1">
+                  <div className="col-span-2 text-xs text-hull-200 space-y-0.5 mt-1">
                     {Object.entries(calcResults.overloads.ro_desc || {}).map(([k, v]) => (
                       <div key={k} className="flex justify-between"><span>RO {k}:</span><span className="text-plasma-400 font-mono">{v}</span></div>
                     ))}
@@ -368,7 +368,7 @@ export default function LoadoutBuilder() {
                   const options = getSlotOptions(i);
                   return (
                     <div key={i}>
-                      <label className="block text-xs font-display text-hull-300 mb-1">
+                      <label className="block text-xs font-display text-hull-200 mb-1">
                         {header}
                       </label>
                       <select
@@ -382,7 +382,7 @@ export default function LoadoutBuilder() {
                         {options.map(o => <option key={o.name} value={o.name}>{o.name}</option>)}
                       </select>
                       {components[`slot${i + 1}`] && components[`slot${i + 1}`].name !== 'None' && (
-                        <div className="mt-1 pl-2 border-l-2 border-hull-500/30 text-xs text-hull-300">
+                        <div className="mt-1 pl-2 border-l-2 border-hull-500/30 text-xs text-hull-200">
                           {(components[`slot${i + 1}`].comp_type === 'weapon' ? WEAPON_STATS :
                             components[`slot${i + 1}`].comp_type === 'ordnance' ? ORD_STATS : CM_STATS
                           ).map((s, j) => {
@@ -452,7 +452,7 @@ export default function LoadoutBuilder() {
       {/* Sign in prompt */}
       {!user && selectedChassis && (
         <div className="mt-6 card p-4 text-center">
-          <p className="text-hull-300 text-sm">
+          <p className="text-hull-200 text-sm">
             <a href="/auth" className="text-plasma-400 hover:underline">Sign in</a> to save loadouts, manage components, and share builds with the community.
           </p>
         </div>
@@ -473,7 +473,7 @@ function CompSelector({ compType, options, selected, onSelect }) {
       >
         <Icon size={16} />
         <span className="flex-1 text-left">{compType.label.toUpperCase()}</span>
-        <span className="text-xs text-hull-300 font-mono normal-case tracking-normal">
+        <span className="text-xs text-hull-200 font-mono normal-case tracking-normal">
           {selected?.name && selected.name !== 'None' ? selected.name : '—'}
         </span>
         <ChevronDown size={14} className={`text-hull-400 transition-transform ${expanded ? 'rotate-180' : ''}`} />

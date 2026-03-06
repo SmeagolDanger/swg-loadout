@@ -41,7 +41,7 @@ export default function AuthPage() {
             <h1 className="font-display font-bold text-2xl text-hull-100 tracking-wider">
               {mode === 'login' ? 'WELCOME BACK' : 'CREATE ACCOUNT'}
             </h1>
-            <p className="text-hull-300 text-sm mt-1">
+            <p className="text-hull-200 text-sm mt-1">
               {mode === 'login' ? 'Sign in to access your loadouts' : 'Join the fleet and start building'}
             </p>
           </div>
@@ -51,14 +51,14 @@ export default function AuthPage() {
             <button
               onClick={() => { setMode('login'); setError(''); }}
               className={`flex-1 py-2 text-sm font-display font-semibold tracking-wider border-b-2 transition-all
-                ${mode === 'login' ? 'border-plasma-500 text-plasma-400' : 'border-transparent text-hull-300 hover:text-hull-200'}`}
+                ${mode === 'login' ? 'border-plasma-500 text-plasma-400' : 'border-transparent text-hull-200 hover:text-hull-100'}`}
             >
               <LogIn size={14} className="inline mr-1.5" />SIGN IN
             </button>
             <button
               onClick={() => { setMode('register'); setError(''); }}
               className={`flex-1 py-2 text-sm font-display font-semibold tracking-wider border-b-2 transition-all
-                ${mode === 'register' ? 'border-plasma-500 text-plasma-400' : 'border-transparent text-hull-300 hover:text-hull-200'}`}
+                ${mode === 'register' ? 'border-plasma-500 text-plasma-400' : 'border-transparent text-hull-200 hover:text-hull-100'}`}
             >
               <UserPlus size={14} className="inline mr-1.5" />REGISTER
             </button>
@@ -67,7 +67,7 @@ export default function AuthPage() {
           {/* Form */}
           <form onSubmit={handleSubmit} className="px-8 py-6 space-y-4">
             <div>
-              <label className="block text-xs font-display font-semibold text-hull-300 tracking-wider mb-1.5">USERNAME</label>
+              <label className="block text-xs font-display font-semibold text-hull-200 tracking-wider mb-1.5">USERNAME</label>
               <input
                 type="text" required
                 value={form.username}
@@ -80,7 +80,7 @@ export default function AuthPage() {
             {mode === 'register' && (
               <>
                 <div>
-                  <label className="block text-xs font-display font-semibold text-hull-300 tracking-wider mb-1.5">EMAIL</label>
+                  <label className="block text-xs font-display font-semibold text-hull-200 tracking-wider mb-1.5">EMAIL</label>
                   <input
                     type="email" required
                     value={form.email}
@@ -90,7 +90,7 @@ export default function AuthPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-display font-semibold text-hull-300 tracking-wider mb-1.5">DISPLAY NAME</label>
+                  <label className="block text-xs font-display font-semibold text-hull-200 tracking-wider mb-1.5">DISPLAY NAME</label>
                   <input
                     type="text"
                     value={form.display_name}
@@ -103,7 +103,7 @@ export default function AuthPage() {
             )}
 
             <div>
-              <label className="block text-xs font-display font-semibold text-hull-300 tracking-wider mb-1.5">PASSWORD</label>
+              <label className="block text-xs font-display font-semibold text-hull-200 tracking-wider mb-1.5">PASSWORD</label>
               <input
                 type="password" required
                 value={form.password}

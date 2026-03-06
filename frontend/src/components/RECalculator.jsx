@@ -134,7 +134,7 @@ export default function RECalculator() {
         <div className="p-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div>
-              <label className="block text-xs font-display text-hull-300 tracking-wider mb-1">COMPONENT TYPE</label>
+              <label className="block text-xs font-display text-hull-200 tracking-wider mb-1">COMPONENT TYPE</label>
               <select value={compType} onChange={e => { setCompType(e.target.value); setLevel(''); }}
                 className="w-full">
                 <option value="">Select...</option>
@@ -144,7 +144,7 @@ export default function RECalculator() {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-display text-hull-300 tracking-wider mb-1">RE LEVEL</label>
+              <label className="block text-xs font-display text-hull-200 tracking-wider mb-1">RE LEVEL</label>
               <select value={level} onChange={e => setLevel(e.target.value)}
                 className="w-full" disabled={!compType}>
                 <option value="">Select...</option>
@@ -155,16 +155,16 @@ export default function RECalculator() {
             </div>
             {user && (
               <div>
-                <label className="block text-xs font-display text-hull-300 tracking-wider mb-1">PROJECT</label>
+                <label className="block text-xs font-display text-hull-200 tracking-wider mb-1">PROJECT</label>
                 <div className="flex gap-1">
                   <input value={projectName} onChange={e => setProjectName(e.target.value)}
                     placeholder="Project name..." className="flex-1 text-sm" />
                   <button onClick={handleSave} disabled={!projectName || !compType}
-                    className="p-2 rounded hover:bg-hull-600 text-hull-300 hover:text-plasma-400" title="Save">
+                    className="p-2 rounded hover:bg-hull-600 text-hull-200 hover:text-plasma-400" title="Save">
                     <Save size={16} />
                   </button>
                   <button onClick={() => setShowProjects(!showProjects)}
-                    className="p-2 rounded hover:bg-hull-600 text-hull-300 hover:text-plasma-400" title="Load">
+                    className="p-2 rounded hover:bg-hull-600 text-hull-200 hover:text-plasma-400" title="Load">
                     <FolderOpen size={16} />
                   </button>
                 </div>
@@ -202,7 +202,7 @@ export default function RECalculator() {
       {!compType || !level ? (
         <div className="text-center py-16">
           <FlaskConical size={48} className="text-hull-500 mx-auto mb-4" />
-          <p className="text-hull-400">Select a component type and RE level to begin analysis</p>
+          <p className="text-hull-200">Select a component type and RE level to begin analysis</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
@@ -214,7 +214,7 @@ export default function RECalculator() {
               </div>
               <div className="p-3">
                 <div className="space-y-1">
-                  <div className="grid grid-cols-12 gap-1 text-[10px] font-display text-hull-400 tracking-wider px-1 mb-1">
+                  <div className="grid grid-cols-12 gap-1 text-[10px] font-display text-hull-300 tracking-wider px-1 mb-1">
                     <span className="col-span-3">STAT</span>
                     <span className="col-span-2 text-center">INPUT</span>
                     <span className="col-span-2 text-center">{direction === 1 ? 'POST-RE' : 'RAW'}</span>
@@ -269,19 +269,19 @@ export default function RECalculator() {
                 <div className="p-3">
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     <div>
-                      <span className="text-[10px] font-display text-hull-400 tracking-wider">TARGET RARITY</span>
+                      <span className="text-[10px] font-display text-hull-300 tracking-wider">TARGET RARITY</span>
                       <p className="text-lg font-mono text-hull-100 font-bold">
                         {result.target_rarity_display || '—'}
                       </p>
                     </div>
                     <div>
-                      <span className="text-[10px] font-display text-hull-400 tracking-wider">UNICORN THRESHOLD</span>
+                      <span className="text-[10px] font-display text-hull-300 tracking-wider">UNICORN THRESHOLD</span>
                       <p className="text-lg font-mono text-laser-yellow">
                         ⋆{result.unicorn_threshold || '—'}⋆
                       </p>
                     </div>
                     <div>
-                      <span className="text-[10px] font-display text-hull-400 tracking-wider">RE BONUS</span>
+                      <span className="text-[10px] font-display text-hull-300 tracking-wider">RE BONUS</span>
                       <p className="text-lg font-mono text-plasma-400">
                         {[2,3,3,4,4,5,5,6,7,7][parseInt(level)-1]}%
                       </p>
@@ -296,7 +296,7 @@ export default function RECalculator() {
               <div className="card-header"><BarChart3 size={16} /> STAT MATCHING</div>
               <div className="p-3">
                 <div className="mb-3">
-                  <label className="block text-xs font-display text-hull-300 tracking-wider mb-1">MATCHING TARGET</label>
+                  <label className="block text-xs font-display text-hull-200 tracking-wider mb-1">MATCHING TARGET</label>
                   <select value={matchTarget} onChange={e => setMatchTarget(e.target.value)}
                     className="w-full sm:w-64 text-sm" disabled={!hasInput}>
                     {matchTargetOptions.map(o => <option key={o} value={o}>{o}</option>)}
@@ -305,7 +305,7 @@ export default function RECalculator() {
 
                 {result?.stats && hasInput && (
                   <div className="space-y-0.5">
-                    <div className="grid grid-cols-3 gap-2 text-[10px] font-display text-hull-400 tracking-wider px-1 mb-1">
+                    <div className="grid grid-cols-3 gap-2 text-[10px] font-display text-hull-300 tracking-wider px-1 mb-1">
                       <span>STAT</span>
                       <span className="text-center">MATCH RAW</span>
                       <span className="text-center">MATCH POST-RE</span>
@@ -354,7 +354,7 @@ export default function RECalculator() {
                 <div className="p-3 overflow-x-auto">
                   <table className="w-full text-xs">
                     <thead>
-                      <tr className="text-hull-400 font-display tracking-wider">
+                      <tr className="text-hull-300 font-display tracking-wider">
                         <th className="text-left py-1 px-1 sticky left-0 bg-hull-700">Brand</th>
                         {brandTable.table.map((col, i) => (
                           <th key={i} className="text-center py-1 px-2 whitespace-nowrap">{col.stat}</th>
@@ -371,7 +371,7 @@ export default function RECalculator() {
                             const brand = col.brands[j];
                             const rarity = brand?.rarity || '-';
                             return (
-                              <td key={i} className="py-1 px-2 text-center font-mono text-hull-300">
+                              <td key={i} className="py-1 px-2 text-center font-mono text-hull-200">
                                 {rarity}
                               </td>
                             );
@@ -388,7 +388,7 @@ export default function RECalculator() {
       )}
 
       {loading && (
-        <div className="fixed bottom-4 right-4 bg-hull-700 border border-hull-500 rounded-lg px-3 py-2 text-xs text-hull-300 flex items-center gap-2 shadow-lg">
+        <div className="fixed bottom-4 right-4 bg-hull-700 border border-hull-500 rounded-lg px-3 py-2 text-xs text-hull-200 flex items-center gap-2 shadow-lg">
           <div className="w-3 h-3 border border-plasma-500 border-t-transparent rounded-full animate-spin" />
           Calculating...
         </div>

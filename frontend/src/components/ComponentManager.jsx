@@ -122,7 +122,7 @@ export default function ComponentManager() {
           <div className="p-4 space-y-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-display text-hull-300 mb-1">TYPE</label>
+                <label className="block text-xs font-display text-hull-200 mb-1">TYPE</label>
                 <select value={form.comp_type}
                   onChange={e => setForm({ ...form, comp_type: e.target.value, stats: Array(8).fill(0) })}
                   className="w-full text-sm" disabled={editing !== 'new'}>
@@ -130,14 +130,14 @@ export default function ComponentManager() {
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-display text-hull-300 mb-1">NAME</label>
+                <label className="block text-xs font-display text-hull-200 mb-1">NAME</label>
                 <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="w-full text-sm" />
               </div>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {currentType?.stats.map((stat, i) => (
                 <div key={i}>
-                  <label className="block text-[10px] font-display text-hull-400 mb-0.5">{stat}</label>
+                  <label className="block text-[10px] font-display text-hull-300 mb-0.5">{stat}</label>
                   <input type="number" step="0.1"
                     value={form.stats[i]}
                     onChange={e => {
@@ -159,11 +159,11 @@ export default function ComponentManager() {
 
       {/* Component list */}
       {loading ? (
-        <div className="text-center py-12 text-hull-400">Loading components...</div>
+        <div className="text-center py-12 text-hull-200">Loading components...</div>
       ) : components.length === 0 ? (
         <div className="text-center py-12">
           <Wrench size={40} className="text-hull-500 mx-auto mb-3" />
-          <p className="text-hull-400">No components yet. Add your first component to get started.</p>
+          <p className="text-hull-200">No components yet. Add your first component to get started.</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -173,19 +173,19 @@ export default function ComponentManager() {
               <div key={comp.id} className="card px-4 py-3 flex items-center gap-3 hover:border-hull-400/50 transition-colors">
                 <div className="flex-1 min-w-0">
                   <div className="font-display font-semibold text-hull-100 truncate">{comp.name}</div>
-                  <div className="text-xs text-hull-300 font-display tracking-wider">{typeInfo?.label || comp.comp_type}</div>
+                  <div className="text-xs text-hull-200 font-display tracking-wider">{typeInfo?.label || comp.comp_type}</div>
                 </div>
-                <div className="hidden sm:flex gap-3 text-xs text-hull-300 font-mono flex-wrap">
+                <div className="hidden sm:flex gap-3 text-xs text-hull-200 font-mono flex-wrap">
                   {typeInfo?.stats.map((stat, i) => {
                     const val = comp[`stat${i + 1}`];
                     return val ? <span key={i}>{stat}: <span className="text-hull-100">{val}</span></span> : null;
                   })}
                 </div>
                 <div className="flex gap-1">
-                  <button onClick={() => startEdit(comp)} className="p-1.5 rounded hover:bg-hull-600 text-hull-300 hover:text-plasma-400">
+                  <button onClick={() => startEdit(comp)} className="p-1.5 rounded hover:bg-hull-600 text-hull-200 hover:text-plasma-400">
                     <Edit3 size={14} />
                   </button>
-                  <button onClick={() => handleDelete(comp.id)} className="p-1.5 rounded hover:bg-hull-600 text-hull-300 hover:text-laser-red">
+                  <button onClick={() => handleDelete(comp.id)} className="p-1.5 rounded hover:bg-hull-600 text-hull-200 hover:text-laser-red">
                     <Trash2 size={14} />
                   </button>
                 </div>

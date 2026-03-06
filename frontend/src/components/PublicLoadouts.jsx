@@ -35,11 +35,11 @@ export default function PublicLoadouts() {
       </h1>
 
       {loading ? (
-        <div className="text-center py-12 text-hull-400">Loading community loadouts...</div>
+        <div className="text-center py-12 text-hull-200">Loading community loadouts...</div>
       ) : loadouts.length === 0 ? (
         <div className="text-center py-16">
           <Users size={48} className="text-hull-500 mx-auto mb-4" />
-          <p className="text-hull-400 text-lg">No public loadouts shared yet.</p>
+          <p className="text-hull-200 text-lg">No public loadouts shared yet.</p>
           <p className="text-hull-500 text-sm mt-1">Be the first to share a build with the community!</p>
         </div>
       ) : (
@@ -52,12 +52,12 @@ export default function PublicLoadouts() {
                     <h3 className="font-display font-bold text-hull-100 text-lg">{l.name}</h3>
                     <p className="text-sm text-plasma-400 font-display">{l.chassis}</p>
                   </div>
-                  <div className="text-xs text-hull-300 font-display flex items-center gap-1">
+                  <div className="text-xs text-hull-200 font-display flex items-center gap-1">
                     <User size={12} /> {l.owner_name}
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-x-4 gap-y-0.5 text-xs text-hull-300 mb-3">
+                <div className="grid grid-cols-3 gap-x-4 gap-y-0.5 text-xs text-hull-200 mb-3">
                   {SLOT_LABELS.map((label, i) => {
                     const val = l[SLOT_KEYS[i]];
                     if (!val || val === 'None') return null;
@@ -84,16 +84,16 @@ export default function PublicLoadouts() {
               {expanded === l.id && (
                 <div className="px-4 pb-4 border-t border-hull-500/30 pt-3 animate-slide-up">
                   <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs">
-                    <span className="text-hull-300">Mass: <span className="text-hull-100 font-mono">{l.mass}</span></span>
+                    <span className="text-hull-200">Mass: <span className="text-hull-100 font-mono">{l.mass}</span></span>
                     {[1,2,3,4,5,6,7,8].map(i => {
                       const val = l[`slot${i}`];
                       if (!val || val === 'None') return null;
-                      return <span key={i} className="text-hull-300">Slot {i}: <span className="text-hull-100">{val}</span></span>;
+                      return <span key={i} className="text-hull-200">Slot {i}: <span className="text-hull-100">{val}</span></span>;
                     })}
-                    {l.ro_level !== 'None' && <span className="text-hull-300">Reactor OL: <span className="text-laser-yellow font-mono">{l.ro_level}</span></span>}
-                    {l.eo_level !== 'None' && <span className="text-hull-300">Engine OL: <span className="text-laser-yellow font-mono">{l.eo_level}</span></span>}
-                    {l.co_level !== 'None' && <span className="text-hull-300">Cap OC: <span className="text-laser-yellow font-mono">{l.co_level}</span></span>}
-                    {l.wo_level !== 'None' && <span className="text-hull-300">Weapon OL: <span className="text-laser-yellow font-mono">{l.wo_level}</span></span>}
+                    {l.ro_level !== 'None' && <span className="text-hull-200">Reactor OL: <span className="text-laser-yellow font-mono">{l.ro_level}</span></span>}
+                    {l.eo_level !== 'None' && <span className="text-hull-200">Engine OL: <span className="text-laser-yellow font-mono">{l.eo_level}</span></span>}
+                    {l.co_level !== 'None' && <span className="text-hull-200">Cap OC: <span className="text-laser-yellow font-mono">{l.co_level}</span></span>}
+                    {l.wo_level !== 'None' && <span className="text-hull-200">Weapon OL: <span className="text-laser-yellow font-mono">{l.wo_level}</span></span>}
                   </div>
                 </div>
               )}

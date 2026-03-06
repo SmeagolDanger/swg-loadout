@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Menu, X, Crosshair, Box, Search, Users, LogOut, User, Wrench, FlaskConical } from 'lucide-react';
+import { Menu, X, Crosshair, Box, Search, Users, LogOut, User, Wrench, FlaskConical, Cpu } from 'lucide-react';
 
 const NAV_ITEMS = [
-  { to: '/', label: 'Loadout Builder', icon: Crosshair },
-  { to: '/loadouts', label: 'My Loadouts', icon: Box, auth: true },
+  { to: '/', label: 'Builder', icon: Crosshair },
+  { to: '/loadouts', label: 'Loadouts', icon: Box, auth: true },
   { to: '/components', label: 'Components', icon: Wrench, auth: true },
-  { to: '/re', label: 'RE Calculator', icon: FlaskConical },
-  { to: '/loot', label: 'Loot Lookup', icon: Search },
+  { to: '/re', label: 'RE Calc', icon: FlaskConical },
+  { to: '/fc', label: 'FC Calc', icon: Cpu },
+  { to: '/loot', label: 'Loot', icon: Search },
   { to: '/community', label: 'Community', icon: Users },
 ];
 
@@ -88,7 +89,7 @@ export default function Navbar() {
             <div className="section-divider" />
             {user ? (
               <>
-                <div className="px-4 py-2 text-hull-300 font-display">
+                <div className="px-4 py-2 text-hull-200 font-display">
                   Signed in as <span className="text-hull-100">{user.display_name || user.username}</span>
                 </div>
                 <button onClick={() => { logout(); setMobileOpen(false); }}

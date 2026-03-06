@@ -156,3 +156,21 @@ def calculate_loadout(req: CalcRequest):
 @router.get("/loot-lookup")
 def do_loot_lookup(query: str = Query(...), search_type: str = Query("component")):
     return loot_lookup(query, search_type)
+
+
+@router.get("/best-sources")
+def get_best_sources(
+    component: str = Query(...),
+    level: int = Query(...),
+    stat: str = Query(""),
+    value: float = Query(0),
+):
+    """Calculate best NPC sources for a component, optionally filtered by stat rarity."""
+    from loot_engine import best_sources
+
+    return best_sources(
+        component=component,
+        level=level,
+        stat=stat if stat else None,
+        value=value if value else None,
+    )
