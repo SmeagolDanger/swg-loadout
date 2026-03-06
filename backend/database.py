@@ -29,6 +29,7 @@ class Base(DeclarativeBase):
 # User
 # ══════════════════════════════════════════════════════════════════════
 
+
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
@@ -51,6 +52,7 @@ class User(Base):
 # ══════════════════════════════════════════════════════════════════════
 # Loadout Tool Models
 # ══════════════════════════════════════════════════════════════════════
+
 
 class Loadout(Base):
     __tablename__ = "loadouts"
@@ -149,6 +151,7 @@ class REProject(Base):
 # Collections Models
 # ══════════════════════════════════════════════════════════════════════
 
+
 class Character(Base):
     __tablename__ = "characters"
     id = Column(Integer, primary_key=True, index=True)
@@ -164,7 +167,9 @@ class Character(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     owner = relationship("User", back_populates="characters")
-    completed_collections = relationship("CharacterCollection", back_populates="character", cascade="all, delete-orphan")
+    completed_collections = relationship(
+        "CharacterCollection", back_populates="character", cascade="all, delete-orphan"
+    )
 
 
 class CollectionGroup(Base):
@@ -205,6 +210,7 @@ class CharacterCollection(Base):
 # ══════════════════════════════════════════════════════════════════════
 # DB helpers
 # ══════════════════════════════════════════════════════════════════════
+
 
 def get_db():
     db = SessionLocal()
