@@ -1,0 +1,80 @@
+# ============================================================
+# Seraph's Loadout Tool — Production Dockerfile
+# Single-image deployment: Nginx → Gunicorn/Uvicorn + static
+# ============================================================
+
+# ── Stage 1: Build frontend ─────────────────────────────────
+FROM node:20-alpine AS frontend-build
+
+WORKDIR /build
+
+COPY frontend/package.json frontend/package-lock.json* ./
+RUN npm ci --production=false
+
+COPY frontend/ .
+RUN npm run build
+
+
+# ── Stage 2: Build Python dependencies ──────────────────────
+FROM python:3.12-slim AS python-deps
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY backend/requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir --prefix=/install \
+    -r /tmp/requirements.txt \
+    gunicorn
+
+
+# ── Stage 3: Production image ───────────────────────────────
+FROM python:3.12-slim AS production
+
+# Security: run as non-root
+RUN groupadd -r slt && useradd -r -g slt -d /app -s /sbin/nologin slt
+
+# Runtime dependencies only
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    nginx supervisor curl libpq5 \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# Python packages from builder
+COPY --from=python-deps /install /usr/local
+
+# Application code
+WORKDIR /app
+COPY backend/ .
+
+# Frontend static files → served directly by nginx
+COPY --from=frontend-build /build/dist /app/static
+
+# Game data (read-only SQLite)
+COPY backend/data/ /app/data/
+
+# Nginx configuration
+COPY nginx/nginx.prod.conf /etc/nginx/nginx.conf
+RUN rm -f /etc/nginx/sites-enabled/default
+
+# Supervisor configuration (manages nginx + gunicorn)
+COPY scripts/supervisord.conf /etc/supervisor/conf.d/slt.conf
+
+# Gunicorn configuration
+COPY scripts/gunicorn.conf.py /app/gunicorn.conf.py
+
+# Create required directories and set permissions
+RUN mkdir -p /var/log/slt /var/run/slt /var/lib/nginx/body \
+             /var/log/nginx /run/nginx \
+    && chown -R slt:slt /app /var/log/slt /var/run/slt \
+    && chown -R slt:slt /var/lib/nginx /var/log/nginx /run/nginx \
+    && chmod 755 /var/log/slt /var/run/slt
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -sf http://localhost:8000/api/health || exit 1
+
+EXPOSE 80 443
+
+# Supervisor runs nginx + gunicorn
+CMD ["supervisord", "-n", "-c", "/etc/supervisor/conf.d/slt.conf"]
