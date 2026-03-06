@@ -82,6 +82,22 @@
     @apply font-mono text-xs font-bold py-1 px-2 rounded text-center;
   }
 
+
+
+  .section-pill {
+    @apply inline-flex items-center gap-2 rounded-full border border-hull-500/50 bg-hull-800/80 px-4 py-2
+           text-hull-200 font-display font-semibold tracking-wide text-xs uppercase
+           hover:bg-hull-700 hover:text-hull-50 transition-all duration-200;
+  }
+
+  .section-pill-active {
+    @apply border-plasma-500/50 bg-plasma-500/15 text-plasma-400 shadow-glow;
+  }
+
+  .section-pill-collections {
+    @apply border-laser-yellow/40 bg-laser-yellow/10 text-laser-yellow shadow-none;
+  }
+
   .nav-link {
     @apply px-3 py-2 rounded-lg text-hull-100 hover:text-plasma-400 hover:bg-hull-700
            font-display font-medium tracking-wide transition-all duration-200;
