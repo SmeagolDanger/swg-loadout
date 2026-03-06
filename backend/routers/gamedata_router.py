@@ -185,7 +185,7 @@ def calculate_loadout(req: CalcRequest):
         "drain": drain,
         "shield": shield_info,
         "weapon_stats": clean_weapon_stats,  # FIX: now included
-        "cap_combat": cap_combat,             # FIX: now included
+        "cap_combat": cap_combat,  # FIX: now included
     }
 
 

@@ -106,8 +106,8 @@ def calc_weapon_stats(
     overloads = get_overload_data()
 
     co_gen_eff = 1.0  # FIX: was computed but never stored
-    wo_eff = 1.0      # raw energy_efficiency (for dividing EPS)
-    wo_gen_eff = 1.0   # gen_efficiency (for multiplying damage)
+    wo_eff = 1.0  # raw energy_efficiency (for dividing EPS)
+    wo_gen_eff = 1.0  # gen_efficiency (for multiplying damage)
 
     if co_level is not None and co_level != "None" and co_level > 0:
         idx = co_level + 7
@@ -497,7 +497,9 @@ def calc_drain_summary(components: dict[str, Any], ro_level, eo_level, co_level,
 
     for i, key in enumerate(powered_keys):
         comp = components.get(key, {})
-        has_component = comp and (comp.get("name", "None") != "None" if "name" in comp else comp.get("drain", 0) != 0 or comp.get("comp_type"))
+        has_component = comp and (
+            comp.get("name", "None") != "None" if "name" in comp else comp.get("drain", 0) != 0 or comp.get("comp_type")
+        )
 
         current_drain = drains[i]
 
@@ -512,7 +514,12 @@ def calc_drain_summary(components: dict[str, Any], ro_level, eo_level, co_level,
                     if key.startswith("slot"):
                         slot_idx = int(key[4:])
                         ct = comp.get("comp_type", "")
-                        if ct == "countermeasure" and slot_idx == cm_index and cm_index != 0 and reactor_remaining >= 0.1 * current_drain:
+                        if (
+                            ct == "countermeasure"
+                            and slot_idx == cm_index
+                            and cm_index != 0
+                            and reactor_remaining >= 0.1 * current_drain
+                        ):
                             status = "powered"
                         else:
                             status = "partial"
