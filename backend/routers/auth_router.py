@@ -21,6 +21,7 @@ class UserResponse(BaseModel):
     username: str
     email: str
     display_name: str
+    is_admin: bool = False
 
     model_config = ConfigDict(from_attributes=True)
 

@@ -13,7 +13,6 @@ async function request(path, options = {}) {
   if (res.status === 401) {
     localStorage.removeItem('slt_token');
     localStorage.removeItem('slt_user');
-    // Don't redirect, let caller handle it
   }
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: 'Request failed' }));
@@ -85,7 +84,6 @@ export const api = {
   deleteREProject: (id) => request(`/re/projects/${id}`, { method: 'DELETE' }),
 
   // FC Calculator
-  getFCPrograms: () => request('/fc/programs'),
   getFCLevels: () => request('/fc/levels'),
   calcCooldowns: (data) => request('/fc/cooldowns', { method: 'POST', body: JSON.stringify(data) }),
   generateMacro: (data) => request('/fc/macro', { method: 'POST', body: JSON.stringify(data) }),
@@ -99,5 +97,44 @@ export const api = {
     if (stat) url += `&stat=${encodeURIComponent(stat)}`;
     if (value) url += `&value=${value}`;
     return request(url);
+  },
+
+  // ─── COLLECTIONS (NEW) ──────────────────────────────────────────────
+
+  // Collections data
+  getCollections: () => request('/collections'),
+  getCollectionGroup: (id) => request(`/collections/${id}`),
+
+  // Characters
+  getCharacters: (params = {}) => {
+    const qs = new URLSearchParams();
+    if (params.search) qs.set('search', params.search);
+    if (params.user_id) qs.set('user_id', params.user_id);
+    if (params.page) qs.set('page', params.page);
+    if (params.limit) qs.set('limit', params.limit);
+    return request(`/characters?${qs.toString()}`);
+  },
+  getCharacter: (id) => request(`/characters/${id}`),
+  createCharacter: (data) => request('/characters', { method: 'POST', body: JSON.stringify(data) }),
+  updateCharacter: (id, data) => request(`/characters/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteCharacter: (id) => request(`/characters/${id}`, { method: 'DELETE' }),
+
+  // Collection tracking
+  collectItem: (charId, itemId, notes = '') =>
+    request(`/characters/${charId}/collections`, { method: 'POST', body: JSON.stringify({ item_id: itemId, notes }) }),
+  bulkCollect: (charId, itemIds) =>
+    request(`/characters/${charId}/collections/bulk`, { method: 'POST', body: JSON.stringify({ item_ids: itemIds }) }),
+  uncollectItem: (charId, itemId) =>
+    request(`/characters/${charId}/collections/${itemId}`, { method: 'DELETE' }),
+
+  // Stats & leaderboard
+  getGlobalStats: () => request('/stats'),
+  getCharacterStats: (charId) => request(`/characters/${charId}/stats`),
+  getLeaderboard: (params = {}) => {
+    const qs = new URLSearchParams();
+    if (params.limit) qs.set('limit', params.limit);
+    if (params.offset) qs.set('offset', params.offset);
+    if (params.category) qs.set('category', params.category);
+    return request(`/leaderboard?${qs.toString()}`);
   },
 };

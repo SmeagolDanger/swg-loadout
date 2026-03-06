@@ -10,6 +10,8 @@ import RECalculator from './components/RECalculator';
 import FCCalculator from './components/FCCalculator';
 import AuthPage from './components/AuthPage';
 import PublicLoadouts from './components/PublicLoadouts';
+// ── Collections (NEW) ──────────────────────────────────────────────
+import { CollectionsPage, CharacterDirectory, CollectionLeaderboard } from './components/collections';
 
 export default function App() {
   const { user, loading } = useAuth();
@@ -30,6 +32,7 @@ export default function App() {
       <Navbar />
       <main className="pt-16">
         <Routes>
+          {/* ── Loadout Tool ────────────────────────────────── */}
           <Route path="/" element={<LoadoutBuilder />} />
           <Route path="/auth" element={user ? <Navigate to="/" /> : <AuthPage />} />
           <Route path="/loadouts" element={user ? <LoadoutManager /> : <Navigate to="/auth" />} />
@@ -38,6 +41,12 @@ export default function App() {
           <Route path="/re" element={<RECalculator />} />
           <Route path="/fc" element={<FCCalculator />} />
           <Route path="/community" element={<PublicLoadouts />} />
+
+          {/* ── Collections (NEW) ───────────────────────────── */}
+          <Route path="/collections" element={<CollectionsPage />} />
+          <Route path="/characters" element={<CharacterDirectory />} />
+          <Route path="/leaderboard" element={<CollectionLeaderboard />} />
+
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </main>
