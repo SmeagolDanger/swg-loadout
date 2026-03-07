@@ -104,6 +104,11 @@ export const api = {
   // Collections data
   getCollections: () => request('/collections'),
   getCollectionGroup: (id) => request(`/collections/${id}`),
+  createCollectionGroup: (data) => request('/admin/collections/groups', { method: 'POST', body: JSON.stringify(data) }),
+  updateCollectionGroup: (id, data) => request(`/admin/collections/groups/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  createCollectionItem: (data) => request('/admin/collections/items', { method: 'POST', body: JSON.stringify(data) }),
+  updateCollectionItem: (id, data) => request(`/admin/collections/items/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteCollectionItem: (id) => request(`/admin/collections/items/${id}`, { method: 'DELETE' }),
 
   // Characters
   getCharacters: (params = {}) => {
