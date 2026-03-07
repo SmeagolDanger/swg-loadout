@@ -70,7 +70,7 @@ services:
       resources:
         limits:
           memory: 1G
-          cpus: '2'
+          cpus: '1'
 
 volumes:
   postgres_staging_data:
