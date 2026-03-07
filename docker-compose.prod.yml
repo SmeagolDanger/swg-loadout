@@ -57,7 +57,7 @@ services:
       # Persistent logs
       - app_logs:/var/log/slt
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:8000/api/health"]
+      test: ["CMD", "curl", "-sf", "http://localhost:80/api/health"]
       interval: 30s
       timeout: 5s
       retries: 3
