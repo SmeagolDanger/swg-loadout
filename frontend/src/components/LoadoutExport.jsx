@@ -340,6 +340,15 @@ export default function LoadoutExport({
     });
   }, [loadoutName, chassis, components, calcResults, chassisData, overloads]);
 
+  const handleDownload = useCallback(async () => {
+    const canvas = await getCanvas();
+    const link = document.createElement('a');
+    const safeName = (loadoutName || 'loadout').replace(/[^a-zA-Z0-9_-]/g, '_');
+    link.download = `${safeName}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  }, [getCanvas, loadoutName]);
+
   const handleCopy = useCallback(async () => {
     try {
       const canvas = await getCanvas();
@@ -355,15 +364,6 @@ export default function LoadoutExport({
       handleDownload();
     }
   }, [getCanvas, handleDownload]);
-
-  const handleDownload = useCallback(async () => {
-    const canvas = await getCanvas();
-    const link = document.createElement('a');
-    const safeName = (loadoutName || 'loadout').replace(/[^a-zA-Z0-9_-]/g, '_');
-    link.download = `${safeName}.png`;
-    link.href = canvas.toDataURL('image/png');
-    link.click();
-  }, [getCanvas, loadoutName]);
 
   const handlePreview = useCallback(() => {
     setShowPreview(prev => !prev);
