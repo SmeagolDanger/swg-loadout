@@ -57,6 +57,7 @@ export default function LoadoutBuilder() {
   const [chassisData, setChassisData] = useState(null);
   const [components, setComponents] = useState({});
   const [userComps, setUserComps] = useState([]);
+  const [complib, setComplib] = useState([]);
   const [overloads, setOverloads] = useState({ ro: 'None', eo: 'None', co: 'None', wo: 'None' });
   const [shieldAdjust, setShieldAdjust] = useState('None');
   const [shieldAdjustOptions, setShieldAdjustOptions] = useState([]);
@@ -72,6 +73,7 @@ export default function LoadoutBuilder() {
   useEffect(() => {
     api.getChassisList().then(setChassisList).catch(console.error);
     api.getShieldAdjustOptions().then(setShieldAdjustOptions).catch(console.error);
+    api.getComplib().then(setComplib).catch(console.error);
     if (user) {
       api.getComponents().then(setUserComps).catch(console.error);
     }
@@ -85,10 +87,11 @@ export default function LoadoutBuilder() {
       const loadout = await api.getLoadout(id);
       const userComponents = comps || userComps;
 
-      // Helper: find a component by name and type in the user's library
+      // Helper: find a component by name and type in the user's library, then complib
       const findComp = (name, typeKey) => {
         if (!name || name === 'None') return { name: 'None', stats: [] };
         const type = typeKey.replace('_', '');
+        // Check user library first
         const match = userComponents.find(c => {
           const ct = c.comp_type.toLowerCase().replace('_', '');
           return c.name === name && (ct === type || ct === typeKey.replace('_', ''));
@@ -99,19 +102,35 @@ export default function LoadoutBuilder() {
             stats: [match.stat1, match.stat2, match.stat3, match.stat4, match.stat5, match.stat6, match.stat7, match.stat8],
           };
         }
-        // Component not in library — show name but no stats (user may need to re-add it)
+        // Fallback to game complib
+        const libMatch = complib.find(c => c.name === name && c.type && c.type.toLowerCase().replace('_', '').includes(type));
+        if (libMatch) {
+          return { name: libMatch.name, stats: libMatch.stats || [] };
+        }
+        // Component not found anywhere
         return { name, stats: [], _missing: true };
       };
 
       // Helper: find a slot component (weapon/ord/cm) by name
       const findSlotComp = (name) => {
         if (!name || name === 'None') return { name: 'None', stats: [], comp_type: '' };
+        // Check user library first
         const match = userComponents.find(c => c.name === name);
         if (match) {
           const ct = match.comp_type.toLowerCase();
           return {
             name: match.name,
             stats: [match.stat1, match.stat2, match.stat3, match.stat4, match.stat5, match.stat6, match.stat7, match.stat8],
+            comp_type: ct.includes('weapon') ? 'weapon' : ct.includes('ordnance') ? 'ordnance' : 'countermeasure',
+          };
+        }
+        // Fallback to game complib
+        const libMatch = complib.find(c => c.name === name);
+        if (libMatch) {
+          const ct = (libMatch.type || '').toLowerCase();
+          return {
+            name: libMatch.name,
+            stats: libMatch.stats || [],
             comp_type: ct.includes('weapon') ? 'weapon' : ct.includes('ordnance') ? 'ordnance' : 'countermeasure',
           };
         }
@@ -159,7 +178,7 @@ export default function LoadoutBuilder() {
     } finally {
       setLoadingLoadout(false);
     }
-  }, [userComps]);
+  }, [userComps, complib]);
 
   // Load from URL param ?loadout=ID when ready
   useEffect(() => {
@@ -169,12 +188,13 @@ export default function LoadoutBuilder() {
     if (isNaN(id)) return;
 
     // For logged-in users, wait for component library to load so we can match stats.
-    // For anonymous users (viewing public loadouts), load immediately with names only.
+    // For anonymous users (viewing public loadouts), wait for game complib.
     if (user && userComps.length === 0) return;  // Still loading user comps, wait
+    if (complib.length === 0) return;  // Still loading game complib, wait
 
     loadSavedLoadout(id, userComps);
     setSearchParams({}, { replace: true });
-  }, [searchParams, user, userComps, loadSavedLoadout, setSearchParams]);
+  }, [searchParams, user, userComps, complib, loadSavedLoadout, setSearchParams]);
 
   // Load chassis data when selection changes
   useEffect(() => {
@@ -265,17 +285,31 @@ export default function LoadoutBuilder() {
 
   useEffect(() => { recalculate(); }, [recalculate]);
 
-  // Get component list for a given type
+  // Get component list for a given type (user library + game complib, deduplicated)
   const getCompOptions = (compType) => {
     const type = compType.type || compType.key;
-    return [{ name: 'None', stats: [] }, ...userComps.filter(c => {
+    const target = type.toLowerCase().replace('_', '');
+
+    // User components (these override complib entries with same name)
+    const userMatches = userComps.filter(c => {
       const ct = c.comp_type.toLowerCase();
-      const target = type.toLowerCase().replace('_', '');
       return ct === target || ct === compType.key.replace('_', '');
     }).map(c => ({
       name: c.name,
       stats: [c.stat1, c.stat2, c.stat3, c.stat4, c.stat5, c.stat6, c.stat7, c.stat8]
-    }))];
+    }));
+
+    const userNames = new Set(userMatches.map(c => c.name));
+
+    // Game complib components not already in user library
+    const libMatches = complib.filter(c =>
+      c.type && c.type.toLowerCase().replace('_', '').includes(target) && !userNames.has(c.name)
+    ).map(c => ({
+      name: c.name,
+      stats: c.stats || [],
+    }));
+
+    return [{ name: 'None', stats: [] }, ...userMatches, ...libMatches];
   };
 
   const getSlotOptions = (slotIndex) => {
@@ -286,14 +320,33 @@ export default function LoadoutBuilder() {
     if (header.includes('Ordnance')) types.push('ordnancelauncher');
     if (header.includes('CM') || header.includes('Countermeasure')) types.push('countermeasurelauncher');
 
-    return [{ name: 'None', stats: [], comp_type: '' }, ...userComps.filter(c =>
+    // User components
+    const userMatches = userComps.filter(c =>
       types.includes(c.comp_type.toLowerCase())
     ).map(c => ({
       name: c.name,
       stats: [c.stat1, c.stat2, c.stat3, c.stat4, c.stat5, c.stat6, c.stat7, c.stat8],
       comp_type: c.comp_type.toLowerCase().includes('weapon') ? 'weapon' :
         c.comp_type.toLowerCase().includes('ordnance') ? 'ordnance' : 'countermeasure'
-    }))];
+    }));
+
+    const userNames = new Set(userMatches.map(c => c.name));
+
+    // Game complib components not already in user library
+    const libMatches = complib.filter(c => {
+      if (!c.type || userNames.has(c.name)) return false;
+      const ct = c.type.toLowerCase();
+      return types.some(t => ct.includes(t.replace('launcher', '')));
+    }).map(c => {
+      const ct = (c.type || '').toLowerCase();
+      return {
+        name: c.name,
+        stats: c.stats || [],
+        comp_type: ct.includes('weapon') ? 'weapon' : ct.includes('ordnance') ? 'ordnance' : 'countermeasure',
+      };
+    });
+
+    return [{ name: 'None', stats: [], comp_type: '' }, ...userMatches, ...libMatches];
   };
 
   const selectComp = (key, comp) => {
