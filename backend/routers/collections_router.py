@@ -33,8 +33,14 @@ router = APIRouter(tags=["collections"])
 
 Difficulty = Literal["easy", "medium", "hard", "rare"]
 Category = Literal[
-    "exploration", "combat", "loot", "profession",
-    "event", "badge", "space", "other",
+    "exploration",
+    "combat",
+    "loot",
+    "profession",
+    "event",
+    "badge",
+    "space",
+    "other",
 ]
 
 
