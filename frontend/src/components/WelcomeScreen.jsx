@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Crosshair, Trophy, ArrowRight, Wrench, Users } from 'lucide-react';
+import { Crosshair, Trophy, ArrowRight, Wrench, Users, Orbit } from 'lucide-react';
 
 const ENTRY_CARDS = [
   {
@@ -11,7 +11,17 @@ const ENTRY_CARDS = [
     accent: 'text-plasma-400',
     border: 'border-plasma-500/40',
     glow: 'hover:shadow-glow hover:border-plasma-500/60',
-    chips: ['Builder', 'Calculators', 'Community'],
+    chips: ['Builder', 'Calculators', 'Community', 'Buildouts'],
+  },
+  {
+    to: '/tools/buildouts',
+    title: 'Buildout Maps',
+    subtitle: 'Parse SWG space buildout tabs, inspect patrol paths, and copy waypoint strings without the old desktop app drama.',
+    icon: Orbit,
+    accent: 'text-cyan-300',
+    border: 'border-cyan-400/30',
+    glow: 'hover:border-cyan-400/50 hover:shadow-[0_0_24px_rgba(34,211,238,0.18)]',
+    chips: ['Zones', 'Spawners', 'Waypoints'],
   },
   {
     to: '/collections',
@@ -56,7 +66,7 @@ export default function WelcomeScreen() {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-6">
+        <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
           {ENTRY_CARDS.map((card) => (
             <Link
               key={card.to}
