@@ -45,8 +45,8 @@ export default function Navbar() {
 
   return (
     <>
-      <nav className="fixed top-0 left-0 right-0 z-40 bg-hull-800/90 backdrop-blur-md border-b border-hull-500/40">
-        <div className="max-w-[90rem] mx-auto px-4 h-16 flex items-center gap-4">
+      <nav className="fixed top-0 left-0 right-0 z-40 bg-hull-800/90 backdrop-blur-md border-b border-hull-500/40 overflow-hidden">
+        <div className="max-w-[90rem] mx-auto px-4 h-16 flex items-center gap-4 overflow-hidden">
           <Link to="/" className="flex items-center gap-2 group shrink-0 min-w-fit">
             <div className="w-8 h-8 rounded-lg bg-plasma-500/20 border border-plasma-500/40 flex items-center justify-center group-hover:shadow-glow transition-all">
               <Crosshair size={18} className="text-plasma-400" />
@@ -69,7 +69,7 @@ export default function Navbar() {
           </div>
 
           {section !== 'home' ? (
-            <div className="hidden lg:flex items-center gap-1 flex-1 min-w-0 overflow-x-auto no-scrollbar">
+            <div className="hidden lg:flex items-center gap-1 flex-1 min-w-0 overflow-hidden">
               <div className="w-px h-6 bg-hull-500/40 mx-1 shrink-0" />
               {visibleItems.map((item) => (
                 <Link
@@ -89,7 +89,7 @@ export default function Navbar() {
             </div>
           )}
 
-          <div className="flex items-center gap-2 shrink-0 ml-auto">
+          <div className="flex items-center gap-2 shrink-0">
             {user ? (
               <div className="hidden lg:flex items-center gap-2 xl:gap-3 shrink-0">
                 <span className="hidden 2xl:inline-flex items-center text-sm text-hull-200 font-display whitespace-nowrap">
