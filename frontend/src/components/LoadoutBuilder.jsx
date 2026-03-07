@@ -79,19 +79,23 @@ export default function LoadoutBuilder() {
     }
   }, [user]);
 
-  // Load a saved loadout by ID — matches component names from the loadout
-  // against the user's component library to restore full stat arrays.
+  // Load a saved loadout by ID — resolves component stats from multiple sources:
+  // 1. Viewer's own library (for their own loadouts)
+  // 2. Owner's resolved stats (returned by API for shared loadouts)
+  // 3. Game complib (for base game components)
   const loadSavedLoadout = useCallback(async (id, comps) => {
     setLoadingLoadout(true);
     try {
       const loadout = await api.getLoadout(id);
       const userComponents = comps || userComps;
+      const resolved = loadout.resolved_components || {};
 
-      // Helper: find a component by name and type in the user's library, then complib
-      const findComp = (name, typeKey) => {
+      // Helper: find a component by key and name
+      const findComp = (key, name, typeKey) => {
         if (!name || name === 'None') return { name: 'None', stats: [] };
         const type = typeKey.replace('_', '');
-        // Check user library first
+
+        // 1. Check viewer's library
         const match = userComponents.find(c => {
           const ct = c.comp_type.toLowerCase().replace('_', '');
           return c.name === name && (ct === type || ct === typeKey.replace('_', ''));
@@ -102,19 +106,27 @@ export default function LoadoutBuilder() {
             stats: [match.stat1, match.stat2, match.stat3, match.stat4, match.stat5, match.stat6, match.stat7, match.stat8],
           };
         }
-        // Fallback to game complib
+
+        // 2. Check owner's resolved components from API
+        const res = resolved[key];
+        if (res && res.name === name) {
+          return { name: res.name, stats: res.stats || [] };
+        }
+
+        // 3. Fallback to game complib
         const libMatch = complib.find(c => c.name === name && c.type && c.type.toLowerCase().replace('_', '').includes(type));
         if (libMatch) {
           return { name: libMatch.name, stats: libMatch.stats || [] };
         }
-        // Component not found anywhere
+
         return { name, stats: [], _missing: true };
       };
 
-      // Helper: find a slot component (weapon/ord/cm) by name
-      const findSlotComp = (name) => {
+      // Helper: find a slot component (weapon/ord/cm) by key and name
+      const findSlotComp = (key, name) => {
         if (!name || name === 'None') return { name: 'None', stats: [], comp_type: '' };
-        // Check user library first
+
+        // 1. Check viewer's library
         const match = userComponents.find(c => c.name === name);
         if (match) {
           const ct = match.comp_type.toLowerCase();
@@ -124,7 +136,19 @@ export default function LoadoutBuilder() {
             comp_type: ct.includes('weapon') ? 'weapon' : ct.includes('ordnance') ? 'ordnance' : 'countermeasure',
           };
         }
-        // Fallback to game complib
+
+        // 2. Check owner's resolved components from API
+        const res = resolved[key];
+        if (res && res.name === name) {
+          const ct = (res.comp_type || '').toLowerCase();
+          return {
+            name: res.name,
+            stats: res.stats || [],
+            comp_type: ct.includes('weapon') ? 'weapon' : ct.includes('ordnance') ? 'ordnance' : 'countermeasure',
+          };
+        }
+
+        // 3. Fallback to game complib
         const libMatch = complib.find(c => c.name === name);
         if (libMatch) {
           const ct = (libMatch.type || '').toLowerCase();
@@ -134,6 +158,7 @@ export default function LoadoutBuilder() {
             comp_type: ct.includes('weapon') ? 'weapon' : ct.includes('ordnance') ? 'ordnance' : 'countermeasure',
           };
         }
+
         return { name, stats: [], comp_type: 'weapon', _missing: true };
       };
 
@@ -159,14 +184,14 @@ export default function LoadoutBuilder() {
       for (const ct of COMP_TYPES) {
         const savedName = loadout[ct.key];
         if (savedName && savedName !== 'None') {
-          newComponents[ct.key] = findComp(savedName, ct.type || ct.key);
+          newComponents[ct.key] = findComp(ct.key, savedName, ct.type || ct.key);
         }
       }
       // Weapon slots
       for (let i = 1; i <= 8; i++) {
         const savedName = loadout[`slot${i}`];
         if (savedName && savedName !== 'None') {
-          newComponents[`slot${i}`] = findSlotComp(savedName);
+          newComponents[`slot${i}`] = findSlotComp(`slot${i}`, savedName);
         }
       }
 
