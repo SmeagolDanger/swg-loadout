@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   Menu, X, Crosshair, Box, Search, Users, LogOut, User, Wrench,
-  FlaskConical, Cpu, Trophy, Medal, UserCircle, ChevronRight, Shield
+  FlaskConical, Cpu, Trophy, Medal, UserCircle, ChevronRight, Shield, Orbit
 } from 'lucide-react';
 
 const TOOL_NAV_ITEMS = [
@@ -14,6 +14,7 @@ const TOOL_NAV_ITEMS = [
   { to: '/tools/fc', label: 'FC Calc', icon: Cpu },
   { to: '/tools/loot', label: 'Loot', icon: Search },
   { to: '/tools/community', label: 'Community', icon: Users },
+  { to: '/tools/buildouts', label: 'Buildouts', icon: Orbit },
 ];
 
 const COLLECTION_NAV_ITEMS = [

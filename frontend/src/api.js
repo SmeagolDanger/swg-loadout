@@ -52,6 +52,28 @@ export const api = {
   calculate: (data) => request('/gamedata/calculate', { method: 'POST', body: JSON.stringify(data) }),
   lootLookup: (query, type) => request(`/gamedata/loot-lookup?query=${encodeURIComponent(query)}&search_type=${type}`),
 
+
+  // Buildout Explorer
+  getBuildoutZones: () => request('/buildouts/zones'),
+  getBuildoutZone: (zoneId) => request(`/buildouts/zones/${encodeURIComponent(zoneId)}`),
+  parseBuildoutFile: async (file) => {
+    const form = new FormData();
+    form.append('file', file);
+    const token = getToken();
+    const headers = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const res = await fetch(`${BASE}/buildouts/parse`, { method: 'POST', headers, body: form });
+    if (res.status === 401) {
+      localStorage.removeItem('slt_token');
+      localStorage.removeItem('slt_user');
+    }
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Buildout parse failed' }));
+      throw new Error(err.detail || 'Buildout parse failed');
+    }
+    return res.json();
+  },
+
   // Loadouts
   getLoadouts: () => request('/loadouts'),
   getPublicLoadouts: () => request('/loadouts/public'),
