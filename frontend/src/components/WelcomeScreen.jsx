@@ -29,12 +29,15 @@ export default function WelcomeScreen() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
+  const loadoutId = searchParams.get('loadout');
+
   useEffect(() => {
-    const loadoutId = searchParams.get('loadout');
     if (loadoutId) {
       navigate(`/tools?loadout=${loadoutId}`, { replace: true });
     }
-  }, [searchParams, navigate]);
+  }, [loadoutId, navigate]);
+
+  if (loadoutId) return null;
 
   return (
     <div className="relative overflow-hidden">

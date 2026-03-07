@@ -1,5 +1,5 @@
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import bcrypt
 from fastapi import Depends, HTTPException, status
@@ -9,7 +9,12 @@ from sqlalchemy.orm import Session
 
 from database import User, get_db
 
-SECRET_KEY = os.getenv("SECRET_KEY", "slt-secret-key-change-in-production-9f8a7b6c5d4e3f2a1b0c")
+_ENV = os.getenv("ENV", "development").lower()
+_secret = os.getenv("SECRET_KEY", "")
+if not _secret and _ENV in ("production", "prod"):
+    raise RuntimeError("SECRET_KEY environment variable must be set in production")
+SECRET_KEY = _secret or "slt-dev-only-secret-do-not-use-in-prod"
+
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
 
@@ -26,7 +31,7 @@ def get_password_hash(password: str) -> str:
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
     to_encode = data.copy()
-    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+    expire = datetime.now(timezone.utc) + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
