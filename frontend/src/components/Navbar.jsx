@@ -89,19 +89,19 @@ export default function Navbar() {
             </div>
           )}
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 shrink-0">
             {user ? (
-              <div className="hidden lg:flex items-center gap-2 xl:gap-3 shrink-0">
-                <span className="hidden 2xl:inline-flex items-center text-sm text-hull-200 font-display whitespace-nowrap">
-                  <User size={14} className="inline mr-1" />{user.display_name || user.username}
+              <div className="hidden lg:flex items-center gap-1.5 shrink-0">
+                <span className="text-xs text-hull-200 font-display whitespace-nowrap max-w-[120px] truncate">
+                  {user.display_name || user.username}
                 </span>
                 {(user.role === 'admin' || user.is_admin) && (
-                  <Link to="/admin" className="btn-ghost text-xs flex items-center gap-1 text-laser-red">
-                    <Shield size={14} /> Admin
+                  <Link to="/admin" className="btn-ghost p-2 text-laser-red" title="Admin Panel">
+                    <Shield size={15} />
                   </Link>
                 )}
-                <button onClick={logout} className="btn-ghost text-xs flex items-center gap-1">
-                  <LogOut size={14} /> Sign Out
+                <button onClick={logout} className="btn-ghost p-2 text-hull-300 hover:text-hull-100" title="Sign Out">
+                  <LogOut size={15} />
                 </button>
               </div>
             ) : (
