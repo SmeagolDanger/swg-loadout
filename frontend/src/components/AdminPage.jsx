@@ -29,8 +29,9 @@ export default function AdminPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 animate-slide-up">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-10 h-10 rounded-lg bg-laser-red/15 border border-laser-red/30 flex items-center justify-center">
+      <div className="panel mb-6">
+        <div className="panel-header flex items-center gap-3">
+        <div className="w-10 h-10 rounded-lg bg-[rgba(255,51,68,0.15)] border border-[rgba(255,51,68,0.30)] flex items-center justify-center">
           <Shield size={20} className="text-laser-red" />
         </div>
         <div>
@@ -38,6 +39,7 @@ export default function AdminPage() {
             ADMIN <span className="text-laser-red">PANEL</span>
           </h1>
           <p className="text-hull-100 text-xs font-mono tracking-wide">ROLE: {(user.role || 'admin').toUpperCase()}</p>
+        </div>
         </div>
       </div>
 
@@ -161,7 +163,7 @@ function UsersTab() {
       </div>
 
       {message && (
-        <div className="mb-4 text-xs text-laser-yellow bg-laser-yellow/5 border border-laser-yellow/20 rounded-lg px-3 py-2 flex items-center justify-between">
+        <div className="mb-4 text-xs text-laser-yellow bg-[rgba(255,170,0,0.05)] border border-[rgba(255,170,0,0.20)] rounded-lg px-3 py-2 flex items-center justify-between">
           <span>{message}</span>
           <button onClick={() => setMessage('')}><X size={12} /></button>
         </div>
@@ -192,7 +194,7 @@ function UsersTab() {
                         {(u.role || 'user').toUpperCase()}
                       </span>
                       {!u.is_active && (
-                        <span className="badge bg-laser-red/12 text-red-200 border-laser-red/40">
+                        <span className="badge bg-[rgba(255,51,68,0.12)] text-red-200 border-[rgba(255,51,68,0.40)]">
                           DISABLED
                         </span>
                       )}
@@ -271,7 +273,7 @@ function UsersTab() {
           </div>
 
           {users.length === 0 && (
-            <div className="text-center py-12 text-hull-300 font-display">No users found.</div>
+            <div className="text-center py-12 text-hull-200 font-display">No users found.</div>
           )}
 
           {users.length >= 50 && (
@@ -345,7 +347,7 @@ function FeaturedTab() {
   return (
     <div>
       {message && (
-        <div className="mb-4 text-xs text-laser-yellow bg-laser-yellow/5 border border-laser-yellow/20 rounded-lg px-3 py-2 flex items-center justify-between">
+        <div className="mb-4 text-xs text-laser-yellow bg-[rgba(255,170,0,0.05)] border border-[rgba(255,170,0,0.20)] rounded-lg px-3 py-2 flex items-center justify-between">
           <span>{message}</span>
           <button onClick={() => setMessage('')}><X size={12} /></button>
         </div>
@@ -453,9 +455,9 @@ function StatsTab() {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
       {cards.map(c => (
-        <div key={c.label} className="card p-4 text-center">
-          <div className={`font-display font-bold text-2xl ${c.color}`}>{c.value.toLocaleString()}</div>
-          <div className="text-hull-400 text-[10px] font-display tracking-[0.2em] mt-1">{c.label}</div>
+        <div key={c.label} className="card-strong p-6 text-center">
+          <div className={`font-display font-bold text-3xl ${c.color}`}>{c.value.toLocaleString()}</div>
+          <div className="text-hull-200 text-[11px] font-display tracking-[0.22em] mt-2">{c.label}</div>
         </div>
       ))}
     </div>
