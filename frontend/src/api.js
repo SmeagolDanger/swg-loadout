@@ -24,12 +24,20 @@ async function request(path, options = {}) {
 export const api = {
   // Auth
   register: (data) => request('/auth/register', { method: 'POST', body: JSON.stringify(data) }),
-  login: (username, password) => {
+  login: async (username, password) => {
     const form = new URLSearchParams();
     form.append('username', username);
     form.append('password', password);
-    return fetch(`${BASE}/auth/login`, { method: 'POST', body: form })
-      .then(r => { if (!r.ok) throw new Error('Invalid credentials'); return r.json(); });
+    const res = await fetch(`${BASE}/auth/login`, { method: 'POST', body: form });
+    if (res.status === 401) {
+      localStorage.removeItem('slt_token');
+      localStorage.removeItem('slt_user');
+    }
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Invalid credentials' }));
+      throw new Error(err.detail || 'Invalid credentials');
+    }
+    return res.json();
   },
   getMe: () => request('/auth/me'),
 
@@ -60,17 +68,22 @@ export const api = {
   deleteComponent: (id) => request(`/components/${id}`, { method: 'DELETE' }),
 
   // Import from desktop app
-  importSavedata: (file) => {
+  importSavedata: async (file) => {
     const form = new FormData();
     form.append('file', file);
     const token = getToken();
     const headers = {};
     if (token) headers['Authorization'] = `Bearer ${token}`;
-    return fetch(`${BASE}/import/savedata`, { method: 'POST', headers, body: form })
-      .then(r => {
-        if (!r.ok) return r.json().then(e => { throw new Error(e.detail || 'Import failed'); });
-        return r.json();
-      });
+    const res = await fetch(`${BASE}/import/savedata`, { method: 'POST', headers, body: form });
+    if (res.status === 401) {
+      localStorage.removeItem('slt_token');
+      localStorage.removeItem('slt_user');
+    }
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Import failed' }));
+      throw new Error(err.detail || 'Import failed');
+    }
+    return res.json();
   },
 
   // RE Calculator
@@ -106,6 +119,7 @@ export const api = {
   getCollectionGroup: (id) => request(`/collections/${id}`),
   createCollectionGroup: (data) => request('/admin/collections/groups', { method: 'POST', body: JSON.stringify(data) }),
   updateCollectionGroup: (id, data) => request(`/admin/collections/groups/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteCollectionGroup: (id) => request(`/admin/collections/groups/${id}`, { method: 'DELETE' }),
   createCollectionItem: (data) => request('/admin/collections/items', { method: 'POST', body: JSON.stringify(data) }),
   updateCollectionItem: (id, data) => request(`/admin/collections/items/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteCollectionItem: (id) => request(`/admin/collections/items/${id}`, { method: 'DELETE' }),

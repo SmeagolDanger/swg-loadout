@@ -17,7 +17,7 @@ const EMPTY_ITEM = { group_id: '', name: '', notes: '', difficulty: 'medium' };
 
 function AdminModal({ title, children, onClose }) {
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
       <div className="card w-full max-w-xl p-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4 gap-3">
           <h3 className="font-display text-plasma-400 text-sm tracking-wider">{title}</h3>
@@ -46,6 +46,8 @@ export default function CollectionsPage() {
   const [newChar, setNewChar] = useState(EMPTY_CHAR);
 
   const [adminMessage, setAdminMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+  const [togglingItems, setTogglingItems] = useState(new Set());
   const [editingGroup, setEditingGroup] = useState(null);
   const [creatingGroup, setCreatingGroup] = useState(false);
   const [groupForm, setGroupForm] = useState(EMPTY_GROUP);
@@ -53,28 +55,32 @@ export default function CollectionsPage() {
   const [creatingItemForGroup, setCreatingItemForGroup] = useState(null);
   const [itemForm, setItemForm] = useState(EMPTY_ITEM);
 
+  // Auto-clear feedback messages
   useEffect(() => {
-    loadCollections();
-    if (user) loadMyCharacters();
-  }, [user]);
+    if (!adminMessage) return;
+    const t = setTimeout(() => setAdminMessage(''), 4000);
+    return () => clearTimeout(t);
+  }, [adminMessage]);
 
   useEffect(() => {
-    if (selectedCharId) loadCharDetail(selectedCharId);
-    else setCharDetail(null);
-  }, [selectedCharId]);
+    if (!errorMessage) return;
+    const t = setTimeout(() => setErrorMessage(''), 5000);
+    return () => clearTimeout(t);
+  }, [errorMessage]);
 
-  const loadCollections = async () => {
+  const loadCollections = useCallback(async () => {
     try {
       const data = await api.getCollections();
       setCollections(data);
     } catch (e) {
       console.error('Failed to load collections:', e);
+      setErrorMessage('Failed to load collections. Please try refreshing.');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const loadMyCharacters = async () => {
+  const loadMyCharacters = useCallback(async () => {
     try {
       const data = await api.getCharacters({ user_id: user.id, limit: 50 });
       setCharacters(data.characters || []);
@@ -83,17 +89,29 @@ export default function CollectionsPage() {
       }
     } catch (e) {
       console.error('Failed to load characters:', e);
+      setErrorMessage('Failed to load characters.');
     }
-  };
+  }, [user, selectedCharId]);
 
-  const loadCharDetail = async (id) => {
+  const loadCharDetail = useCallback(async (id) => {
     try {
       const data = await api.getCharacter(id);
       setCharDetail(data);
     } catch (e) {
       console.error('Failed to load character:', e);
+      setErrorMessage('Failed to load character details.');
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadCollections();
+    if (user) loadMyCharacters();
+  }, [user, loadCollections, loadMyCharacters]);
+
+  useEffect(() => {
+    if (selectedCharId) loadCharDetail(selectedCharId);
+    else setCharDetail(null);
+  }, [selectedCharId, loadCharDetail]);
 
   const completedSet = useMemo(() => {
     if (!charDetail?.completed_collections) return new Set();
@@ -102,6 +120,8 @@ export default function CollectionsPage() {
 
   const toggleCollection = useCallback(async (itemId) => {
     if (!selectedCharId || !user) return;
+    if (togglingItems.has(itemId)) return; // guard against rapid double-clicks
+    setTogglingItems(prev => new Set(prev).add(itemId));
     try {
       if (completedSet.has(itemId)) {
         await api.uncollectItem(selectedCharId, itemId);
@@ -111,8 +131,15 @@ export default function CollectionsPage() {
       await loadCharDetail(selectedCharId);
     } catch (e) {
       console.error('Toggle failed:', e);
+      setErrorMessage('Failed to update collection. Please try again.');
+    } finally {
+      setTogglingItems(prev => {
+        const next = new Set(prev);
+        next.delete(itemId);
+        return next;
+      });
     }
-  }, [selectedCharId, user, completedSet]);
+  }, [selectedCharId, user, completedSet, togglingItems, loadCharDetail]);
 
   const handleCreateChar = async () => {
     if (!newChar.name.trim()) return;
@@ -123,6 +150,7 @@ export default function CollectionsPage() {
       await loadMyCharacters();
     } catch (e) {
       console.error('Create failed:', e);
+      setErrorMessage(e.message || 'Failed to create character.');
     }
   };
 
@@ -166,7 +194,7 @@ export default function CollectionsPage() {
   };
 
   const toggleGroup = (id) => {
-    setExpandedGroups(prev => ({ ...prev, [id]: prev[id] === false ? true : (prev[id] === true ? false : false) }));
+    setExpandedGroups(prev => ({ ...prev, [id]: prev[id] === false }));
   };
   const isExpanded = (id) => expandedGroups[id] !== false;
 
@@ -260,6 +288,18 @@ export default function CollectionsPage() {
       await loadCollections();
     } catch (e) {
       setAdminMessage(e.message || 'Failed to delete item');
+    }
+  };
+
+  const handleDeleteGroup = async (group) => {
+    const ok = window.confirm(`Delete category "${group.name}" and ALL its items? This cannot be undone.`);
+    if (!ok) return;
+    try {
+      await api.deleteCollectionGroup(group.id);
+      setAdminMessage('Category deleted.');
+      await loadCollections();
+    } catch (e) {
+      setAdminMessage(e.message || 'Failed to delete category');
     }
   };
 
@@ -401,8 +441,15 @@ export default function CollectionsPage() {
           </div>
         )}
         {adminMessage && (
-          <div className="mt-3 text-xs text-laser-yellow bg-laser-yellow/5 border border-laser-yellow/20 rounded-lg px-3 py-2">
-            {adminMessage}
+          <div className="mt-3 text-xs text-laser-yellow bg-laser-yellow/5 border border-laser-yellow/20 rounded-lg px-3 py-2 flex items-center justify-between">
+            <span>{adminMessage}</span>
+            <button className="ml-2 text-laser-yellow/60 hover:text-laser-yellow" onClick={() => setAdminMessage('')}><X size={12} /></button>
+          </div>
+        )}
+        {errorMessage && (
+          <div className="mt-3 text-xs text-laser-red bg-laser-red/5 border border-laser-red/20 rounded-lg px-3 py-2 flex items-center justify-between">
+            <span>{errorMessage}</span>
+            <button className="ml-2 text-laser-red/60 hover:text-laser-red" onClick={() => setErrorMessage('')}><X size={12} /></button>
           </div>
         )}
       </div>
@@ -465,6 +512,9 @@ export default function CollectionsPage() {
                       <button className="btn-ghost p-2 text-hull-200" onClick={() => openEditGroup(group)} title="Edit category">
                         <Edit2 size={14} />
                       </button>
+                      <button className="btn-ghost p-2 text-laser-red" onClick={() => handleDeleteGroup(group)} title="Delete category">
+                        <Trash2 size={14} />
+                      </button>
                     </div>
                   )}
                   <div className="w-24 h-1.5 bg-hull-600 rounded-full overflow-hidden">
@@ -497,6 +547,7 @@ export default function CollectionsPage() {
                         key={item.id}
                         className={`flex items-center gap-2 px-4 py-2 text-sm border-b border-hull-500/20 last:border-b-0 transition-colors
                           ${isCompleted ? 'bg-plasma-500/5' : 'hover:bg-hull-600/20'}
+                          ${togglingItems.has(item.id) ? 'opacity-50 pointer-events-none' : ''}
                           ${canToggle ? 'cursor-pointer' : ''}`}
                         onClick={canToggle ? () => toggleCollection(item.id) : undefined}
                         title={canToggle ? (isCompleted ? 'Click to uncollect' : 'Click to mark collected') : ''}

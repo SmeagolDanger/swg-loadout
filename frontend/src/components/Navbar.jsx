@@ -85,7 +85,7 @@ export default function Navbar() {
           ) : (
             <div className="hidden lg:flex items-center gap-2 text-sm text-hull-300 font-display tracking-wide flex-1 min-w-0">
               <ChevronRight size={14} className="text-plasma-400 shrink-0" />
-              <span className="truncate">Choose a section to keep the interface from becoming a landfill of tabs.</span>
+              <span className="truncate">Select a section above to get started.</span>
             </div>
           )}
 
