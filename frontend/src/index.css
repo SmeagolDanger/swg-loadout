@@ -152,7 +152,7 @@
     @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5
            bg-plasma-500/20 text-plasma-300 border border-plasma-400/50
            font-display font-semibold tracking-[0.12em] uppercase text-sm
-           hover:bg-plasma-500/30 hover:text-plasma-200 hover:border-plasma-300/70 hover:shadow-glow
+           hover:bg-plasma-500/30 hover:text-hull-50 hover:border-plasma-300/70 hover:shadow-glow
            active:scale-[0.98] transition-all duration-200;
   }
 
