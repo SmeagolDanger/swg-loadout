@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import Navbar from './components/Navbar';
 import WelcomeScreen from './components/WelcomeScreen';
@@ -15,6 +15,8 @@ import { CollectionsPage, CharacterDirectory, CollectionLeaderboard } from './co
 
 export default function App() {
   const { user, loading } = useAuth();
+  const { pathname } = useLocation();
+  const showCredits = pathname.startsWith('/tools') || pathname === '/';
 
   if (loading) {
     return (
@@ -59,16 +61,18 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
-      <footer className="text-center text-hull-400 text-xs font-display tracking-wide py-6 border-t border-hull-500/20 mt-12">
-        Built on{' '}
-        <a href="https://github.com/SeraphExodus/Seraphs-Loadout-Tool" target="_blank" rel="noopener noreferrer" className="text-hull-200 hover:text-plasma-400 transition-colors">
-          Seraph's Loadout Tool
-        </a>
-        {' · '}
-        <a href="https://github.com/SmeagolDanger/swg-loadout" target="_blank" rel="noopener noreferrer" className="text-hull-200 hover:text-plasma-400 transition-colors">
-          Source (GPL-2.0)
-        </a>
-      </footer>
+      {showCredits && (
+        <footer className="text-center text-hull-400 text-xs font-display tracking-wide py-6 border-t border-hull-500/20 mt-12">
+          Space tools based on{' '}
+          <a href="https://github.com/SeraphExodus/Seraphs-Loadout-Tool" target="_blank" rel="noopener noreferrer" className="text-hull-200 hover:text-plasma-400 transition-colors">
+            Seraph's Loadout Tool
+          </a>
+          {' · '}
+          <a href="https://github.com/SmeagolDanger/swg-loadout" target="_blank" rel="noopener noreferrer" className="text-hull-200 hover:text-plasma-400 transition-colors">
+            Source (GPL-2.0)
+          </a>
+        </footer>
+      )}
     </div>
   );
 }

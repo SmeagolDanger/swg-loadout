@@ -2,8 +2,8 @@
 
 Unified toolkit for SWG Legends — combines the **Loadout Builder** and **Collection Tracker** into a single application with shared authentication.
 
-> **Based on [Seraph's Loadout Tool](https://github.com/SeraphExodus/Seraphs-Loadout-Tool)** by [SeraphExodus](https://github.com/SeraphExodus).
-> The loadout builder, RE/FC calculators, component library, and game data tables all originate from Seraph's original desktop application.
+> **Space tools based on [Seraph's Loadout Tool](https://github.com/SeraphExodus/Seraphs-Loadout-Tool)** by [SeraphExodus](https://github.com/SeraphExodus).
+> The loadout builder, RE/FC calculators, component library, and game data tables are derived from Seraph's original desktop application.
 > This project is licensed under the [GNU General Public License v2.0](LICENSE), the same license as the original.
 
 ## Features
