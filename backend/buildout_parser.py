@@ -116,9 +116,7 @@ def _resolve_patrol_points(
     objvars: str,
 ) -> tuple[str, list[Coordinate]]:
     patrol_points = [
-        coords
-        for point_id, coords in patrol_lookup.items()
-        if any(patrol_id in point_id for patrol_id in patrol_ids)
+        coords for point_id, coords in patrol_lookup.items() if any(patrol_id in point_id for patrol_id in patrol_ids)
     ]
 
     if not patrol_points:
@@ -177,7 +175,9 @@ def _best_static_path(zone: str, spawns: list[dict[str, Any]]) -> dict[str, Any]
     }
 
 
-def _parse_spawns(rows: list[BuildoutRow], squads: dict[str, list[str]]) -> tuple[list[dict[str, Any]], list[Coordinate]]:
+def _parse_spawns(
+    rows: list[BuildoutRow], squads: dict[str, list[str]]
+) -> tuple[list[dict[str, Any]], list[Coordinate]]:
     spawner_rows = [row for row in rows if row and "spawner" in row[0]]
     patrol_rows = [row for row in rows if row and "patrol_point" in row[0]]
     patrol_lookup = _build_patrol_lookup(patrol_rows)
@@ -206,7 +206,9 @@ def _parse_spawns(rows: list[BuildoutRow], squads: dict[str, list[str]]) -> tupl
         max_spawn_time = _to_float(data.get("fltMaxSpawnTime", ["0"])[0])
         respawn = f"{int(min_spawn_time)}s to {int(max_spawn_time)}s" if min_spawn_time or max_spawn_time else "N/A"
 
-        patrol_ids = [value for value in (data.get("strPatrolPoints_mangled.segment.0", [""])[0] or "").split(":") if value]
+        patrol_ids = [
+            value for value in (data.get("strPatrolPoints_mangled.segment.0", [""])[0] or "").split(":") if value
+        ]
         spawner_type, patrol_points = _resolve_patrol_points(patrol_ids, patrol_lookup, objvars)
 
         ship_groups = [value for value in (data.get("strSpawns_mangled.segment.0", [""])[0] or "").split(":") if value]
