@@ -12,6 +12,8 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     create_engine,
+    inspect,
+    text,
 )
 from sqlalchemy.orm import DeclarativeBase, relationship, sessionmaker
 
@@ -40,6 +42,7 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     is_active = Column(Boolean, default=True)
     is_admin = Column(Boolean, default=False)
+    role = Column(String(30), default="user")  # user | admin | collection_admin
     # Loadout relationships
     loadouts = relationship("Loadout", back_populates="owner", cascade="all, delete-orphan")
     components = relationship("UserComponent", back_populates="owner", cascade="all, delete-orphan")
@@ -94,6 +97,7 @@ class Loadout(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     is_public = Column(Boolean, default=False)
+    is_featured = Column(Boolean, default=False)
     owner = relationship("User", back_populates="loadouts")
 
 
@@ -222,3 +226,28 @@ def get_db():
 
 def init_db():
     Base.metadata.create_all(bind=engine)
+    # Migrate: add new columns to existing databases
+    _run_migrations()
+
+
+def _run_migrations():
+    """Add columns that may be missing in existing databases."""
+    db = SessionLocal()
+    try:
+        inspector = inspect(engine)
+        user_cols = {c["name"] for c in inspector.get_columns("users")}
+        loadout_cols = {c["name"] for c in inspector.get_columns("loadouts")}
+
+        if "role" not in user_cols:
+            db.execute(text("ALTER TABLE users ADD COLUMN role VARCHAR(30) DEFAULT 'user'"))
+            # Backfill: existing admins get 'admin' role
+            db.execute(text("UPDATE users SET role = 'admin' WHERE is_admin = true"))
+            db.commit()
+
+        if "is_featured" not in loadout_cols:
+            db.execute(text("ALTER TABLE loadouts ADD COLUMN is_featured BOOLEAN DEFAULT false"))
+            db.commit()
+    except Exception:
+        db.rollback()
+    finally:
+        db.close()

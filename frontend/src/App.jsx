@@ -11,6 +11,7 @@ import RECalculator from './components/RECalculator';
 import FCCalculator from './components/FCCalculator';
 import AuthPage from './components/AuthPage';
 import PublicLoadouts from './components/PublicLoadouts';
+import AdminPage from './components/AdminPage';
 import { CollectionsPage, CharacterDirectory, CollectionLeaderboard } from './components/collections';
 
 export default function App() {
@@ -48,6 +49,8 @@ export default function App() {
           <Route path="/collections" element={<CollectionsPage />} />
           <Route path="/collections/characters" element={<CharacterDirectory />} />
           <Route path="/collections/leaderboard" element={<CollectionLeaderboard />} />
+
+          <Route path="/admin" element={user?.role === 'admin' || user?.is_admin ? <AdminPage /> : <Navigate to="/" />} />
 
           <Route path="/loadouts" element={<Navigate to="/tools/loadouts" replace />} />
           <Route path="/components" element={<Navigate to="/tools/components" replace />} />

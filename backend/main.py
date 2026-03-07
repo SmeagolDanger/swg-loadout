@@ -13,6 +13,7 @@ from database import (
     SessionLocal,
     init_db,
 )
+from routers.admin_router import router as admin_router
 from routers.auth_router import router as auth_router
 from routers.characters_router import router as characters_router
 from routers.collections_router import router as collections_router
@@ -94,6 +95,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(admin_router)
 app.include_router(auth_router)
 app.include_router(characters_router)
 app.include_router(collections_router)

@@ -31,7 +31,7 @@ function AdminModal({ title, children, onClose }) {
 
 export default function CollectionsPage() {
   const { user } = useAuth();
-  const isAdmin = !!user?.is_admin;
+  const isAdmin = user?.role === 'admin' || user?.role === 'collection_admin' || !!user?.is_admin;
 
   const [collections, setCollections] = useState([]);
   const [characters, setCharacters] = useState([]);
@@ -315,7 +315,7 @@ export default function CollectionsPage() {
   }
 
   const selectedChar = characters.find(c => c.id === selectedCharId);
-  const canToggle = selectedChar && user && (selectedChar.user_id === user.id || user.is_admin);
+  const canToggle = selectedChar && user && (selectedChar.user_id === user.id || isAdmin);
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6 animate-slide-up">

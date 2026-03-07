@@ -98,8 +98,10 @@ After the app is running, register a normal account through the UI, then promote
 ```bash
 docker compose -f docker-compose.prod.yml exec db \
   psql -U slt_user -d slt_db \
-  -c "UPDATE users SET is_admin = true WHERE username = 'your-username';"
+  -c "UPDATE users SET is_admin = true, role = 'admin' WHERE username = 'your-username';"
 ```
+
+Available roles: `user`, `admin`, `collection_admin`. The `admin` role has full access. The `collection_admin` role can manage collection groups and items but cannot access user management.
 
 ### Option B: Manual deployment
 
