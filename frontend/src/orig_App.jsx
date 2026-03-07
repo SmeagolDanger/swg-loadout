@@ -65,7 +65,7 @@ export default function App() {
         </Routes>
       </main>
       {showCredits && (
-        <footer className="text-center text-hull-200 text-xs font-display tracking-wide py-6 border-t border-hull-400/30 mt-12 bg-hull-900/60">
+        <footer className="text-center text-hull-400 text-xs font-display tracking-wide py-6 border-t border-hull-500/20 mt-12">
           Space tools based on{' '}
           <a href="https://github.com/SeraphExodus/Seraphs-Loadout-Tool" target="_blank" rel="noopener noreferrer" className="text-hull-200 hover:text-plasma-400 transition-colors">
             Seraph's Loadout Tool

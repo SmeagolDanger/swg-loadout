@@ -7,6 +7,11 @@ import {
 } from 'lucide-react';
 
 const ROLES = ['user', 'admin', 'collection_admin'];
+const ROLE_COLORS = {
+  admin: 'bg-laser-red/15 text-laser-red border-laser-red/30',
+  collection_admin: 'bg-laser-yellow/15 text-laser-yellow border-laser-yellow/30',
+  user: 'bg-hull-500/20 text-hull-200 border-hull-500/30',
+};
 const TABS = [
   { key: 'users', label: 'Users', icon: Users },
   { key: 'featured', label: 'Featured', icon: Star },
@@ -37,19 +42,19 @@ export default function AdminPage() {
           <h1 className="font-display font-bold text-xl tracking-wider text-hull-50">
             ADMIN <span className="text-laser-red">PANEL</span>
           </h1>
-          <p className="text-hull-100 text-xs font-mono tracking-wide">ROLE: {(user.role || 'admin').toUpperCase()}</p>
+          <p className="text-hull-300 text-xs font-mono">ROLE: {(user.role || 'admin').toUpperCase()}</p>
         </div>
       </div>
 
-      <div className="flex gap-2 mb-6 border-b border-hull-400/40 pb-2">
+      <div className="flex gap-1 mb-6 border-b border-hull-500/30 pb-1">
         {TABS.map(t => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-t-xl font-display text-sm tracking-wide transition-all border
+            className={`flex items-center gap-2 px-4 py-2 rounded-t-lg font-display text-sm tracking-wide transition-all
               ${tab === t.key
-                ? 'bg-hull-700 text-plasma-300 border-hull-300/60 shadow-glow'
-                : 'text-hull-100 border-transparent hover:text-white hover:bg-hull-700/70 hover:border-hull-400/40'}`}
+                ? 'bg-hull-700 text-plasma-400 border-b-2 border-plasma-400'
+                : 'text-hull-300 hover:text-hull-100 hover:bg-hull-700/50'}`}
           >
             <t.icon size={15} /> {t.label}
           </button>
@@ -140,7 +145,7 @@ function UsersTab() {
 
   return (
     <div>
-      <div className="toolbar mb-4">
+      <div className="flex gap-2 mb-4 flex-wrap items-center">
         <div className="relative flex-1 min-w-[200px]">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-hull-300" />
           <input
@@ -176,32 +181,28 @@ function UsersTab() {
         <>
           <div className="space-y-1">
             {users.map(u => (
-              <div key={u.id} className="card overflow-hidden border-hull-300/50">
+              <div key={u.id} className="card overflow-hidden">
                 <button
-                  className="w-full px-4 py-3.5 flex items-center gap-3 hover:bg-hull-600/45 transition-colors text-left"
+                  className="w-full px-4 py-3 flex items-center gap-3 hover:bg-hull-600/30 transition-colors text-left"
                   onClick={() => setExpandedUser(expandedUser === u.id ? null : u.id)}
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="font-display font-semibold text-hull-50 text-sm">{u.username}</span>
-                      <span className={`badge ${u.role === 'admin'
-  ? 'badge-admin'
-  : u.role === 'collection_admin'
-    ? 'badge-collection'
-    : 'badge-neutral'}`}>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full border font-display tracking-wider ${ROLE_COLORS[u.role] || ROLE_COLORS.user}`}>
                         {(u.role || 'user').toUpperCase()}
                       </span>
                       {!u.is_active && (
-                        <span className="badge bg-laser-red/12 text-red-200 border-laser-red/40">
+                        <span className="text-[10px] px-2 py-0.5 rounded-full border border-laser-red/30 bg-laser-red/10 text-laser-red font-display tracking-wider">
                           DISABLED
                         </span>
                       )}
                     </div>
-                    <div className="text-xs text-hull-200 font-mono mt-1 truncate">
+                    <div className="text-xs text-hull-300 font-mono mt-0.5 truncate">
                       {u.email} · {u.display_name || '—'}
                     </div>
                   </div>
-                  <div className="flex gap-4 text-xs text-hull-100 font-mono shrink-0">
+                  <div className="flex gap-4 text-xs text-hull-300 font-mono shrink-0">
                     <span title="Loadouts">{u.loadout_count}L</span>
                     <span title="Components">{u.component_count}C</span>
                     <span title="Characters">{u.character_count}Ch</span>
@@ -247,21 +248,21 @@ function UsersTab() {
                     </div>
 
                     <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-                      <div className="bg-hull-600/60 border border-hull-400/40 rounded-xl px-3 py-2.5">
-                        <div className="text-hull-200 font-display tracking-[0.14em] text-[10px]">JOINED</div>
-                        <div className="text-hull-50 font-mono mt-1">{u.created_at ? new Date(u.created_at).toLocaleDateString() : '—'}</div>
+                      <div className="bg-hull-700/30 rounded-lg px-3 py-2">
+                        <div className="text-hull-400 font-display tracking-wider text-[10px]">JOINED</div>
+                        <div className="text-hull-100 font-mono">{u.created_at ? new Date(u.created_at).toLocaleDateString() : '—'}</div>
                       </div>
-                      <div className="bg-hull-600/60 border border-hull-400/40 rounded-xl px-3 py-2.5">
-                        <div className="text-hull-200 font-display tracking-[0.14em] text-[10px]">LOADOUTS</div>
-                        <div className="text-hull-50 font-mono mt-1">{u.loadout_count}</div>
+                      <div className="bg-hull-700/30 rounded-lg px-3 py-2">
+                        <div className="text-hull-400 font-display tracking-wider text-[10px]">LOADOUTS</div>
+                        <div className="text-hull-100 font-mono">{u.loadout_count}</div>
                       </div>
-                      <div className="bg-hull-600/60 border border-hull-400/40 rounded-xl px-3 py-2.5">
-                        <div className="text-hull-200 font-display tracking-[0.14em] text-[10px]">COMPONENTS</div>
-                        <div className="text-hull-50 font-mono mt-1">{u.component_count}</div>
+                      <div className="bg-hull-700/30 rounded-lg px-3 py-2">
+                        <div className="text-hull-400 font-display tracking-wider text-[10px]">COMPONENTS</div>
+                        <div className="text-hull-100 font-mono">{u.component_count}</div>
                       </div>
-                      <div className="bg-hull-600/60 border border-hull-400/40 rounded-xl px-3 py-2.5">
-                        <div className="text-hull-200 font-display tracking-[0.14em] text-[10px]">CHARACTERS</div>
-                        <div className="text-hull-50 font-mono mt-1">{u.character_count}</div>
+                      <div className="bg-hull-700/30 rounded-lg px-3 py-2">
+                        <div className="text-hull-400 font-display tracking-wider text-[10px]">CHARACTERS</div>
+                        <div className="text-hull-100 font-mono">{u.character_count}</div>
                       </div>
                     </div>
                   </div>
