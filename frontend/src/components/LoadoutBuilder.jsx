@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import ThrottleProfile from './ThrottleProfile';
+import LoadoutExport from './LoadoutExport';
 import {
   Crosshair, Zap, Shield, Gauge, Layers, Box, Save, FolderOpen,
   ChevronDown, Info, Cpu, Rocket, Target, Package
@@ -729,6 +730,18 @@ export default function LoadoutBuilder() {
                   )}
                 </div>
               </div>
+            )}
+
+            {/* Export to PNG */}
+            {calcResults && (
+              <LoadoutExport
+                loadoutName={loadoutName || selectedChassis}
+                chassis={selectedChassis}
+                components={components}
+                calcResults={calcResults}
+                chassisData={chassisData}
+                overloads={overloads}
+              />
             )}
 
             {/* Throttle Profile */}
