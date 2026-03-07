@@ -1,0 +1,83 @@
+version: '3.8'
+
+# ============================================================
+# Staging deployment
+#
+# Usage:
+#   docker compose -p slt-staging -f docker-compose.staging.yml up -d
+#
+# Optional .env values:
+#   POSTGRES_PASSWORD, SECRET_KEY
+#   STAGING_HTTP_PORT, STAGING_HTTPS_PORT
+#   STAGING_POSTGRES_DB, STAGING_POSTGRES_USER
+#   STAGING_IMAGE_TAG, LOG_LEVEL
+# ============================================================
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${STAGING_POSTGRES_DB:-slt_staging_db}
+      POSTGRES_USER: ${STAGING_POSTGRES_USER:-slt_staging_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres_staging_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${STAGING_POSTGRES_USER:-slt_staging_user} -d ${STAGING_POSTGRES_DB:-slt_staging_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - internal
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  app:
+    image: ${REGISTRY:-ghcr.io}/${IMAGE_NAME:-seraphs-loadout-tool}:${STAGING_IMAGE_TAG:-staging}
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${STAGING_POSTGRES_USER:-slt_staging_user}:${POSTGRES_PASSWORD}@db:5432/${STAGING_POSTGRES_DB:-slt_staging_db}
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env}
+      LOG_LEVEL: ${LOG_LEVEL:-debug}
+      APP_ENV: staging
+    ports:
+      - "${STAGING_HTTP_PORT:-8080}:80"
+      - "${STAGING_HTTPS_PORT:-8443}:443"
+    volumes:
+      # Mount SSL certs if using HTTPS
+      # - ./certs:/etc/ssl/certs:ro
+      # - ./private:/etc/ssl/private:ro
+      - app_staging_logs:/var/log/slt
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:80/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks:
+      - internal
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '2'
+
+volumes:
+  postgres_staging_data:
+    driver: local
+  app_staging_logs:
+    driver: local
+
+networks:
+  internal:
+    driver: bridge
