@@ -85,6 +85,7 @@ class LoadoutResponse(BaseModel):
     shield_adjust: str
     is_public: bool
     owner_name: str | None = None
+    resolved_components: dict | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -122,6 +123,48 @@ def get_loadout(loadout_id: int, user: User | None = Depends(get_current_user), 
     r = LoadoutResponse.model_validate(lo)
     owner = db.query(User).filter(User.id == lo.user_id).first()
     r.owner_name = owner.display_name or owner.username if owner else "Unknown"
+
+    # Resolve component stats from the owner's library so any viewer gets full data
+    owner_comps = db.query(UserComponent).filter(UserComponent.user_id == lo.user_id).all()
+    comp_by_name: dict[str, UserComponent] = {}
+    for c in owner_comps:
+        comp_by_name[c.name] = c
+
+    resolved = {}
+    all_keys = [
+        "reactor",
+        "engine",
+        "booster",
+        "shield",
+        "front_armor",
+        "rear_armor",
+        "capacitor",
+        "cargo_hold",
+        "droid_interface",
+    ] + [f"slot{i}" for i in range(1, 9)]
+
+    for key in all_keys:
+        name = getattr(lo, key, "None") or "None"
+        if name == "None":
+            continue
+        comp = comp_by_name.get(name)
+        if comp:
+            resolved[key] = {
+                "name": comp.name,
+                "comp_type": comp.comp_type,
+                "stats": [
+                    comp.stat1,
+                    comp.stat2,
+                    comp.stat3,
+                    comp.stat4,
+                    comp.stat5,
+                    comp.stat6,
+                    comp.stat7,
+                    comp.stat8,
+                ],
+            }
+
+    r.resolved_components = resolved
     return r
 
 
