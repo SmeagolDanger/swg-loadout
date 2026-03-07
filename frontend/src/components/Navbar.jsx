@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   Menu, X, Crosshair, Box, Search, Users, LogOut, User, Wrench,
-  FlaskConical, Cpu, Trophy, Medal, UserCircle, ChevronRight
+  FlaskConical, Cpu, Trophy, Medal, UserCircle, ChevronRight, Shield
 } from 'lucide-react';
 
 const TOOL_NAV_ITEMS = [
@@ -95,6 +95,11 @@ export default function Navbar() {
                 <span className="hidden 2xl:inline-flex items-center text-sm text-hull-200 font-display whitespace-nowrap">
                   <User size={14} className="inline mr-1" />{user.display_name || user.username}
                 </span>
+                {(user.role === 'admin' || user.is_admin) && (
+                  <Link to="/admin" className="btn-ghost text-xs flex items-center gap-1 text-laser-red">
+                    <Shield size={14} /> Admin
+                  </Link>
+                )}
                 <button onClick={logout} className="btn-ghost text-xs flex items-center gap-1">
                   <LogOut size={14} /> Sign Out
                 </button>
@@ -149,6 +154,12 @@ export default function Navbar() {
                 <div className="px-4 py-2 text-hull-200 font-display">
                   Signed in as <span className="text-hull-100">{user.display_name || user.username}</span>
                 </div>
+                {(user.role === 'admin' || user.is_admin) && (
+                  <Link to="/admin" onClick={() => setMobileOpen(false)}
+                    className="flex items-center gap-3 px-4 py-3 rounded-xl text-lg font-display text-laser-red hover:bg-hull-700">
+                    <Shield size={20} /> Admin Panel
+                  </Link>
+                )}
                 <button onClick={() => { logout(); setMobileOpen(false); }}
                   className="flex items-center gap-3 px-4 py-3 rounded-xl text-lg font-display text-laser-red hover:bg-hull-700 w-full">
                   <LogOut size={20} /> Sign Out

@@ -22,7 +22,7 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from auth import get_current_user, require_user
+from auth import get_current_user, has_role, require_user
 from database import (
     Character,
     CharacterCollection,
@@ -94,7 +94,7 @@ class CharacterOut(BaseModel):
 
 
 def _own_or_admin(user: User, character: Character):
-    if character.user_id != user.id and not getattr(user, "is_admin", False):
+    if character.user_id != user.id and not has_role(user, "admin", "collection_admin"):
         raise HTTPException(status_code=403, detail="Not your character")
 
 

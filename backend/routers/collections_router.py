@@ -19,7 +19,7 @@ from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from auth import require_user
+from auth import has_role, require_user
 from database import (
     CollectionGroup,
     CollectionItem,
@@ -103,7 +103,7 @@ class ItemCreate(BaseModel):
 
 
 def _require_admin(user: User):
-    if not user or not user.is_admin:
+    if not has_role(user, "admin", "collection_admin"):
         raise HTTPException(status_code=403, detail="Admin access required")
 
 

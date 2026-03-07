@@ -54,3 +54,22 @@ async def require_user(user: User = Depends(get_current_user)) -> User:
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
     return user
+
+
+def has_role(user: User, *roles: str) -> bool:
+    """Check if user has any of the given roles. 'admin' always passes."""
+    if not user:
+        return False
+    user_role = getattr(user, "role", None) or ("admin" if user.is_admin else "user")
+    return user_role == "admin" or user_role in roles
+
+
+def require_role(*roles: str):
+    """FastAPI dependency: require the user to have one of the specified roles."""
+
+    async def _check(user: User = Depends(require_user)) -> User:
+        if not has_role(user, *roles):
+            raise HTTPException(status_code=403, detail="Insufficient permissions")
+        return user
+
+    return _check

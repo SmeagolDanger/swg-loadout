@@ -156,4 +156,27 @@ export const api = {
     if (params.category) qs.set('category', params.category);
     return request(`/leaderboard?${qs.toString()}`);
   },
+
+  // ─── ADMIN ────────────────────────────────────────────────────────
+
+  getAdminUsers: (params = {}) => {
+    const qs = new URLSearchParams();
+    if (params.search) qs.set('search', params.search);
+    if (params.role) qs.set('role', params.role);
+    if (params.page) qs.set('page', params.page);
+    if (params.limit) qs.set('limit', params.limit);
+    return request(`/admin/users?${qs.toString()}`);
+  },
+  updateUserRole: (id, role) =>
+    request(`/admin/users/${id}/role`, { method: 'PUT', body: JSON.stringify({ role }) }),
+  updateUserActive: (id, is_active) =>
+    request(`/admin/users/${id}/active`, { method: 'PUT', body: JSON.stringify({ is_active }) }),
+  resetUserPassword: (id, new_password) =>
+    request(`/admin/users/${id}/password`, { method: 'PUT', body: JSON.stringify({ new_password }) }),
+  deleteUser: (id) =>
+    request(`/admin/users/${id}`, { method: 'DELETE' }),
+  getAdminStats: () => request('/admin/stats'),
+  getFeaturedLoadouts: () => request('/admin/featured-loadouts'),
+  toggleFeatured: (id, is_featured) =>
+    request(`/admin/loadouts/${id}/featured`, { method: 'PUT', body: JSON.stringify({ is_featured }) }),
 };
