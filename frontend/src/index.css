@@ -166,10 +166,10 @@
 
   .btn-danger {
     @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5
-           bg-laser-red/12 text-red-200 border border-laser-red/40
-           font-display font-semibold tracking-[0.12em] uppercase text-sm
-           hover:bg-laser-red/18 hover:border-laser-red/60
-           active:scale-[0.98] transition-all duration-200;
+       bg-[rgba(255,80,80,0.12)] text-red-200 border border-[rgba(255,80,80,0.40)]
+       font-display font-semibold tracking-[0.12em] uppercase text-sm
+       hover:bg-[rgba(255,80,80,0.18)] hover:border-[rgba(255,80,80,0.60)]
+       active:scale-[0.98] transition-all duration-200;
   }
 
   .btn-ghost {
@@ -190,11 +190,11 @@
   }
 
   .badge-admin {
-    @apply bg-laser-red/15 text-red-200 border-laser-red/40;
+    @apply bg-[rgba(255,80,80,0.15)] text-red-200 border-[rgba(255,80,80,0.40)];
   }
 
   .badge-collection {
-    @apply bg-laser-yellow/14 text-yellow-200 border-laser-yellow/40;
+    @apply bg-[rgba(255,210,90,0.14)] text-yellow-200 border-[rgba(255,210,90,0.40)];
   }
 
   .toolbar {
