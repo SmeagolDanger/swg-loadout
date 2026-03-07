@@ -55,6 +55,7 @@ COPY backend/data/ /app/data/
 
 # Nginx configuration
 COPY nginx/nginx.prod.conf /etc/nginx/nginx.conf
+COPY nginx/security-headers.conf /etc/nginx/security-headers.conf
 RUN rm -f /etc/nginx/sites-enabled/default
 
 # Supervisor configuration (manages nginx + gunicorn)
