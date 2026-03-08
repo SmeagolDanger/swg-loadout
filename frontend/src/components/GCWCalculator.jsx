@@ -225,9 +225,6 @@ export default function GCWCalculator() {
                   <div className="text-2xl font-display text-hull-50">
                     {prediction.data ? prediction.data.totalEarnedRating.toLocaleString() : '—'}
                   </div>
-                  <p className="text-sm text-hull-300 mt-2">
-                    Matches the original calculator behavior, including truncating visible progress to a whole percent before prediction.
-                  </p>
                 </div>
 
                 <div className="rounded-2xl border border-hull-400/40 bg-hull-800/60 p-4">
