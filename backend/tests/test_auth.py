@@ -110,6 +110,39 @@ class TestDiscordAuth:
         providers = client.get("/api/auth/providers")
         assert providers.json() == {"discord": True}
 
+    def test_discord_callback_duplicate_username_generates_unique_user(self, client, monkeypatch):
+        client.post(
+            "/api/auth/register",
+            json={
+                "username": "discordpilot",
+                "email": "local-only@swg.com",
+                "password": "password123",
+                "display_name": "Local Discord Pilot",
+            },
+        )
+        monkeypatch.setenv("DISCORD_CLIENT_ID", "cid")
+        monkeypatch.setenv("DISCORD_CLIENT_SECRET", "secret")
+        monkeypatch.setenv("DISCORD_REDIRECT_URI", "http://testserver/api/auth/discord/callback")
+        monkeypatch.setenv("PUBLIC_BASE_URL", "http://frontend.test")
+
+        with (
+            patch("routers.auth_router._exchange_discord_code", return_value={"access_token": "discord-token"}),
+            patch(
+                "routers.auth_router._get_discord_me",
+                return_value={
+                    "id": "77777",
+                    "username": "discordpilot",
+                    "global_name": "Discord Pilot",
+                    "verified": False,
+                    "avatar": None,
+                },
+            ),
+        ):
+            res = client.get("/api/auth/discord/callback?code=testcode", follow_redirects=False)
+
+        assert res.status_code in (302, 307)
+        assert "token=" in res.headers["location"]
+
     def test_discord_callback_links_existing_email(self, client, monkeypatch):
         client.post(
             "/api/auth/register",

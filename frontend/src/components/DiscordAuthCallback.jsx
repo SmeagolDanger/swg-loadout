@@ -10,6 +10,7 @@ const ERROR_MESSAGES = {
   token_exchange_failed: 'Discord login could not be completed.',
   discord_request_failed: 'Discord could not be reached right now.',
   discord_identity_failed: 'Discord did not return a usable account identity.',
+  discord_account_conflict: 'Discord sign-in could not be linked automatically. Sign in locally for now, then finish linking after the account rules are updated.',
 };
 
 export default function DiscordAuthCallback() {

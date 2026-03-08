@@ -10,6 +10,7 @@ from fastapi import Request as FastAPIRequest
 from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel, ConfigDict
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from auth import create_access_token, get_password_hash, require_user, verify_password
@@ -124,6 +125,49 @@ def _unique_username(base: str, db: Session) -> str:
     return candidate
 
 
+def _create_discord_user(
+    db: Session, discord_id: str, discord_username: str, avatar_url: str | None, real_email: str | None
+) -> User:
+    stored_email = real_email or f"discord_{discord_id}@users.invalid"
+    last_error = None
+
+    for _ in range(8):
+        user = User(
+            username=_unique_username(discord_username, db),
+            email=stored_email,
+            hashed_password=get_password_hash(secrets.token_urlsafe(32)),
+            display_name=discord_username,
+            discord_id=discord_id,
+            discord_username=discord_username,
+            discord_avatar=avatar_url,
+            auth_provider="discord",
+        )
+        db.add(user)
+        try:
+            db.commit()
+            db.refresh(user)
+            return user
+        except IntegrityError as exc:
+            db.rollback()
+            last_error = exc
+            if real_email:
+                existing = db.query(User).filter(User.email == real_email).first()
+                if existing:
+                    existing.discord_id = discord_id
+                    existing.discord_username = discord_username
+                    existing.discord_avatar = avatar_url
+                    if not existing.display_name:
+                        existing.display_name = discord_username
+                    if existing.auth_provider != "local":
+                        existing.auth_provider = "discord"
+                    db.commit()
+                    db.refresh(existing)
+                    return existing
+            continue
+
+    raise last_error or RuntimeError("discord_user_create_failed")
+
+
 @router.get("/providers", response_model=AuthProvidersResponse)
 def providers(request: FastAPIRequest):
     return AuthProvidersResponse(discord=_discord_enabled(request))
@@ -208,19 +252,16 @@ def discord_callback(
         user = db.query(User).filter(User.email == real_email).first()
 
     if user is None:
-        username = _unique_username(discord_username, db)
-        stored_email = real_email or f"discord_{discord_id}@users.invalid"
-        user = User(
-            username=username,
-            email=stored_email,
-            hashed_password=get_password_hash(secrets.token_urlsafe(32)),
-            display_name=discord_username,
-            discord_id=discord_id,
-            discord_username=discord_user.get("username") or discord_username,
-            discord_avatar=avatar_url,
-            auth_provider="discord",
-        )
-        db.add(user)
+        try:
+            user = _create_discord_user(
+                db,
+                discord_id=discord_id,
+                discord_username=discord_user.get("username") or discord_username,
+                avatar_url=avatar_url,
+                real_email=real_email,
+            )
+        except (IntegrityError, RuntimeError):
+            return RedirectResponse(_build_frontend_redirect(error="discord_account_conflict"))
     else:
         user.discord_id = discord_id
         user.discord_username = discord_user.get("username") or discord_username
@@ -229,9 +270,12 @@ def discord_callback(
             user.display_name = discord_username
         if user.auth_provider != "local":
             user.auth_provider = "discord"
-
-    db.commit()
-    db.refresh(user)
+        try:
+            db.commit()
+            db.refresh(user)
+        except IntegrityError:
+            db.rollback()
+            return RedirectResponse(_build_frontend_redirect(error="discord_account_conflict"))
 
     token = create_access_token(data={"sub": user.username})
     return RedirectResponse(_build_frontend_redirect(token=token))
