@@ -171,7 +171,9 @@ def discord_login(request: FastAPIRequest):
 
 
 @router.get("/discord/callback", name="discord_callback")
-def discord_callback(request: FastAPIRequest, code: str | None = None, error: str | None = None, db: Session = Depends(get_db)):
+def discord_callback(
+    request: FastAPIRequest, code: str | None = None, error: str | None = None, db: Session = Depends(get_db)
+):
     if error:
         return RedirectResponse(_build_frontend_redirect(error=error))
     if not code:
@@ -195,11 +197,7 @@ def discord_callback(request: FastAPIRequest, code: str | None = None, error: st
 
     discord_username = discord_user.get("global_name") or discord_user.get("username") or f"discord_{discord_id}"
     avatar_hash = discord_user.get("avatar")
-    avatar_url = (
-        f"https://cdn.discordapp.com/avatars/{discord_id}/{avatar_hash}.png?size=128"
-        if avatar_hash
-        else None
-    )
+    avatar_url = f"https://cdn.discordapp.com/avatars/{discord_id}/{avatar_hash}.png?size=128" if avatar_hash else None
     email = (discord_user.get("email") or "").strip().lower()
     verified = bool(discord_user.get("verified"))
     real_email = email if verified and email else None
