@@ -1,5 +1,15 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Copy, Music4, Plus, Minus, RefreshCcw, Save, Sparkles, Link2 } from 'lucide-react';
+import {
+  Copy,
+  Info,
+  Link2,
+  Minus,
+  Music4,
+  Plus,
+  RefreshCcw,
+  Save,
+  Sparkles,
+} from 'lucide-react';
 import {
   ENT_BUFF_POINTS_MAX,
   ENT_BUFF_REQUEST_TEMPLATE_DEFAULT,
@@ -36,6 +46,82 @@ function copyToClipboard(text) {
   const copied = document.execCommand('copy');
   document.body.removeChild(area);
   return Promise.resolve(Boolean(copied));
+}
+
+function BuffInfo({ buff }) {
+  return (
+    <div className="relative group shrink-0">
+      <button
+        type="button"
+        className="w-6 h-6 rounded-full border border-hull-400/40 bg-hull-800/80 text-hull-300 hover:text-plasma-300 hover:border-plasma-400/40 flex items-center justify-center transition-colors"
+        aria-label={`Details for ${buff.name}`}
+      >
+        <Info size={12} />
+      </button>
+      <div className="pointer-events-none absolute right-0 top-8 z-20 w-72 rounded-xl border border-hull-400/50 bg-hull-900/95 backdrop-blur px-3 py-3 text-xs text-hull-200 shadow-2xl opacity-0 translate-y-1 transition-all duration-150 group-hover:opacity-100 group-hover:translate-y-0 group-focus-within:opacity-100 group-focus-within:translate-y-0">
+        <div className="font-medium text-hull-50 mb-1">{buff.name}</div>
+        <div className="text-hull-300 mb-2">{buff.description}</div>
+        <div className="text-plasma-300">Effect: {formatBuffEffect(buff)}</div>
+        <div className="text-hull-300 mt-1">
+          Cost {buff.cost} point{buff.cost === 1 ? '' : 's'} • Max {buff.maxAssignments}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BuffRow({ buff, categories, onChange }) {
+  const increaseAllowed = canIncreaseBuff(categories, buff);
+  const isSelected = buff.assignments > 0;
+
+  return (
+    <div
+      className={`rounded-xl border px-3 py-2 transition-all ${
+        isSelected
+          ? 'border-plasma-400/45 bg-plasma-500/8'
+          : 'border-hull-400/35 bg-hull-800/55'
+      }`}
+    >
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="text-sm font-medium text-hull-50 truncate">{buff.name}</div>
+            <span className="badge badge-neutral shrink-0">{buff.cost} pt</span>
+          </div>
+          <div className="mt-1 text-[11px] text-hull-300 truncate">
+            {formatBuffEffect(buff)}
+          </div>
+        </div>
+        <BuffInfo buff={buff} />
+      </div>
+
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <div className="text-[11px] uppercase tracking-[0.16em] text-hull-400">
+          {buff.assignments} / {buff.maxAssignments}
+        </div>
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            className="btn-ghost h-8 w-8 px-0 justify-center"
+            onClick={() => onChange(buff.name, -1)}
+            disabled={buff.assignments <= 0}
+            aria-label={`Decrease ${buff.name}`}
+          >
+            <Minus size={14} />
+          </button>
+          <button
+            type="button"
+            className="btn-ghost h-8 w-8 px-0 justify-center"
+            onClick={() => onChange(buff.name, 1)}
+            disabled={!increaseAllowed}
+            aria-label={`Increase ${buff.name}`}
+          >
+            <Plus size={14} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function EntBuffBuilder() {
@@ -77,6 +163,7 @@ export default function EntBuffBuilder() {
   const pointsAssigned = useMemo(() => calculateAssignedPoints(categories), [categories]);
   const selectedBuffTexts = useMemo(() => buildSelectedBuffTexts(categories), [categories]);
   const requestText = useMemo(() => buildRequestText(categories, requestTemplate), [categories, requestTemplate]);
+  const pointsRemaining = ENT_BUFF_POINTS_MAX - pointsAssigned;
 
   function changeBuff(buffName, delta) {
     setCategories((current) => updateBuffAssignments(current, buffName, delta));
@@ -84,6 +171,7 @@ export default function EntBuffBuilder() {
 
   function handleClearAll() {
     setCategories((current) => clearEntBuffAssignments(current));
+    setToast('Selections cleared');
   }
 
   function handleApplyTemplate() {
@@ -108,117 +196,73 @@ export default function EntBuffBuilder() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8 space-y-6 animate-slide-up">
-      <div className="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-4">
+    <div className="max-w-[96rem] mx-auto px-4 py-6 space-y-4 animate-slide-up">
+      <div className="flex flex-col 2xl:flex-row 2xl:items-end 2xl:justify-between gap-3">
         <div>
-          <div className="inline-flex items-center gap-2 rounded-full border border-hull-500/50 bg-hull-800/70 px-4 py-2 text-xs font-display tracking-[0.25em] text-hull-200 uppercase mb-4">
+          <div className="inline-flex items-center gap-2 rounded-full border border-hull-500/50 bg-hull-800/70 px-4 py-2 text-[11px] font-display tracking-[0.25em] text-hull-200 uppercase mb-3">
             <Music4 size={14} className="text-plasma-400" />
             Social Tools
           </div>
           <h1 className="font-display font-bold text-3xl tracking-wider text-hull-50 mb-2">
             Entertainer Buff Builder
           </h1>
-          <p className="text-hull-200 max-w-3xl">
-            Build an entertainer buff package, keep track of the 20-point cap, and generate a ready-to-send request message based on the published source tool.
+          <p className="text-hull-200 max-w-3xl text-sm lg:text-base">
+            Build a compact entertainer package, stay inside the 20-point cap, and generate a shareable request message.
           </p>
         </div>
 
-        <div className="card px-4 py-3 min-w-[18rem]">
-          <div className="text-[11px] font-display tracking-[0.18em] uppercase text-hull-300 mb-2">Selection summary</div>
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <div className="text-3xl font-display text-hull-50">{pointsAssigned}</div>
-              <div className="text-xs text-hull-300">of {ENT_BUFF_POINTS_MAX} points assigned</div>
-            </div>
-            <div className="w-24 h-24 rounded-full border border-plasma-500/30 bg-plasma-500/10 flex items-center justify-center">
-              <div className="text-center">
-                <div className="text-plasma-300 font-display text-2xl">{selectedBuffTexts.length}</div>
-                <div className="text-[10px] uppercase tracking-[0.18em] text-hull-300">buffs</div>
-              </div>
-            </div>
+        <div className="grid grid-cols-3 gap-3 w-full 2xl:w-auto 2xl:min-w-[28rem]">
+          <div className="card px-4 py-3 text-center">
+            <div className="text-[11px] font-display tracking-[0.18em] uppercase text-hull-300">Assigned</div>
+            <div className="text-2xl font-display text-hull-50 mt-1">{pointsAssigned}</div>
+          </div>
+          <div className="card px-4 py-3 text-center">
+            <div className="text-[11px] font-display tracking-[0.18em] uppercase text-hull-300">Remaining</div>
+            <div className="text-2xl font-display text-plasma-300 mt-1">{pointsRemaining}</div>
+          </div>
+          <div className="card px-4 py-3 text-center">
+            <div className="text-[11px] font-display tracking-[0.18em] uppercase text-hull-300">Selected</div>
+            <div className="text-2xl font-display text-hull-50 mt-1">{selectedBuffTexts.length}</div>
           </div>
         </div>
       </div>
 
       {toast ? (
-        <div className="rounded-2xl border border-plasma-400/40 bg-plasma-500/10 px-4 py-3 text-sm text-plasma-200">
+        <div className="rounded-xl border border-plasma-400/40 bg-plasma-500/10 px-4 py-2 text-sm text-plasma-200">
           {toast}
         </div>
       ) : null}
 
-      <div className="grid xl:grid-cols-[minmax(0,1fr)_380px] gap-6 items-start">
+      <div className="grid 2xl:grid-cols-[minmax(0,1fr)_350px] gap-4 items-start">
         <section className="space-y-4 min-w-0">
-          <div className="grid lg:grid-cols-2 gap-4">
+          <div className="grid xl:grid-cols-3 lg:grid-cols-2 gap-4">
             {categories.map((category) => (
               <div key={category.name} className="card p-4">
-                <div className="flex items-center justify-between gap-3 mb-4">
+                <div className="flex items-center justify-between gap-3 mb-3">
                   <h2 className="font-display font-semibold tracking-[0.16em] uppercase text-sm text-plasma-400">
                     {category.name}
                   </h2>
                   <span className="badge badge-neutral">{category.buffs.length}</span>
                 </div>
 
-                <div className="space-y-3">
-                  {category.buffs.map((buff) => {
-                    const increaseAllowed = canIncreaseBuff(categories, buff);
-                    const isSelected = buff.assignments > 0;
-                    return (
-                      <div
-                        key={buff.name}
-                        className={`rounded-2xl border p-4 transition-all ${
-                          isSelected
-                            ? 'border-plasma-400/50 bg-plasma-500/10'
-                            : 'border-hull-400/40 bg-hull-800/60'
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-3 mb-2">
-                          <div>
-                            <div className="text-hull-50 font-medium">{buff.name}</div>
-                            <div className="text-xs text-hull-300 mt-1">{buff.description}</div>
-                          </div>
-                          <div className="shrink-0 text-right">
-                            <div className="badge badge-neutral">{buff.cost} pt{buff.cost === 1 ? '' : 's'}</div>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center justify-between gap-3 flex-wrap">
-                          <div className="text-sm text-hull-200">
-                            <span className="text-hull-300">Effect:</span> {formatBuffEffect(buff)}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              className="btn-ghost px-3"
-                              onClick={() => changeBuff(buff.name, -1)}
-                              disabled={buff.assignments <= 0}
-                            >
-                              <Minus size={16} />
-                            </button>
-                            <div className="min-w-[6rem] rounded-xl border border-hull-400/40 bg-hull-900/70 px-3 py-2 text-center text-sm text-hull-50">
-                              {buff.assignments} / {buff.maxAssignments}
-                            </div>
-                            <button
-                              type="button"
-                              className="btn-ghost px-3"
-                              onClick={() => changeBuff(buff.name, 1)}
-                              disabled={!increaseAllowed}
-                            >
-                              <Plus size={16} />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
+                <div className="space-y-2.5">
+                  {category.buffs.map((buff) => (
+                    <BuffRow
+                      key={buff.name}
+                      buff={buff}
+                      categories={categories}
+                      onChange={changeBuff}
+                    />
+                  ))}
                 </div>
               </div>
             ))}
           </div>
         </section>
 
-        <aside className="space-y-4">
-          <div className="card p-4">
-            <div className="flex items-center justify-between gap-3 mb-3">
+        <aside className="space-y-4 2xl:sticky 2xl:top-20">
+          <div className="card p-4 space-y-4">
+            <div className="flex items-center justify-between gap-3">
               <h2 className="font-display font-semibold tracking-[0.16em] uppercase text-sm text-plasma-400">
                 Selected Buffs
               </h2>
@@ -226,59 +270,57 @@ export default function EntBuffBuilder() {
             </div>
 
             {selectedBuffTexts.length ? (
-              <div className="space-y-2">
+              <div className="flex flex-wrap gap-2 max-h-48 overflow-auto pr-1">
                 {selectedBuffTexts.map((buffText) => (
-                  <div key={buffText} className="rounded-xl border border-hull-400/40 bg-hull-800/60 px-3 py-2 text-sm text-hull-100">
+                  <div
+                    key={buffText}
+                    className="rounded-full border border-hull-400/40 bg-hull-800/70 px-3 py-1.5 text-xs text-hull-100"
+                  >
                     {buffText}
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="rounded-xl border border-hull-400/40 bg-hull-800/60 px-3 py-4 text-sm text-hull-300">
-                Select buffs from the list to build a request.
+              <div className="rounded-xl border border-dashed border-hull-400/40 bg-hull-800/45 px-3 py-4 text-sm text-hull-300">
+                Add buffs to see your package summary here.
               </div>
             )}
 
-            {selectedBuffTexts.length ? (
-              <button type="button" className="btn-secondary w-full mt-4 justify-center" onClick={handleClearAll}>
-                <RefreshCcw size={16} /> Clear All
+            <div className="flex flex-wrap gap-2">
+              <button type="button" className="btn-secondary" onClick={handleClearAll}>
+                <RefreshCcw size={16} /> Clear
               </button>
-            ) : null}
+              <button type="button" className="btn-secondary" onClick={handleCopyRequest} disabled={!requestText}>
+                <Copy size={16} /> Copy Request
+              </button>
+              <button type="button" className="btn-ghost" onClick={handleCopyShareLink}>
+                <Link2 size={16} /> Share Link
+              </button>
+            </div>
           </div>
 
-          <div className="card p-4 space-y-4">
+          <div className="card p-4 space-y-3">
             <div>
               <h2 className="font-display font-semibold tracking-[0.16em] uppercase text-sm text-plasma-400 mb-2">
-                Request Message
+                Request Preview
               </h2>
               <textarea
                 value={requestText}
                 readOnly
                 rows={4}
-                placeholder="Select buffs to generate a request message."
-                className="resize-none"
+                className="min-h-[6.5rem] resize-none"
               />
             </div>
 
-            <div className="flex flex-wrap gap-2">
-              <button type="button" className="btn-secondary" onClick={handleCopyRequest} disabled={!requestText}>
-                <Copy size={16} /> Copy Request
-              </button>
-              <button type="button" className="btn-ghost" onClick={handleCopyShareLink}>
-                <Link2 size={16} /> Copy Share Link
-              </button>
-            </div>
-          </div>
-
-          <div className="card p-4 space-y-4">
             <div>
-              <h2 className="font-display font-semibold tracking-[0.16em] uppercase text-sm text-plasma-400 mb-2">
-                Request Template
-              </h2>
-              <p className="text-sm text-hull-300 mb-3">
-                Use <code>%Buffs%</code> for the original capitalization or <code>%buffs%</code> for lowercase formatting.
-              </p>
+              <div className="flex items-center gap-2 mb-2 text-hull-50 font-display tracking-wide text-sm">
+                <Save size={15} className="text-plasma-400" />
+                Template
+              </div>
               <input value={requestTemplate} onChange={(event) => setRequestTemplate(event.target.value)} />
+              <p className="text-xs text-hull-300 mt-2">
+                Use <code>%Buffs%</code> for original capitalization or <code>%buffs%</code> for lowercase formatting.
+              </p>
             </div>
 
             <div className="flex flex-wrap gap-2">
@@ -286,19 +328,19 @@ export default function EntBuffBuilder() {
                 <Save size={16} /> Save Template
               </button>
               <button type="button" className="btn-ghost" onClick={handleResetTemplate}>
-                <RefreshCcw size={16} /> Reset Template
+                <RefreshCcw size={16} /> Reset
               </button>
             </div>
           </div>
 
           <div className="card p-4">
-            <div className="flex items-center gap-2 mb-3 text-hull-50 font-display tracking-wide">
-              <Sparkles size={16} className="text-plasma-400" />
-              Source Notes
+            <div className="flex items-center gap-2 mb-2 text-hull-50 font-display tracking-wide text-sm">
+              <Sparkles size={15} className="text-plasma-400" />
+              Quick Notes
             </div>
-            <div className="space-y-2 text-sm text-hull-200">
-              <p>This builder recreates the published entertainer buff tool logic for Legends, including the 20-point cap, request template tokens, and shareable assignment string format.</p>
-              <p>Selections are stored in the URL with the <code>q</code> parameter so you can bookmark or share a build directly.</p>
+            <div className="space-y-2 text-xs text-hull-200 leading-relaxed">
+              <p>Hover the info icon on any buff to see the full effect and source-style description.</p>
+              <p>Selections are saved into the page URL with the <code>q</code> parameter so you can bookmark or share a build directly.</p>
             </div>
           </div>
         </aside>

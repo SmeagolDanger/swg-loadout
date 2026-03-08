@@ -11,7 +11,7 @@ const ENTRY_CARDS = [
     accent: 'text-plasma-400',
     border: 'border-plasma-500/40',
     glow: 'hover:shadow-glow hover:border-plasma-500/60',
-    chips: ['Builder', 'Calculators', 'Community', 'Buildouts'],
+    chips: ['Builder', 'Calculators', 'Community'],
   },
   {
     to: '/tools/buildouts',
@@ -22,6 +22,16 @@ const ENTRY_CARDS = [
     border: 'border-cyan-400/30',
     glow: 'hover:border-cyan-400/50 hover:shadow-[0_0_24px_rgba(34,211,238,0.18)]',
     chips: ['Zones', 'Spawners', 'Waypoints'],
+  },
+  {
+    to: '/collections',
+    title: 'Collections',
+    subtitle: 'Track badges, characters, leaderboard progress, and collection completion across your roster.',
+    icon: Trophy,
+    accent: 'text-laser-yellow',
+    border: 'border-laser-yellow/30',
+    glow: 'hover:border-laser-yellow/50 hover:shadow-[0_0_24px_rgba(255,214,10,0.15)]',
+    chips: ['Tracker', 'Characters', 'Leaderboard'],
   },
   {
     to: '/tools/gcw',
@@ -43,17 +53,13 @@ const ENTRY_CARDS = [
     glow: 'hover:border-fuchsia-400/50 hover:shadow-[0_0_24px_rgba(232,121,249,0.18)]',
     chips: ['Buffs', 'Requests', 'Share Links'],
   },
-  {
-    to: '/collections',
-    title: 'Collections',
-    subtitle: 'Track badges, characters, leaderboard progress, and collection completion across your roster.',
-    icon: Trophy,
-    accent: 'text-laser-yellow',
-    border: 'border-laser-yellow/30',
-    glow: 'hover:border-laser-yellow/50 hover:shadow-[0_0_24px_rgba(255,214,10,0.15)]',
-    chips: ['Tracker', 'Characters', 'Leaderboard'],
-  },
 ];
+
+function cardPlacement(index) {
+  if (index === 3) return 'xl:col-start-2';
+  if (index === 4) return 'xl:col-start-4';
+  return '';
+}
 
 export default function WelcomeScreen() {
   const navigate = useNavigate();
@@ -86,12 +92,12 @@ export default function WelcomeScreen() {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
-          {ENTRY_CARDS.map((card) => (
+        <div className="grid md:grid-cols-2 xl:grid-cols-6 gap-6">
+          {ENTRY_CARDS.map((card, index) => (
             <Link
               key={card.to}
               to={card.to}
-              className={`group card p-6 md:p-8 border ${card.border} ${card.glow} transition-all duration-200 min-h-[19rem] flex flex-col justify-between`}
+              className={`group card p-6 md:p-8 border ${card.border} ${card.glow} transition-all duration-200 min-h-[18.5rem] flex flex-col justify-between xl:col-span-2 ${cardPlacement(index)}`}
             >
               <div>
                 <div className={`w-14 h-14 rounded-2xl bg-hull-800 border ${card.border} flex items-center justify-center mb-6`}>
