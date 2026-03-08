@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowRight, Crosshair, Download, Flag, Music4, Orbit, Sparkles, Trophy, Users, Wrench } from 'lucide-react';
+import { Crosshair, Download, Flag, Music4, Orbit, Sparkles, Trophy, Users, Wrench } from 'lucide-react';
 
 const ENTRY_CARDS = [
   {
@@ -8,9 +8,6 @@ const ENTRY_CARDS = [
     title: 'Space Tools',
     subtitle: 'Builders, calculators, loot, and the rest of your practical shipyard toolkit.',
     icon: Crosshair,
-    accent: 'text-plasma-400',
-    border: 'border-plasma-500/40',
-    glow: 'hover:shadow-glow hover:border-plasma-500/60',
     chips: ['Builder', 'Calculators', 'Community'],
   },
   {
@@ -18,9 +15,6 @@ const ENTRY_CARDS = [
     title: 'Buildout Maps',
     subtitle: 'Parse SWG space buildout tabs, inspect patrol paths, and copy waypoint strings in one place.',
     icon: Orbit,
-    accent: 'text-cyan-300',
-    border: 'border-cyan-400/30',
-    glow: 'hover:border-cyan-400/50 hover:shadow-[0_0_24px_rgba(34,211,238,0.18)]',
     chips: ['Zones', 'Spawners', 'Waypoints'],
   },
   {
@@ -28,9 +22,6 @@ const ENTRY_CARDS = [
     title: 'GCW Calculator',
     subtitle: 'Project next-week faction rank, inspect decay breakpoints, and check the math quickly.',
     icon: Flag,
-    accent: 'text-laser-yellow',
-    border: 'border-laser-yellow/30',
-    glow: 'hover:border-laser-yellow/50 hover:shadow-[0_0_24px_rgba(255,214,10,0.15)]',
     chips: ['Empire', 'Rebel', 'Decay', 'Ranks'],
   },
   {
@@ -38,9 +29,6 @@ const ENTRY_CARDS = [
     title: 'Ent Buffs',
     subtitle: 'Plan entertainer buff packages, stay inside the point cap, and copy a ready-to-send request.',
     icon: Music4,
-    accent: 'text-fuchsia-300',
-    border: 'border-fuchsia-400/30',
-    glow: 'hover:border-fuchsia-400/50 hover:shadow-[0_0_24px_rgba(232,121,249,0.18)]',
     chips: ['20 Points', 'Request Text', 'Share Link'],
   },
   {
@@ -48,9 +36,6 @@ const ENTRY_CARDS = [
     title: 'Starter Builds',
     subtitle: 'Browse curated starter ship setups and load them into the builder as clean starting points.',
     icon: Sparkles,
-    accent: 'text-laser-yellow',
-    border: 'border-laser-yellow/30',
-    glow: 'hover:border-laser-yellow/50 hover:shadow-[0_0_24px_rgba(255,214,10,0.15)]',
     chips: ['Curated', 'Beginner', 'Templates'],
   },
   {
@@ -58,9 +43,6 @@ const ENTRY_CARDS = [
     title: 'Community Builds',
     subtitle: 'Browse public player builds, inspect their parts, and copy the ones you want to remix.',
     icon: Users,
-    accent: 'text-cyan-300',
-    border: 'border-cyan-400/30',
-    glow: 'hover:border-cyan-400/50 hover:shadow-[0_0_24px_rgba(34,211,238,0.18)]',
     chips: ['Public', 'Shared', 'Remix'],
   },
   {
@@ -68,9 +50,6 @@ const ENTRY_CARDS = [
     title: 'Game Mods',
     subtitle: 'Browse curated downloads with screenshots, install notes, and bundled zip packages.',
     icon: Download,
-    accent: 'text-emerald-300',
-    border: 'border-emerald-400/30',
-    glow: 'hover:border-emerald-400/50 hover:shadow-[0_0_24px_rgba(52,211,153,0.18)]',
     chips: ['Curated', 'Screenshots', 'Downloads'],
   },
   {
@@ -78,12 +57,42 @@ const ENTRY_CARDS = [
     title: 'Collections',
     subtitle: 'Track badges, characters, leaderboard progress, and other completion goals.',
     icon: Trophy,
-    accent: 'text-laser-yellow',
-    border: 'border-laser-yellow/30',
-    glow: 'hover:border-laser-yellow/50 hover:shadow-[0_0_24px_rgba(255,214,10,0.15)]',
     chips: ['Tracker', 'Characters', 'Leaderboard'],
   },
 ];
+
+const ROW_THEMES = {
+  top: {
+    accent: 'text-plasma-300',
+    border: 'border-plasma-500/35',
+    glow: 'hover:border-plasma-400/60 hover:shadow-[0_0_26px_rgba(0,212,255,0.14)]',
+    iconBg: 'bg-plasma-500/10',
+    chipBorder: 'border-plasma-500/20',
+    chipBg: 'bg-plasma-500/8',
+  },
+  middle: {
+    accent: 'text-fuchsia-300',
+    border: 'border-fuchsia-500/30',
+    glow: 'hover:border-fuchsia-400/55 hover:shadow-[0_0_26px_rgba(232,121,249,0.14)]',
+    iconBg: 'bg-fuchsia-500/10',
+    chipBorder: 'border-fuchsia-500/20',
+    chipBg: 'bg-fuchsia-500/8',
+  },
+  bottom: {
+    accent: 'text-laser-yellow',
+    border: 'border-laser-yellow/30',
+    glow: 'hover:border-laser-yellow/50 hover:shadow-[0_0_26px_rgba(255,214,10,0.14)]',
+    iconBg: 'bg-laser-yellow/10',
+    chipBorder: 'border-laser-yellow/20',
+    chipBg: 'bg-laser-yellow/8',
+  },
+};
+
+function getRowTheme(index) {
+  if (index < 3) return ROW_THEMES.top;
+  if (index < 6) return ROW_THEMES.middle;
+  return ROW_THEMES.bottom;
+}
 
 export default function WelcomeScreen() {
   const navigate = useNavigate();
@@ -102,7 +111,7 @@ export default function WelcomeScreen() {
   return (
     <div className="relative overflow-hidden">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(0,212,255,0.14),transparent_35%),radial-gradient(circle_at_bottom_right,rgba(255,214,10,0.10),transparent_30%)] pointer-events-none" />
-      <div className="max-w-6xl mx-auto px-4 py-10 md:py-16 animate-slide-up relative">
+      <div className="max-w-6xl mx-auto px-4 py-8 md:py-12 animate-slide-up relative">
         <div className="text-center max-w-3xl mx-auto mb-8 md:mb-10">
           <div className="inline-flex items-center gap-2 rounded-full border border-hull-500/50 bg-hull-800/70 px-4 py-2 text-xs font-display tracking-[0.25em] text-hull-200 uppercase mb-4">
             <Wrench size={14} className="text-plasma-400" />
@@ -116,42 +125,38 @@ export default function WelcomeScreen() {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 xl:grid-cols-6 gap-5">
-          {ENTRY_CARDS.map((card) => {
+        <div className="grid md:grid-cols-2 xl:grid-cols-6 gap-4 md:gap-5">
+          {ENTRY_CARDS.map((card, index) => {
+            const theme = getRowTheme(index);
             const wideClass = 'xl:col-span-2';
+            const bottomCenterClass = index >= 6 ? 'xl:col-start-2' : '';
             return (
               <Link
                 key={card.to}
                 to={card.to}
-                className={`group card p-5 md:p-6 border ${card.border} ${card.glow} transition-all duration-200 min-h-[15rem] flex flex-col justify-between ${wideClass}`}
+                className={`group card p-4 md:p-5 border ${theme.border} ${theme.glow} transition-all duration-200 min-h-[12.5rem] md:min-h-[13rem] flex flex-col justify-between ${wideClass} ${bottomCenterClass}`}
               >
                 <div>
-                  <div className={`w-12 h-12 rounded-2xl bg-hull-800 border ${card.border} flex items-center justify-center mb-4`}>
-                    <card.icon size={24} className={card.accent} />
+                  <div className={`w-11 h-11 rounded-2xl ${theme.iconBg} border ${theme.border} flex items-center justify-center mb-4`}>
+                    <card.icon size={22} className={theme.accent} />
                   </div>
-                  <h2 className="font-display font-bold text-xl tracking-wider text-hull-50 mb-2">
+                  <h2 className="font-display font-bold text-xl md:text-[1.35rem] tracking-wider text-hull-50 mb-2">
                     {card.title}
                   </h2>
-                  <p className="text-sm text-hull-200 leading-relaxed mb-4">
+                  <p className="text-hull-200 text-sm leading-relaxed mb-4 line-clamp-3">
                     {card.subtitle}
                   </p>
-                  <div className="flex flex-wrap gap-2">
-                    {card.chips.map((chip) => (
-                      <span
-                        key={chip}
-                        className="rounded-full border border-hull-500/50 bg-hull-800/70 px-3 py-1 text-xs font-display tracking-wide text-hull-200"
-                      >
-                        {chip}
-                      </span>
-                    ))}
-                  </div>
                 </div>
 
-                <div className="mt-5 flex items-center justify-between">
-                  <span className="font-display text-sm tracking-[0.2em] uppercase text-hull-300">Enter Section</span>
-                  <div className="inline-flex items-center gap-2 btn-primary text-xs group-hover:translate-x-1 transition-transform duration-200">
-                    Open <ArrowRight size={16} />
-                  </div>
+                <div className="flex flex-wrap gap-2">
+                  {card.chips.map((chip) => (
+                    <span
+                      key={chip}
+                      className={`rounded-full border ${theme.chipBorder} ${theme.chipBg} px-2.5 py-1 text-[11px] font-display tracking-wide text-hull-200`}
+                    >
+                      {chip}
+                    </span>
+                  ))}
                 </div>
               </Link>
             );
