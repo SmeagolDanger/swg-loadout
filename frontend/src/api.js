@@ -41,8 +41,8 @@ export const api = {
   },
   getMe: () => request('/auth/me'),
   getAuthProviders: () => request('/auth/providers'),
-  getDiscordLoginUrl: () => request('/auth/discord/login'),
-  
+  getDiscordLoginUrl: () => `${BASE}/auth/discord/login`,
+
   // Game Data
   getChassisList: () => request('/gamedata/chassis'),
   getChassis: (name) => request(`/gamedata/chassis/${encodeURIComponent(name)}`),
