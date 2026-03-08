@@ -17,10 +17,89 @@ import EntBuffBuilder from './components/EntBuffBuilder';
 import AdminPage from './components/AdminPage';
 import { CollectionsPage, CharacterDirectory, CollectionLeaderboard } from './components/collections';
 
+function resolveFooter(pathname) {
+  if (pathname.startsWith('/tools/gcw')) {
+    return {
+      id: 'gcw',
+      content: (
+        <>
+          GCW calculator inspired by{' '}
+          <a
+            href="https://github.com/a727891/gcwcalc"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-hull-200 hover:text-plasma-400 transition-colors"
+          >
+            gcwcalc
+          </a>
+          .
+        </>
+      ),
+    };
+  }
+
+  if (pathname.startsWith('/tools/ent-buffs')) {
+    return {
+      id: 'ent',
+      content: (
+        <>
+          Entertainer Buff Builder inspired by the original{' '}
+          <a
+            href="http://entbuff.sipherius.net/legends/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-hull-200 hover:text-plasma-400 transition-colors"
+          >
+            Star Wars Galaxies Entertainer Buff Builder
+          </a>
+          {' '}by Sipherius.
+        </>
+      ),
+    };
+  }
+
+  if (pathname.startsWith('/collections')) {
+    return {
+      id: 'collections',
+      content: <>Collections is an original feature of this site.</>,
+    };
+  }
+
+  if (pathname.startsWith('/tools') || pathname === '/') {
+    return {
+      id: 'tools',
+      content: (
+        <>
+          Space tools and buildouts based on{' '}
+          <a
+            href="https://github.com/SeraphExodus/Seraphs-Loadout-Tool"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-hull-200 hover:text-plasma-400 transition-colors"
+          >
+            Seraph&apos;s Loadout Tool
+          </a>
+          {' · '}
+          <a
+            href="https://github.com/SmeagolDanger/swg-loadout"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-hull-200 hover:text-plasma-400 transition-colors"
+          >
+            Source (GPL-2.0)
+          </a>
+        </>
+      ),
+    };
+  }
+
+  return null;
+}
+
 export default function App() {
   const { user, loading } = useAuth();
   const { pathname } = useLocation();
-  const showCredits = pathname.startsWith('/tools') || pathname === '/';
+  const footer = resolveFooter(pathname);
 
   if (loading) {
     return (
@@ -73,16 +152,9 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
-      {showCredits && (
+      {footer && (
         <footer className="text-center text-hull-200 text-xs font-display tracking-wide py-6 border-t border-hull-400/30 mt-12 bg-hull-900/60">
-          Space tools based on{' '}
-          <a href="https://github.com/SeraphExodus/Seraphs-Loadout-Tool" target="_blank" rel="noopener noreferrer" className="text-hull-200 hover:text-plasma-400 transition-colors">
-            Seraph's Loadout Tool
-          </a>
-          {' · '}
-          <a href="https://github.com/SmeagolDanger/swg-loadout" target="_blank" rel="noopener noreferrer" className="text-hull-200 hover:text-plasma-400 transition-colors">
-            Source (GPL-2.0)
-          </a>
+          {footer.content}
         </footer>
       )}
     </div>
