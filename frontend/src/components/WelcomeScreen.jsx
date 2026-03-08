@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Crosshair, Trophy, ArrowRight, Wrench, Users, Orbit } from 'lucide-react';
+import { Crosshair, Trophy, ArrowRight, Wrench, Orbit, Flag } from 'lucide-react';
 
 const ENTRY_CARDS = [
   {
@@ -22,6 +22,16 @@ const ENTRY_CARDS = [
     border: 'border-cyan-400/30',
     glow: 'hover:border-cyan-400/50 hover:shadow-[0_0_24px_rgba(34,211,238,0.18)]',
     chips: ['Zones', 'Spawners', 'Waypoints'],
+  },
+  {
+    to: '/tools/gcw',
+    title: 'GCW Calculator',
+    subtitle: 'Predict next-week faction rank, inspect decay breakpoints, and stop doing officer math in your head like a maniac.',
+    icon: Flag,
+    accent: 'text-laser-yellow',
+    border: 'border-laser-yellow/30',
+    glow: 'hover:border-laser-yellow/50 hover:shadow-[0_0_24px_rgba(255,214,10,0.15)]',
+    chips: ['Empire', 'Rebel', 'Decay', 'Ranks'],
   },
   {
     to: '/collections',

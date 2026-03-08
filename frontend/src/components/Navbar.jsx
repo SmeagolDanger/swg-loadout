@@ -19,6 +19,7 @@ import {
   ChevronRight,
   Shield,
   Orbit,
+  Flag,
 } from 'lucide-react';
 
 const TOOL_NAV_ITEMS = [
@@ -29,6 +30,7 @@ const TOOL_NAV_ITEMS = [
   { to: '/tools/fc', label: 'FC Calc', icon: Cpu },
   { to: '/tools/loot', label: 'Loot', icon: Search },
   { to: '/tools/community', label: 'Community', icon: Users },
+  { to: '/tools/gcw', label: 'GCW Calc', icon: Flag },
 ];
 
 const COLLECTION_NAV_ITEMS = [
