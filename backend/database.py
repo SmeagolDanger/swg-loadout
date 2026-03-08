@@ -39,6 +39,10 @@ class User(Base):
     email = Column(String(120), unique=True, index=True, nullable=False)
     hashed_password = Column(String(255), nullable=False)
     display_name = Column(String(100))
+    discord_id = Column(String(40), unique=True, index=True, nullable=True)
+    discord_username = Column(String(100), nullable=True)
+    discord_avatar = Column(String(255), nullable=True)
+    auth_provider = Column(String(30), default="local")
     created_at = Column(DateTime, default=datetime.utcnow)
     is_active = Column(Boolean, default=True)
     is_admin = Column(Boolean, default=False)
@@ -301,6 +305,17 @@ def _run_migrations():
             # Backfill: existing admins get 'admin' role
             db.execute(text("UPDATE users SET role = 'admin' WHERE is_admin = true"))
             db.commit()
+
+        if "discord_id" not in user_cols:
+            db.execute(text("ALTER TABLE users ADD COLUMN discord_id VARCHAR(40)"))
+        if "discord_username" not in user_cols:
+            db.execute(text("ALTER TABLE users ADD COLUMN discord_username VARCHAR(100)"))
+        if "discord_avatar" not in user_cols:
+            db.execute(text("ALTER TABLE users ADD COLUMN discord_avatar VARCHAR(255)"))
+        if "auth_provider" not in user_cols:
+            db.execute(text("ALTER TABLE users ADD COLUMN auth_provider VARCHAR(30) DEFAULT 'local'"))
+
+        db.execute(text("UPDATE users SET auth_provider = 'local' WHERE auth_provider IS NULL OR auth_provider = ''"))
 
         if "is_featured" not in loadout_cols:
             db.execute(text("ALTER TABLE loadouts ADD COLUMN is_featured BOOLEAN DEFAULT false"))

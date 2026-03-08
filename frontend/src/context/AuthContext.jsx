@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { api } from '../api';
 
 const AuthContext = createContext(null);
@@ -10,12 +10,26 @@ export function AuthProvider({ children }) {
   });
   const [loading, setLoading] = useState(true);
 
+  const setSession = (token, nextUser) => {
+    localStorage.setItem('slt_token', token);
+    localStorage.setItem('slt_user', JSON.stringify(nextUser));
+    setUser(nextUser);
+    return nextUser;
+  };
+
   useEffect(() => {
     const token = localStorage.getItem('slt_token');
     if (token) {
       api.getMe()
-        .then(u => { setUser(u); localStorage.setItem('slt_user', JSON.stringify(u)); })
-        .catch(() => { logout(); })
+        .then((u) => {
+          setUser(u);
+          localStorage.setItem('slt_user', JSON.stringify(u));
+        })
+        .catch(() => {
+          localStorage.removeItem('slt_token');
+          localStorage.removeItem('slt_user');
+          setUser(null);
+        })
         .finally(() => setLoading(false));
     } else {
       setLoading(false);
@@ -24,18 +38,27 @@ export function AuthProvider({ children }) {
 
   const login = async (username, password) => {
     const data = await api.login(username, password);
-    localStorage.setItem('slt_token', data.access_token);
-    localStorage.setItem('slt_user', JSON.stringify(data.user));
-    setUser(data.user);
-    return data.user;
+    return setSession(data.access_token, data.user);
   };
 
   const register = async (formData) => {
     const data = await api.register(formData);
-    localStorage.setItem('slt_token', data.access_token);
-    localStorage.setItem('slt_user', JSON.stringify(data.user));
-    setUser(data.user);
-    return data.user;
+    return setSession(data.access_token, data.user);
+  };
+
+  const completeOAuthLogin = async (token) => {
+    localStorage.setItem('slt_token', token);
+    try {
+      const nextUser = await api.getMe();
+      localStorage.setItem('slt_user', JSON.stringify(nextUser));
+      setUser(nextUser);
+      return nextUser;
+    } catch (error) {
+      localStorage.removeItem('slt_token');
+      localStorage.removeItem('slt_user');
+      setUser(null);
+      throw error;
+    }
   };
 
   const logout = () => {
@@ -44,11 +67,12 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
-  return (
-    <AuthContext.Provider value={{ user, login, register, logout, loading }}>
-      {children}
-    </AuthContext.Provider>
+  const value = useMemo(
+    () => ({ user, login, register, logout, loading, completeOAuthLogin }),
+    [user, loading],
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export const useAuth = () => useContext(AuthContext);

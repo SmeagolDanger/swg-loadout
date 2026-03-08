@@ -1,65 +1,51 @@
-# SWG:L Tools
+# SWG:L Space Tools
 
-Unified toolkit for SWG Legends with curated tools, build sharing, collections tracking, buildout mapping, GCW utilities, entertainer buff planning, and curated mod downloads.
+Unified toolkit for SWG Legends — combines the **Loadout Builder** and **Collection Tracker** into a single application with shared authentication.
 
-> **Space tools and buildouts are based on [Seraph's Loadout Tool](https://github.com/SeraphExodus/Seraphs-Loadout-Tool)** by [SeraphExodus](https://github.com/SeraphExodus).
-> The loadout builder, RE/FC calculators, component library, game data tables, and buildout functionality are derived from or inspired by Seraph's original desktop application.
->
-> **GCW calculator** is based on the original `gcwcalc` project.
->
-> **Entertainer buffs** are based on the original SWG entertainer buff builder by Sipherius.
+> **Space tools based on [Seraph's Loadout Tool](https://github.com/SeraphExodus/Seraphs-Loadout-Tool)** by [SeraphExodus](https://github.com/SeraphExodus).
+> The loadout builder, RE/FC calculators, component library, and game data tables are derived from Seraph's original desktop application.
+> This project is licensed under the [GNU General Public License v2.0](LICENSE), the same license as the original.
 
-This project is licensed under the [GNU General Public License v2.0](LICENSE), matching the original Seraph tool lineage.
+## Features
 
-## Current feature set
-
-### Space tools
+### Loadout Tool
 - Ship loadout builder with real-time stat calculations
 - Component library and custom component management
-- Reverse Engineering calculator
-- Flight Computer calculator
-- Loot source lookup and best-source analysis
-- Public, community, and starter build support
+- Reverse Engineering (RE) calculator with brand tables
+- Flight Computer (FC) calculator with macro generation
+- Loot source lookup with best-source analysis
+- Community loadout sharing
 
-### Buildouts
-- Space buildout explorer with interactive 2D/3D map views
-- Zone parsing and bundled buildout data
-- Waypoint and route export helpers
-
-### Collections
+### Collection Tracker
 - 920+ trackable collection items across dozens of categories
 - Per-character progress tracking with completion stats
-- Character directory and leaderboard
+- Category filtering and full-text search
+- Waypoint copy-to-clipboard for in-game use
+- Character directory with public profiles
+- Global leaderboard with category breakdowns
 
-### Utility tools
-- GCW rank calculator aligned to the original source behavior
-- Entertainer buff builder with compact request planning
-
-### Curated mods
-- Admin-managed game mod library
-- Screenshots, install instructions, and compatibility notes
-- Multiple uploaded files bundled into a single download
-- Single uploaded zip served directly without re-zipping
-
-### Shared platform features
-- Shared authentication across the site
-- Admin panel for users, collections, starter builds, and curated mods
-- Responsive React frontend with a unified design system
+### Shared
+- Single user account works across all tools
+- Admin panel for user and collection data management
+- Responsive design — works on desktop and mobile
+- Optional Discord OAuth login alongside local auth
 
 ---
 
-## Quick start (development)
+## Quick Start (Development)
 
 ### Prerequisites
 - Docker & Docker Compose
-- Node.js 20+
-- Python 3.12+
+- Node.js 20+ (for frontend dev)
+- Python 3.12+ (for backend dev)
 
 ### 1. Start the database
 
 ```bash
 docker compose up -d
 ```
+
+This starts PostgreSQL on port 5432. The backend auto-creates all tables and seeds the 920+ collection items on first boot.
 
 ### 2. Start the backend
 
@@ -77,63 +63,47 @@ npm install
 npm run dev
 ```
 
-Visit `http://localhost:5173`.
+Visit `http://localhost:5173`. The Vite dev server proxies API calls to the backend.
 
 ---
 
-## Production deployment
+## Production Deployment
 
-### Docker deployment
+### Option A: Docker (recommended)
 
-#### 1. Create `.env`
-
-Minimum required values:
+#### 1. Create a `.env` file
 
 ```bash
-POSTGRES_PASSWORD=replace_me
-SECRET_KEY=replace_me_with_a_long_random_secret
+POSTGRES_PASSWORD=your-secure-password-here
+SECRET_KEY=your-jwt-secret-here-at-least-32-chars
 POSTGRES_DB=slt_db
 POSTGRES_USER=slt_user
-HTTP_PORT=80
-HTTPS_PORT=443
 ```
 
-#### 2. Prepare persistent mod storage
-
-Curated mod uploads are stored outside the repo checkout so future `git pull` operations do not get polluted by uploaded files.
-
-Create the host directories:
+Optional Discord OAuth settings:
 
 ```bash
-sudo mkdir -p /opt/swg-loadout-data/mods/files
-sudo mkdir -p /opt/swg-loadout-data/mods/screenshots
-sudo mkdir -p /opt/swg-loadout-data/mods/uploads
+PUBLIC_BASE_URL=https://your-domain.example
+DISCORD_CLIENT_ID=your-discord-client-id
+DISCORD_CLIENT_SECRET=your-discord-client-secret
+DISCORD_REDIRECT_URI=https://your-domain.example/api/auth/discord/callback
 ```
 
-Set ownership for the in-container `slt` user, which uses UID/GID `999:999` in the production image:
-
-```bash
-sudo chown -R 999:999 /opt/swg-loadout-data/mods
-sudo chmod -R u+rwX,go+rX /opt/swg-loadout-data/mods
-```
-
-The production compose file mounts this host path to `/app/data/mods` inside the container.
-
-#### 3. Build and start
+#### 2. Build and deploy
 
 ```bash
 docker compose -f docker-compose.prod.yml up -d --build
 ```
 
-#### 4. Verify health
+This builds a single container with Nginx + Gunicorn + the compiled frontend, plus a PostgreSQL container. The app will be available on port 80.
 
-```bash
-curl -sf http://localhost/api/health
-```
+On first startup:
+- All database tables are created automatically
+- The 920+ collection items are seeded from `collections-data.json`
 
-#### 5. Promote an admin user
+#### 3. Create your admin user
 
-Register through the UI, then run:
+After the app is running, register a normal account through the UI, then promote it to admin via the database:
 
 ```bash
 docker compose -f docker-compose.prod.yml exec db \
@@ -141,105 +111,197 @@ docker compose -f docker-compose.prod.yml exec db \
   -c "UPDATE users SET is_admin = true, role = 'admin' WHERE username = 'your-username';"
 ```
 
-### Deployment script
+Available roles: `user`, `admin`, `collection_admin`. The `admin` role has full access. The `collection_admin` role can manage collection groups and items but cannot access user management.
 
-The included deployment helper:
+### Option B: Manual deployment
+
+#### 1. Build the frontend
 
 ```bash
-./scripts/deploy.sh
+cd frontend
+npm install
+npm run build
 ```
 
-now:
-- creates `/opt/swg-loadout-data/mods/{files,screenshots,uploads}`
-- applies the correct upload ownership (`999:999`)
-- generates a `.env` file if missing
-- starts the production stack
-- checks the real production health endpoint
+This outputs to `frontend/dist/`.
+
+#### 2. Copy frontend build to backend
+
+```bash
+cp -r frontend/dist backend/static
+```
+
+#### 3. Run the backend with Gunicorn
+
+```bash
+cd backend
+pip install -r requirements.txt gunicorn
+
+DATABASE_URL="postgresql://user:pass@localhost:5432/slt_db" \
+SECRET_KEY="your-secret-key" \
+gunicorn main:app -k uvicorn.workers.UvicornWorker \
+  --bind 0.0.0.0:8000 --workers 4
+```
+
+#### 4. Put Nginx in front
+
+Use the provided `nginx/nginx.prod.conf` as a starting point, adjusting the upstream to point at your Gunicorn socket or port.
 
 ---
 
-## Main routes
+## Domain Configuration
+
+### If migrating from separate subdomains
+
+Previously:
+```
+space.jawatracks.com       → loadout tool
+collections.jawatracks.com → collections tracker
+```
+
+Now everything runs at `space.jawatracks.com`. Add a redirect for the old collections domain:
+
+```nginx
+server {
+    listen 80;
+    server_name collections.jawatracks.com;
+    return 301 https://space.jawatracks.com/collections$request_uri;
+}
+```
+
+### URL structure
 
 | Path | Page |
 |------|------|
-| `/` | Welcome screen |
-| `/tools` | Space tools / builder |
-| `/tools/buildouts` | Buildout explorer |
-| `/tools/gcw` | GCW calculator |
-| `/tools/ent-buffs` | Entertainer buffs |
-| `/starter-builds` | Starter builds |
-| `/community` | Community builds |
-| `/collections` | Collection tracker |
-| `/mods` | Curated game mods |
-| `/auth` | Sign in / register |
-| `/admin` | Admin panel |
+| `/` | Loadout Builder |
+| `/auth` | Sign In / Register |
+| `/loadouts` | My Loadouts |
+| `/components` | My Components |
+| `/re` | RE Calculator |
+| `/fc` | FC Calculator |
+| `/loot` | Loot Lookup |
+| `/community` | Community Loadouts |
+| `/collections` | Collection Tracker |
+| `/characters` | Character Directory |
+| `/leaderboard` | Collection Leaderboard |
 
 ---
 
 ## Architecture
 
-```text
+```
 ┌─────────────────────────────────────────┐
-│ Nginx (port 80/443)                     │
-│ ├─ /assets/*  → static frontend assets  │
-│ ├─ /api/*     → Gunicorn / FastAPI      │
-│ └─ /*         → SPA fallback            │
+│  Nginx (port 80/443)                    │
+│  ├─ /assets/*  → static files (cached)  │
+│  ├─ /api/*     → Gunicorn (FastAPI)      │
+│  └─ /*         → index.html (SPA)        │
 ├─────────────────────────────────────────┤
-│ FastAPI backend                         │
-│ ├─ auth_router                          │
-│ ├─ loadout_router                       │
-│ ├─ buildout_router                      │
-│ ├─ gamedata_router                      │
-│ ├─ re_router                            │
-│ ├─ fc_router                            │
-│ ├─ collections_router                   │
-│ ├─ characters_router                    │
-│ ├─ mods_router                          │
-│ └─ admin_router                         │
+│  FastAPI Backend                         │
+│  ├─ auth_router      (JWT + bcrypt)      │
+│  ├─ loadout_router   (CRUD)              │
+│  ├─ gamedata_router  (chassis, calcs)    │
+│  ├─ re_router        (RE calculator)     │
+│  ├─ fc_router        (FC calculator)     │
+│  ├─ import_router    (save file import)  │
+│  ├─ collections_router (groups/items)    │
+│  └─ characters_router  (chars, tracking) │
 ├─────────────────────────────────────────┤
-│ PostgreSQL                              │
-│ ├─ users                                │
-│ ├─ loadouts / starter metadata          │
-│ ├─ collections                          │
-│ ├─ characters                           │
-│ └─ curated mods metadata                │
-├─────────────────────────────────────────┤
-│ Host-mounted persistent storage         │
-│ └─ /opt/swg-loadout-data/mods           │
-│    ├─ files                             │
-│    ├─ screenshots                       │
-│    └─ uploads                           │
+│  PostgreSQL                              │
+│  ├─ users                                │
+│  ├─ loadouts, user_components            │
+│  ├─ fc_loadouts, re_projects             │
+│  ├─ characters                           │
+│  ├─ collection_groups, collection_items  │
+│  └─ character_collections                │
 └─────────────────────────────────────────┘
 ```
 
-## Environment variables
+### Tech Stack
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `POSTGRES_PASSWORD` | Yes | — | PostgreSQL password |
-| `SECRET_KEY` | Yes | — | JWT signing key |
-| `POSTGRES_DB` | No | `slt_db` | Database name |
-| `POSTGRES_USER` | No | `slt_user` | Database user |
-| `LOG_LEVEL` | No | `info` | Application log level |
-| `HTTP_PORT` | No | `80` | Public HTTP bind port |
-| `HTTPS_PORT` | No | `443` | Public HTTPS bind port |
-| `REGISTRY` | No | `ghcr.io` | Optional registry prefix |
-| `IMAGE_NAME` | No | `seraphs-loadout-tool` | Image name |
-| `IMAGE_TAG` | No | `latest` | Image tag |
+| Layer | Technology |
+|-------|-----------|
+| Frontend | React 18, React Router, Tailwind CSS, Vite, Lucide icons |
+| Backend | Python 3.12, FastAPI, SQLAlchemy, Pydantic |
+| Database | PostgreSQL 16 |
+| Auth | JWT (python-jose) + bcrypt, 7-day token expiry |
+| Server | Nginx + Gunicorn/Uvicorn |
+| Deploy | Docker Compose |
 
 ---
 
-## Notes on curated mod uploads
+## Environment Variables
 
-- Uploaded mod files and screenshots are **not** stored in the database.
-- They are written to `/app/data/mods` inside the container.
-- In production, that path should stay bind-mounted to `/opt/swg-loadout-data/mods` on the host.
-- If uploads begin failing after a server migration, check ownership first:
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `DATABASE_URL` | Yes | `postgresql://slt_user:slt_pass@db:5432/slt_db` | PostgreSQL connection string |
+| `SECRET_KEY` | Yes (prod) | dev default | JWT signing key |
+| `POSTGRES_PASSWORD` | Yes (docker) | — | PostgreSQL password |
+| `POSTGRES_DB` | No | `slt_db` | Database name |
+| `POSTGRES_USER` | No | `slt_user` | Database user |
+| `LOG_LEVEL` | No | `info` | Gunicorn log level |
 
-```bash
-sudo chown -R 999:999 /opt/swg-loadout-data/mods
-sudo chmod -R u+rwX,go+rX /opt/swg-loadout-data/mods
+---
+
+## Collection Data
+
+The 920+ collection items are stored in `backend/data/collections-data.json`. This file is auto-seeded into the database on first startup. To update collection data:
+
+1. Edit `collections-data.json`
+2. Delete existing entries: `TRUNCATE collection_groups CASCADE;`
+3. Restart the app — it will re-seed from the JSON
+
+The JSON structure:
+```json
+{
+  "Group Name": {
+    "icon": "emoji",
+    "category": "exploration|combat|loot|profession|event|badge|space|other",
+    "description": "Group description",
+    "items": {
+      "Item Name": {
+        "notes": "In-game hints, waypoints, etc.",
+        "difficulty": "easy|medium|hard|rare"
+      }
+    }
+  }
+}
 ```
 
-- If only one uploaded mod file is already a `.zip`, the download endpoint serves it directly.
-- If multiple files are uploaded for a mod, the download endpoint bundles them into a generated zip.
+---
+
+## API Reference
+
+All endpoints are prefixed with `/api`.
+
+### Auth
+- `POST /api/auth/register` — create account
+- `POST /api/auth/login` — sign in (returns JWT)
+- `GET /api/auth/me` — current user info
+
+### Loadout Tool
+- `GET/POST /api/loadouts` — list/create loadouts
+- `GET/PUT/DELETE /api/loadouts/:id` — manage loadout
+- `GET/POST /api/components` — list/create custom components
+- `GET /api/gamedata/*` — chassis, component library, calculations
+- `POST /api/re/analyze` — RE analysis
+- `POST /api/fc/cooldowns` — FC calculations
+
+### Collections
+- `GET /api/collections` — all groups with items
+- `GET /api/collections/:id` — single group
+- `GET /api/characters` — search/list characters
+- `GET /api/characters/:id` — character with completed collections
+- `POST /api/characters` — create character
+- `POST /api/characters/:id/collections` — mark item collected
+- `POST /api/characters/:id/collections/bulk` — bulk collect
+- `DELETE /api/characters/:cid/collections/:iid` — uncollect
+- `GET /api/characters/:id/stats` — category breakdown
+- `GET /api/stats` — global statistics
+- `GET /api/leaderboard` — ranked leaderboard
+
+### Admin (requires `is_admin = true`)
+- `PUT /api/admin/collections/groups/:id` — edit group
+- `POST /api/admin/collections/groups` — create group
+- `PUT /api/admin/collections/items/:id` — edit item
+- `POST /api/admin/collections/items` — create item
+- `DELETE /api/admin/collections/items/:id` — delete item

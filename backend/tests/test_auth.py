@@ -1,5 +1,7 @@
 """Tests for health check and authentication endpoints."""
 
+from unittest.mock import patch
+
 
 class TestHealth:
     def test_health_endpoint(self, client):
@@ -50,12 +52,9 @@ class TestAuthRegister:
 
 class TestAuthLogin:
     def test_login_success(self, client):
-        # Register first
         client.post(
             "/api/auth/register", json={"username": "logintest", "email": "login@swg.com", "password": "testpass123"}
         )
-
-        # Login
         res = client.post("/api/auth/login", data={"username": "logintest", "password": "testpass123"})
         assert res.status_code == 200
         assert "access_token" in res.json()
@@ -64,13 +63,87 @@ class TestAuthLogin:
         client.post(
             "/api/auth/register", json={"username": "wrongpass", "email": "wrong@swg.com", "password": "correctpass"}
         )
-
         res = client.post("/api/auth/login", data={"username": "wrongpass", "password": "incorrectpass"})
         assert res.status_code == 401
 
     def test_login_nonexistent_user(self, client):
         res = client.post("/api/auth/login", data={"username": "ghost", "password": "doesntmatter"})
         assert res.status_code == 401
+
+
+class TestDiscordAuth:
+    def test_providers_disabled_by_default(self, client):
+        res = client.get("/api/auth/providers")
+        assert res.status_code == 200
+        assert res.json() == {"discord": False}
+
+    def test_discord_login_requires_configuration(self, client):
+        res = client.get("/api/auth/discord/login")
+        assert res.status_code == 503
+
+    def test_discord_callback_creates_user(self, client, monkeypatch):
+        monkeypatch.setenv("DISCORD_CLIENT_ID", "cid")
+        monkeypatch.setenv("DISCORD_CLIENT_SECRET", "secret")
+        monkeypatch.setenv("DISCORD_REDIRECT_URI", "http://testserver/api/auth/discord/callback")
+        monkeypatch.setenv("PUBLIC_BASE_URL", "http://frontend.test")
+
+        with (
+            patch("routers.auth_router._exchange_discord_code", return_value={"access_token": "discord-token"}),
+            patch(
+                "routers.auth_router._get_discord_me",
+                return_value={
+                    "id": "12345",
+                    "username": "DiscordPilot",
+                    "global_name": "Discord Pilot",
+                    "email": "discord@swg.com",
+                    "verified": True,
+                    "avatar": "avatarhash",
+                },
+            ),
+        ):
+            res = client.get("/api/auth/discord/callback?code=testcode", follow_redirects=False)
+
+        assert res.status_code in (302, 307)
+        location = res.headers["location"]
+        assert location.startswith("http://frontend.test/auth/discord/callback?token=")
+
+        providers = client.get("/api/auth/providers")
+        assert providers.json() == {"discord": True}
+
+    def test_discord_callback_links_existing_email(self, client, monkeypatch):
+        client.post(
+            "/api/auth/register",
+            json={
+                "username": "localpilot",
+                "email": "shared@swg.com",
+                "password": "password123",
+                "display_name": "Local Pilot",
+            },
+        )
+        monkeypatch.setenv("DISCORD_CLIENT_ID", "cid")
+        monkeypatch.setenv("DISCORD_CLIENT_SECRET", "secret")
+        monkeypatch.setenv("DISCORD_REDIRECT_URI", "http://testserver/api/auth/discord/callback")
+        monkeypatch.setenv("PUBLIC_BASE_URL", "http://frontend.test")
+
+        with (
+            patch("routers.auth_router._exchange_discord_code", return_value={"access_token": "discord-token"}),
+            patch(
+                "routers.auth_router._get_discord_me",
+                return_value={
+                    "id": "99999",
+                    "username": "DiscordPilot",
+                    "global_name": "Discord Pilot",
+                    "email": "shared@swg.com",
+                    "verified": True,
+                    "avatar": None,
+                },
+            ),
+        ):
+            client.get("/api/auth/discord/callback?code=testcode", follow_redirects=False)
+
+        res = client.post("/api/auth/login", data={"username": "localpilot", "password": "password123"})
+        assert res.status_code == 200
+        assert res.json()["user"]["auth_provider"] == "local"
 
 
 class TestAuthMe:
