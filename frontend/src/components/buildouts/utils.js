@@ -10,16 +10,6 @@ export function formatCoord(value) {
   return Number(value || 0).toFixed(1);
 }
 
-export function projectPoint(point, axes, size, padding, bounds) {
-  const [axisX, axisY] = axes;
-  const span = bounds.max - bounds.min || 1;
-  const usable = size - padding * 2;
-  const scale = usable / span;
-  const x = padding + (point[axisX] - bounds.min) * scale;
-  const y = size - padding - (point[axisY] - bounds.min) * scale;
-  return [x, y];
-}
-
 export function projectIsoPoint(coordinates, camera, scale = 1) {
   const [x, y, z] = coordinates;
   const cosYaw = Math.cos(camera.yaw);

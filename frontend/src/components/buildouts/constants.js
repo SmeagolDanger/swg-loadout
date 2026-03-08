@@ -10,12 +10,6 @@ export const COLORS = {
   path: '#fde047',
 };
 
-export const PROJECTIONS = [
-  { id: 'xy', label: 'Top (X / Y)', axes: [0, 1] },
-  { id: 'xz', label: 'Front (X / Z)', axes: [0, 2] },
-  { id: 'yz', label: 'Side (Y / Z)', axes: [1, 2] },
-];
-
 export const LAYER_OPTIONS = [
   ['spawns', 'Show spawners'],
   ['statics', 'Show static ships'],

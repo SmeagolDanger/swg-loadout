@@ -73,9 +73,6 @@ def _objvar_map(objvars: str) -> dict[str, list[str]]:
         data.setdefault(key, []).append(value)
         index += 3
 
-        if type_marker == "$":
-            continue
-
     return data
 
 
