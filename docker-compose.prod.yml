@@ -54,6 +54,8 @@ services:
       # - ./private:/etc/ssl/private:ro
       # Persistent logs
       - app_logs:/var/log/slt
+      # Persistent curated mod uploads
+      - /opt/swg-loadout-data/mods:/app/backend/data/mods
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:80/api/health"]
       interval: 30s
