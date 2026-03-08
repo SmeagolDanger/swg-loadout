@@ -138,6 +138,25 @@ class TestPublicLoadouts:
         assert res.status_code == 200
         assert len(res.json()) == 0
 
+    def test_public_loadout_with_null_is_starter_still_visible(self, auth_client, client):
+        create_res = auth_client.post("/api/loadouts", json={**TestLoadoutCRUD.LOADOUT_PAYLOAD, "is_public": True})
+        assert create_res.status_code == 200
+
+        from database import SessionLocal, Loadout
+
+        loadout_id = create_res.json()["id"]
+        db = SessionLocal()
+        loadout = db.query(Loadout).filter(Loadout.id == loadout_id).first()
+        loadout.is_starter = None
+        db.commit()
+        db.close()
+
+        res = client.get("/api/loadouts/public")
+        assert res.status_code == 200
+        data = res.json()
+        assert len(data) == 1
+        assert data[0]["name"] == "My A-Wing Build"
+
 
 class TestComponentCRUD:
     COMP_PAYLOAD = {

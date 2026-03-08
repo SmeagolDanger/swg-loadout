@@ -249,7 +249,21 @@ def _run_migrations():
 
         if "is_featured" not in loadout_cols:
             db.execute(text("ALTER TABLE loadouts ADD COLUMN is_featured BOOLEAN DEFAULT false"))
-            db.commit()
+
+        if "is_starter" not in loadout_cols:
+            db.execute(text("ALTER TABLE loadouts ADD COLUMN is_starter BOOLEAN DEFAULT false"))
+
+        if "starter_description" not in loadout_cols:
+            db.execute(text("ALTER TABLE loadouts ADD COLUMN starter_description TEXT DEFAULT ''"))
+
+        if "starter_tags" not in loadout_cols:
+            db.execute(text("ALTER TABLE loadouts ADD COLUMN starter_tags VARCHAR(255) DEFAULT ''"))
+
+        db.execute(text("UPDATE loadouts SET is_featured = false WHERE is_featured IS NULL"))
+        db.execute(text("UPDATE loadouts SET is_starter = false WHERE is_starter IS NULL"))
+        db.execute(text("UPDATE loadouts SET starter_description = '' WHERE starter_description IS NULL"))
+        db.execute(text("UPDATE loadouts SET starter_tags = '' WHERE starter_tags IS NULL"))
+        db.commit()
     except Exception:
         db.rollback()
     finally:

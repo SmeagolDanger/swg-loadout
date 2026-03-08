@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from auth import get_current_user, require_user
@@ -122,7 +123,7 @@ def _build_loadout_responses(loadouts: list[Loadout], db: Session) -> list[Loado
 def list_public_loadouts(db: Session = Depends(get_db)):
     loadouts = (
         db.query(Loadout)
-        .filter(Loadout.is_public.is_(True), Loadout.is_starter.is_(False))
+        .filter(Loadout.is_public.is_(True), or_(Loadout.is_starter.is_(False), Loadout.is_starter.is_(None)))
         .order_by(Loadout.is_featured.desc(), Loadout.updated_at.desc())
         .limit(100)
         .all()
