@@ -204,10 +204,18 @@ def download_mod_zip(slug: str, db: Session = Depends(get_db)):
     if not mod.files:
         raise HTTPException(status_code=400, detail="This mod does not have downloadable files yet")
 
+    files = sorted(mod.files, key=lambda item: item.id)
+    if len(files) == 1 and files[0].original_filename.lower().endswith(".zip"):
+        file = files[0]
+        path = UPLOADS_DIR / file.stored_filename
+        if not path.exists():
+            raise HTTPException(status_code=404, detail="Mod file not found")
+        return FileResponse(path, media_type="application/zip", filename=file.original_filename)
+
     buffer = io.BytesIO()
     zip_name = f"{mod.slug}-{mod.version or 'bundle'}.zip"
     with zipfile.ZipFile(buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as archive:
-        for file in sorted(mod.files, key=lambda item: item.id):
+        for file in files:
             path = UPLOADS_DIR / file.stored_filename
             if path.exists():
                 archive.write(path, arcname=file.original_filename)

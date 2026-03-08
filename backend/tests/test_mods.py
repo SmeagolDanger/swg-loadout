@@ -53,3 +53,39 @@ class TestMods:
         download_res = client.get("/api/mods/minimal-ui-pack/download")
         assert download_res.status_code == 200
         assert download_res.headers["content-type"].startswith("application/zip")
+
+    def test_single_zip_file_download_is_not_rezipped(self, auth_client, client):
+        self._promote_admin()
+
+        create_res = auth_client.post(
+            "/api/admin/mods",
+            json={
+                "title": "Ship HUD Pack",
+                "slug": "ship-hud-pack",
+                "author_name": "Seraph",
+                "summary": "ZIP-only release.",
+                "description": "Single zip file should download directly.",
+                "category": "ui",
+                "tags": "ui,zip",
+                "version": "2.0",
+                "compatibility": "SWG Legends",
+                "install_instructions": "Extract into ui/.",
+                "is_published": True,
+                "is_featured": False,
+            },
+        )
+        assert create_res.status_code == 200
+        mod_id = create_res.json()["id"]
+
+        upload_res = auth_client.post(
+            f"/api/admin/mods/{mod_id}/files",
+            files=[("files", ("ship-hud-pack.zip", b"PK\x03\x04fakezip", "application/zip"))],
+        )
+        assert upload_res.status_code == 200
+        assert len(upload_res.json()["files"]) == 1
+
+        download_res = client.get("/api/mods/ship-hud-pack/download")
+        assert download_res.status_code == 200
+        assert download_res.headers["content-type"].startswith("application/zip")
+        assert 'filename="ship-hud-pack.zip"' in download_res.headers["content-disposition"]
+        assert download_res.content == b"PK\x03\x04fakezip"
