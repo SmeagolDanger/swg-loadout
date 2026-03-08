@@ -125,7 +125,6 @@ export default function GCWCalculator() {
             <div className="grid sm:grid-cols-2 gap-3">
               <div>
                 <label className="text-xs text-hull-200 mb-2 block">Visible progress %</label>
-                <div className="text-[11px] text-hull-300 mb-2">Matches the original calculator by using the whole-number portion only.</div>
                 <input
                   type="number"
                   min="0"
