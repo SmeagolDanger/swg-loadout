@@ -15,6 +15,9 @@ from sqlalchemy.orm import Session
 
 from auth import create_access_token, get_password_hash, require_user, verify_password
 from database import User, get_db
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -233,7 +236,8 @@ def discord_callback(
         if not access_token:
             return RedirectResponse(_build_frontend_redirect(error="token_exchange_failed"))
         discord_user = _get_discord_me(access_token)
-    except (HTTPError, URLError, TimeoutError, OSError, json.JSONDecodeError):
+    except (HTTPError, URLError, TimeoutError, OSError, json.JSONDecodeError) as exc:
+        logger.exception("Discord OAuth request failed")
         return RedirectResponse(_build_frontend_redirect(error="discord_request_failed"))
 
     discord_id = str(discord_user.get("id") or "").strip()
