@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import secrets
 from urllib.error import HTTPError, URLError
@@ -15,15 +16,23 @@ from sqlalchemy.orm import Session
 
 from auth import create_access_token, get_password_hash, require_user, verify_password
 from database import User, get_db
-import logging
-
-logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
+logger = logging.getLogger(__name__)
 
 DISCORD_AUTHORIZE_URL = "https://discord.com/oauth2/authorize"
 DISCORD_TOKEN_URL = "https://discord.com/api/oauth2/token"
 DISCORD_ME_URL = "https://discord.com/api/users/@me"
+DISCORD_HTTP_HEADERS = {
+    "Accept": "application/json",
+    "User-Agent": "SWGL-Tools/1.0 (+https://jawatracks.com)",
+}
+
+
+class DiscordOAuthError(Exception):
+    def __init__(self, code: str):
+        super().__init__(code)
+        self.code = code
 
 
 class RegisterRequest(BaseModel):
@@ -88,9 +97,23 @@ def _build_frontend_redirect(token: str | None = None, error: str | None = None)
     return f"{_get_public_base_url()}/auth/discord/callback{suffix}"
 
 
-def _load_json(req: Request) -> dict:
-    with urlopen(req, timeout=15) as response:
-        return json.loads(response.read().decode("utf-8"))
+def _load_json(req: Request, *, error_code: str, context: str) -> dict:
+    try:
+        with urlopen(req, timeout=15) as response:
+            payload = response.read().decode("utf-8")
+    except HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")[:500]
+        logger.warning("Discord OAuth HTTP error during %s: status=%s body=%s", context, exc.code, body)
+        raise DiscordOAuthError(error_code) from exc
+    except (URLError, TimeoutError, OSError) as exc:
+        logger.exception("Discord OAuth network error during %s", context)
+        raise DiscordOAuthError(error_code) from exc
+
+    try:
+        return json.loads(payload)
+    except json.JSONDecodeError as exc:
+        logger.warning("Discord OAuth JSON parse error during %s: payload=%s", context, payload[:500])
+        raise DiscordOAuthError(error_code) from exc
 
 
 def _exchange_discord_code(code: str, redirect_uri: str) -> dict:
@@ -103,13 +126,26 @@ def _exchange_discord_code(code: str, redirect_uri: str) -> dict:
             "redirect_uri": redirect_uri,
         }
     ).encode("utf-8")
-    req = Request(DISCORD_TOKEN_URL, data=payload, headers={"Content-Type": "application/x-www-form-urlencoded"})
-    return _load_json(req)
+    req = Request(
+        DISCORD_TOKEN_URL,
+        data=payload,
+        headers={
+            **DISCORD_HTTP_HEADERS,
+            "Content-Type": "application/x-www-form-urlencoded",
+        },
+    )
+    return _load_json(req, error_code="discord_token_exchange_failed", context="token exchange")
 
 
 def _get_discord_me(access_token: str) -> dict:
-    req = Request(DISCORD_ME_URL, headers={"Authorization": f"Bearer {access_token}"})
-    return _load_json(req)
+    req = Request(
+        DISCORD_ME_URL,
+        headers={
+            **DISCORD_HTTP_HEADERS,
+            "Authorization": f"Bearer {access_token}",
+        },
+    )
+    return _load_json(req, error_code="discord_profile_fetch_failed", context="profile fetch")
 
 
 def _coalesce_user(user: User) -> UserResponse:
@@ -234,14 +270,15 @@ def discord_callback(
         token_data = _exchange_discord_code(code, redirect_uri)
         access_token = token_data.get("access_token")
         if not access_token:
+            logger.warning("Discord token exchange returned no access_token: payload=%s", token_data)
             return RedirectResponse(_build_frontend_redirect(error="token_exchange_failed"))
         discord_user = _get_discord_me(access_token)
-    except (HTTPError, URLError, TimeoutError, OSError, json.JSONDecodeError) as exc:
-        logger.exception("Discord OAuth request failed")
-        return RedirectResponse(_build_frontend_redirect(error="discord_request_failed"))
+    except DiscordOAuthError as exc:
+        return RedirectResponse(_build_frontend_redirect(error=exc.code))
 
     discord_id = str(discord_user.get("id") or "").strip()
     if not discord_id:
+        logger.warning("Discord profile response missing id: payload=%s", discord_user)
         return RedirectResponse(_build_frontend_redirect(error="discord_identity_failed"))
 
     discord_username = discord_user.get("global_name") or discord_user.get("username") or f"discord_{discord_id}"
@@ -265,6 +302,7 @@ def discord_callback(
                 real_email=real_email,
             )
         except (IntegrityError, RuntimeError):
+            logger.exception("Discord account conflict while creating/linking user")
             return RedirectResponse(_build_frontend_redirect(error="discord_account_conflict"))
     else:
         user.discord_id = discord_id
@@ -279,6 +317,7 @@ def discord_callback(
             db.refresh(user)
         except IntegrityError:
             db.rollback()
+            logger.exception("Discord account conflict while updating existing user")
             return RedirectResponse(_build_frontend_redirect(error="discord_account_conflict"))
 
     token = create_access_token(data={"sub": user.username})
