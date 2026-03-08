@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowRight, Crosshair, Flag, Music4, Orbit, Trophy, Wrench } from 'lucide-react';
+import { ArrowRight, Crosshair, Flag, Music4, Orbit, Sparkles, Trophy, Users, Wrench } from 'lucide-react';
 
 const ENTRY_CARDS = [
   {
@@ -42,6 +42,26 @@ const ENTRY_CARDS = [
     border: 'border-fuchsia-400/30',
     glow: 'hover:border-fuchsia-400/50 hover:shadow-[0_0_24px_rgba(232,121,249,0.18)]',
     chips: ['20 Points', 'Request Text', 'Share Link'],
+  },
+  {
+    to: '/tools/starters',
+    title: 'Starter Builds',
+    subtitle: 'Browse curated starter ship setups and load them into the builder as clean starting points.',
+    icon: Sparkles,
+    accent: 'text-laser-yellow',
+    border: 'border-laser-yellow/30',
+    glow: 'hover:border-laser-yellow/50 hover:shadow-[0_0_24px_rgba(255,214,10,0.15)]',
+    chips: ['Curated', 'Beginner', 'Templates'],
+  },
+  {
+    to: '/tools/community',
+    title: 'Community Builds',
+    subtitle: 'Browse public player builds, inspect their parts, and copy the ones you want to remix.',
+    icon: Users,
+    accent: 'text-cyan-300',
+    border: 'border-cyan-400/30',
+    glow: 'hover:border-cyan-400/50 hover:shadow-[0_0_24px_rgba(34,211,238,0.18)]',
+    chips: ['Public', 'Shared', 'Remix'],
   },
   {
     to: '/collections',
@@ -87,14 +107,13 @@ export default function WelcomeScreen() {
         </div>
 
         <div className="grid md:grid-cols-2 xl:grid-cols-6 gap-6">
-          {ENTRY_CARDS.map((card, index) => {
-            const wideClass = index < 3 ? 'xl:col-span-2' : 'xl:col-span-2';
-            const centeredRowClass = index === 3 ? 'xl:col-start-2' : index === 4 ? 'xl:col-start-4' : '';
+          {ENTRY_CARDS.map((card) => {
+            const wideClass = 'xl:col-span-2';
             return (
               <Link
                 key={card.to}
                 to={card.to}
-                className={`group card p-6 md:p-8 border ${card.border} ${card.glow} transition-all duration-200 min-h-[18rem] flex flex-col justify-between ${wideClass} ${centeredRowClass}`}
+                className={`group card p-6 md:p-8 border ${card.border} ${card.glow} transition-all duration-200 min-h-[18rem] flex flex-col justify-between ${wideClass}`}
               >
                 <div>
                   <div className={`w-14 h-14 rounded-2xl bg-hull-800 border ${card.border} flex items-center justify-center mb-6`}>

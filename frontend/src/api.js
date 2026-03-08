@@ -77,6 +77,7 @@ export const api = {
   // Loadouts
   getLoadouts: () => request('/loadouts'),
   getPublicLoadouts: () => request('/loadouts/public'),
+  getStarterLoadouts: () => request('/loadouts/starters'),
   getLoadout: (id) => request(`/loadouts/${id}`),
   createLoadout: (data) => request('/loadouts', { method: 'POST', body: JSON.stringify(data) }),
   updateLoadout: (id, data) => request(`/loadouts/${id}`, { method: 'PUT', body: JSON.stringify(data) }),

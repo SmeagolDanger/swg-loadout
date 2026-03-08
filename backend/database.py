@@ -98,6 +98,9 @@ class Loadout(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     is_public = Column(Boolean, default=False)
     is_featured = Column(Boolean, default=False)
+    is_starter = Column(Boolean, default=False)
+    starter_description = Column(Text, default="")
+    starter_tags = Column(String(255), default="")
     owner = relationship("User", back_populates="loadouts")
 
 

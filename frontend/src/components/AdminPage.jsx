@@ -3,13 +3,14 @@ import { useAuth } from '../context/AuthContext';
 import { api } from '../api';
 import {
   Shield, Users, Star, BarChart3, Search, ChevronDown,
-  Trash2, Key, UserX, UserCheck, X, Check, AlertTriangle
+  Trash2, Key, UserX, UserCheck, X, Check, AlertTriangle, Sparkles, ExternalLink
 } from 'lucide-react';
 
 const ROLES = ['user', 'admin', 'collection_admin'];
 const TABS = [
   { key: 'users', label: 'Users', icon: Users },
   { key: 'featured', label: 'Featured', icon: Star },
+  { key: 'starters', label: 'Starters', icon: Sparkles },
   { key: 'stats', label: 'Stats', icon: BarChart3 },
 ];
 
@@ -60,6 +61,7 @@ export default function AdminPage() {
 
       {tab === 'users' && <UsersTab />}
       {tab === 'featured' && <FeaturedTab />}
+      {tab === 'starters' && <StarterBuildsTab />}
       {tab === 'stats' && <StatsTab />}
     </div>
   );
@@ -412,6 +414,89 @@ function FeaturedTab() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+
+function StarterBuildsTab() {
+  const [starters, setStarters] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await api.getStarterLoadouts();
+      setStarters(data);
+    } catch (error) {
+      console.error('Failed to load starter builds:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  if (loading) {
+    return (
+      <div className="text-center py-12">
+        <div className="w-8 h-8 border-2 border-plasma-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="card p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h3 className="font-display text-sm text-plasma-400 tracking-wider mb-1 flex items-center gap-2">
+            <Sparkles size={14} /> STARTER BUILDS
+          </h3>
+          <p className="text-sm text-hull-200">
+            Build curated starter loadouts in the main builder, then save them with starter mode enabled.
+          </p>
+        </div>
+        <a href="/tools?starter=1" className="btn-primary text-xs flex items-center gap-1 whitespace-nowrap">
+          <Sparkles size={13} /> Open Starter Builder
+        </a>
+      </div>
+
+      {starters.length === 0 ? (
+        <div className="text-sm text-hull-300 py-4">No starter builds published yet.</div>
+      ) : (
+        <div className="space-y-2">
+          {starters.map((starter) => (
+            <div key={starter.id} className="card px-4 py-3 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-display font-semibold text-hull-50 text-sm">{starter.name}</span>
+                  <span className="text-xs text-hull-300 font-mono">{starter.chassis}</span>
+                </div>
+                {starter.starter_description && (
+                  <p className="text-xs text-hull-200 mt-1">{starter.starter_description}</p>
+                )}
+                <div className="text-xs text-hull-400 mt-1">by {starter.owner_name}</div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <a
+                  href={`/tools?loadout=${starter.id}&starter=1`}
+                  className="btn-ghost text-xs flex items-center gap-1"
+                >
+                  <ExternalLink size={13} /> Edit in Builder
+                </a>
+                <a
+                  href="/tools/starters"
+                  className="btn-ghost text-xs flex items-center gap-1"
+                >
+                  <Users size={13} /> Public View
+                </a>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

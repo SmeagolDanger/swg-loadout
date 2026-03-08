@@ -211,3 +211,51 @@ class TestComponentCRUD:
     def test_delete_nonexistent_component(self, auth_client):
         res = auth_client.delete("/api/components/99999")
         assert res.status_code == 404
+
+
+class TestStarterLoadouts:
+    def test_starter_loadouts_are_separate_from_public(self, auth_client, client):
+        starter_payload = {
+            **TestLoadoutCRUD.LOADOUT_PAYLOAD,
+            "name": "Starter Nova",
+            "is_public": True,
+            "is_starter": True,
+            "starter_description": "Good entry build",
+            "starter_tags": "Beginner, PvE",
+        }
+
+        # Promote test user to admin directly in the test database
+        from database import SessionLocal, User
+
+        me = auth_client.get("/api/auth/me")
+        user_id = me.json()["id"]
+        db = SessionLocal()
+        user = db.query(User).filter(User.id == user_id).first()
+        user.role = "admin"
+        user.is_admin = True
+        db.commit()
+        db.close()
+
+        create_res = auth_client.post("/api/loadouts", json=starter_payload)
+        assert create_res.status_code == 200
+        assert create_res.json()["is_starter"] is True
+
+        public_res = client.get("/api/loadouts/public")
+        assert public_res.status_code == 200
+        assert public_res.json() == []
+
+        starter_res = client.get("/api/loadouts/starters")
+        assert starter_res.status_code == 200
+        data = starter_res.json()
+        assert len(data) == 1
+        assert data[0]["name"] == "Starter Nova"
+        assert data[0]["starter_description"] == "Good entry build"
+
+    def test_non_admin_cannot_create_starter_build(self, auth_client):
+        starter_payload = {
+            **TestLoadoutCRUD.LOADOUT_PAYLOAD,
+            "name": "Starter Attempt",
+            "is_starter": True,
+        }
+        res = auth_client.post("/api/loadouts", json=starter_payload)
+        assert res.status_code == 403

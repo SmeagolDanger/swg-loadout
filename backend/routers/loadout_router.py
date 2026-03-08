@@ -46,6 +46,9 @@ class LoadoutCreate(BaseModel):
     wo_level: str = "None"
     shield_adjust: str = "None"
     is_public: bool = False
+    is_starter: bool = False
+    starter_description: str = ""
+    starter_tags: str = ""
 
 
 class LoadoutResponse(BaseModel):
@@ -84,6 +87,10 @@ class LoadoutResponse(BaseModel):
     wo_level: str
     shield_adjust: str
     is_public: bool
+    is_featured: bool = False
+    is_starter: bool = False
+    starter_description: str = ""
+    starter_tags: str = ""
     owner_name: str | None = None
     resolved_components: dict | None = None
 
@@ -101,16 +108,38 @@ def list_loadouts(user: User = Depends(require_user), db: Session = Depends(get_
     return result
 
 
-@router.get("/loadouts/public", response_model=list[LoadoutResponse])
-def list_public_loadouts(db: Session = Depends(get_db)):
-    loadouts = db.query(Loadout).filter(Loadout.is_public).limit(100).all()
-    result = []
+def _build_loadout_responses(loadouts: list[Loadout], db: Session) -> list[LoadoutResponse]:
+    result: list[LoadoutResponse] = []
     for lo in loadouts:
         r = LoadoutResponse.model_validate(lo)
         owner = db.query(User).filter(User.id == lo.user_id).first()
         r.owner_name = owner.display_name or owner.username if owner else "Unknown"
         result.append(r)
     return result
+
+
+@router.get("/loadouts/public", response_model=list[LoadoutResponse])
+def list_public_loadouts(db: Session = Depends(get_db)):
+    loadouts = (
+        db.query(Loadout)
+        .filter(Loadout.is_public.is_(True), Loadout.is_starter.is_(False))
+        .order_by(Loadout.is_featured.desc(), Loadout.updated_at.desc())
+        .limit(100)
+        .all()
+    )
+    return _build_loadout_responses(loadouts, db)
+
+
+@router.get("/loadouts/starters", response_model=list[LoadoutResponse])
+def list_starter_loadouts(db: Session = Depends(get_db)):
+    loadouts = (
+        db.query(Loadout)
+        .filter(Loadout.is_public.is_(True), Loadout.is_starter.is_(True))
+        .order_by(Loadout.updated_at.desc())
+        .limit(100)
+        .all()
+    )
+    return _build_loadout_responses(loadouts, db)
 
 
 @router.get("/loadouts/{loadout_id}", response_model=LoadoutResponse)
@@ -174,7 +203,14 @@ def create_loadout(req: LoadoutCreate, user: User = Depends(require_user), db: S
     if existing:
         raise HTTPException(status_code=400, detail="A loadout with this name already exists")
 
-    loadout = Loadout(user_id=user.id, **req.model_dump())
+    payload = req.model_dump()
+    wants_starter = payload.get("is_starter", False)
+    if wants_starter and not (user.role == "admin" or user.is_admin):
+        raise HTTPException(status_code=403, detail="Only admins can create starter builds")
+    if wants_starter:
+        payload["is_public"] = True
+
+    loadout = Loadout(user_id=user.id, **payload)
     db.add(loadout)
     db.commit()
     db.refresh(loadout)
@@ -191,7 +227,16 @@ def update_loadout(
     if not lo:
         raise HTTPException(status_code=404, detail="Loadout not found")
 
-    for key, val in req.model_dump().items():
+    payload = req.model_dump()
+    wants_starter = payload.get("is_starter", False)
+    if wants_starter and not (user.role == "admin" or user.is_admin):
+        raise HTTPException(status_code=403, detail="Only admins can manage starter builds")
+    if lo.is_starter and not wants_starter and not (user.role == "admin" or user.is_admin):
+        raise HTTPException(status_code=403, detail="Only admins can change starter build status")
+    if wants_starter:
+        payload["is_public"] = True
+
+    for key, val in payload.items():
         setattr(lo, key, val)
     db.commit()
     db.refresh(lo)
@@ -251,6 +296,9 @@ def duplicate_loadout(
         wo_level=lo.wo_level,
         shield_adjust=lo.shield_adjust,
         is_public=False,
+        is_starter=False,
+        starter_description="",
+        starter_tags="",
     )
     db.add(new_loadout)
     db.commit()

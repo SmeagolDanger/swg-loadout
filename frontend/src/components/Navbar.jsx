@@ -15,6 +15,7 @@ import {
   Orbit,
   Search,
   Shield,
+  Sparkles,
   Trophy,
   User,
   UserCircle,
@@ -31,6 +32,7 @@ const TOOL_NAV_ITEMS = [
   { to: '/tools/re', label: 'RE Calc', icon: FlaskConical },
   { to: '/tools/fc', label: 'FC Calc', icon: Cpu },
   { to: '/tools/loot', label: 'Loot', icon: Search },
+  { to: '/tools/starters', label: 'Starter Builds', icon: Sparkles },
   { to: '/tools/community', label: 'Community', icon: Users },
 ];
 

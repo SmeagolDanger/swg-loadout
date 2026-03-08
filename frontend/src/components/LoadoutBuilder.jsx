@@ -52,6 +52,8 @@ export default function LoadoutBuilder() {
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const starterMode = searchParams.get('starter') === '1';
+  const canManageStarters = user?.role === 'admin' || user?.is_admin;
   const [chassisList, setChassisList] = useState([]);
   const [selectedChassis, setSelectedChassis] = useState('');
   const [chassisData, setChassisData] = useState(null);
@@ -68,6 +70,9 @@ export default function LoadoutBuilder() {
   const [saveMsg, setSaveMsg] = useState('');
   const [loadoutId, setLoadoutId] = useState(null);        // Track loaded loadout for Save vs Save As
   const [loadingLoadout, setLoadingLoadout] = useState(false);
+  const [isStarterBuild, setIsStarterBuild] = useState(false);
+  const [starterDescription, setStarterDescription] = useState('');
+  const [starterTags, setStarterTags] = useState('');
 
   // Load initial data
   useEffect(() => {
@@ -168,6 +173,9 @@ export default function LoadoutBuilder() {
       // Set loadout metadata
       setLoadoutName(loadout.name);
       setLoadoutId(loadout.id);
+      setIsStarterBuild(Boolean(loadout.is_starter));
+      setStarterDescription(loadout.starter_description || '');
+      setStarterTags(loadout.starter_tags || '');
       if (loadout.mass) setChassisMass(loadout.mass);
 
       // Set overloads
@@ -385,99 +393,93 @@ export default function LoadoutBuilder() {
     if (!loadingLoadout) {
       setLoadoutId(null);
       setLoadoutName('');
+      if (!starterMode) {
+        setIsStarterBuild(false);
+        setStarterDescription('');
+        setStarterTags('');
+      }
     }
   };
 
-  const handleSave = async () => {
-    if (!user) return;
-    if (!loadoutName.trim() || !selectedChassis) return;
+  const buildLoadoutPayload = (overrides = {}) => ({
+    name: overrides.name ?? loadoutName,
+    chassis: selectedChassis,
+    mass: chassisMass,
+    reactor: components.reactor?.name || 'None',
+    engine: components.engine?.name || 'None',
+    booster: components.booster?.name || 'None',
+    shield: components.shield?.name || 'None',
+    front_armor: components.front_armor?.name || 'None',
+    rear_armor: components.rear_armor?.name || 'None',
+    capacitor: components.capacitor?.name || 'None',
+    cargo_hold: components.cargo_hold?.name || 'None',
+    droid_interface: components.droid_interface?.name || 'None',
+    slot1: components.slot1?.name || 'None',
+    slot2: components.slot2?.name || 'None',
+    slot3: components.slot3?.name || 'None',
+    slot4: components.slot4?.name || 'None',
+    slot5: components.slot5?.name || 'None',
+    slot6: components.slot6?.name || 'None',
+    slot7: components.slot7?.name || 'None',
+    slot8: components.slot8?.name || 'None',
+    pack1: 'None', pack2: 'None', pack3: 'None', pack4: 'None',
+    pack5: 'None', pack6: 'None', pack7: 'None', pack8: 'None',
+    ro_level: overloads.ro,
+    eo_level: overloads.eo,
+    co_level: overloads.co,
+    wo_level: overloads.wo,
+    shield_adjust: shieldAdjust,
+    is_public: overrides.is_public ?? false,
+    is_starter: overrides.is_starter ?? false,
+    starter_description: overrides.starter_description ?? starterDescription,
+    starter_tags: overrides.starter_tags ?? starterTags,
+  });
+
+  const persistLoadout = async ({ asNew = false, starter = false, explicitName = '' } = {}) => {
+    const targetName = (explicitName || loadoutName).trim();
+    if (!user || !targetName || !selectedChassis) return;
     setSaving(true);
     setSaveMsg('');
     try {
-      const data = {
-        name: loadoutName, chassis: selectedChassis, mass: chassisMass,
-        reactor: components.reactor?.name || 'None',
-        engine: components.engine?.name || 'None',
-        booster: components.booster?.name || 'None',
-        shield: components.shield?.name || 'None',
-        front_armor: components.front_armor?.name || 'None',
-        rear_armor: components.rear_armor?.name || 'None',
-        capacitor: components.capacitor?.name || 'None',
-        cargo_hold: components.cargo_hold?.name || 'None',
-        droid_interface: components.droid_interface?.name || 'None',
-        slot1: components.slot1?.name || 'None', slot2: components.slot2?.name || 'None',
-        slot3: components.slot3?.name || 'None', slot4: components.slot4?.name || 'None',
-        slot5: components.slot5?.name || 'None', slot6: components.slot6?.name || 'None',
-        slot7: components.slot7?.name || 'None', slot8: components.slot8?.name || 'None',
-        pack1: 'None', pack2: 'None', pack3: 'None', pack4: 'None',
-        pack5: 'None', pack6: 'None', pack7: 'None', pack8: 'None',
-        ro_level: overloads.ro, eo_level: overloads.eo,
-        co_level: overloads.co, wo_level: overloads.wo,
-        shield_adjust: shieldAdjust,
-      };
-
-      if (loadoutId) {
-        // Update existing loadout
-        await api.updateLoadout(loadoutId, data);
-        setSaveMsg('Loadout updated!');
+      const payload = buildLoadoutPayload({
+        name: targetName,
+        is_public: starter ? true : false,
+        is_starter: starter,
+      });
+      if (!asNew && loadoutId) {
+        await api.updateLoadout(loadoutId, payload);
+        setSaveMsg(starter ? 'Starter build updated!' : 'Loadout updated!');
       } else {
-        // Create new loadout
-        const result = await api.createLoadout(data);
+        const result = await api.createLoadout(payload);
         setLoadoutId(result.id);
-        setSaveMsg('Loadout saved!');
+        setSaveMsg(starter ? 'Starter build saved!' : 'Loadout saved!');
       }
+      setIsStarterBuild(starter);
+      setLoadoutName(targetName);
       setTimeout(() => setSaveMsg(''), 3000);
     } catch (err) {
       setSaveMsg(err.message);
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleSave = async () => {
+    await persistLoadout({ starter: isStarterBuild });
   };
 
   const handleSaveAs = async () => {
     const newName = prompt('Save as new loadout name:', loadoutName ? `${loadoutName} (Copy)` : '');
     if (!newName || !newName.trim()) return;
-    const prevId = loadoutId;
-    const prevName = loadoutName;
-    setLoadoutId(null);
-    setLoadoutName(newName.trim());
-    // Wait for state to settle then trigger save
-    setSaving(true);
-    setSaveMsg('');
-    try {
-      const data = {
-        name: newName.trim(), chassis: selectedChassis, mass: chassisMass,
-        reactor: components.reactor?.name || 'None',
-        engine: components.engine?.name || 'None',
-        booster: components.booster?.name || 'None',
-        shield: components.shield?.name || 'None',
-        front_armor: components.front_armor?.name || 'None',
-        rear_armor: components.rear_armor?.name || 'None',
-        capacitor: components.capacitor?.name || 'None',
-        cargo_hold: components.cargo_hold?.name || 'None',
-        droid_interface: components.droid_interface?.name || 'None',
-        slot1: components.slot1?.name || 'None', slot2: components.slot2?.name || 'None',
-        slot3: components.slot3?.name || 'None', slot4: components.slot4?.name || 'None',
-        slot5: components.slot5?.name || 'None', slot6: components.slot6?.name || 'None',
-        slot7: components.slot7?.name || 'None', slot8: components.slot8?.name || 'None',
-        pack1: 'None', pack2: 'None', pack3: 'None', pack4: 'None',
-        pack5: 'None', pack6: 'None', pack7: 'None', pack8: 'None',
-        ro_level: overloads.ro, eo_level: overloads.eo,
-        co_level: overloads.co, wo_level: overloads.wo,
-        shield_adjust: shieldAdjust,
-      };
-      const result = await api.createLoadout(data);
-      setLoadoutId(result.id);
-      setSaveMsg('Saved as new loadout!');
-      setTimeout(() => setSaveMsg(''), 3000);
-    } catch (err) {
-      // Revert on failure
-      setLoadoutId(prevId);
-      setLoadoutName(prevName);
-      setSaveMsg(err.message);
-    } finally {
-      setSaving(false);
-    }
+    await persistLoadout({ asNew: true, starter: isStarterBuild, explicitName: newName.trim() });
+  };
+
+  const handleSaveStarter = async () => {
+    if (!canManageStarters) return;
+    const defaultName = loadoutName || (selectedChassis ? `${selectedChassis} Starter` : 'Starter Build');
+    const chosenName = prompt('Starter build name:', defaultName);
+    if (!chosenName || !chosenName.trim()) return;
+    await persistLoadout({ asNew: !loadoutId, starter: true, explicitName: chosenName.trim() });
   };
 
   const handleNewLoadout = () => {
@@ -490,6 +492,9 @@ export default function LoadoutBuilder() {
     setCalcResults(null);
     setChassisMass(0);
     setChassisData(null);
+    setIsStarterBuild(false);
+    setStarterDescription('');
+    setStarterTags('');
   };
 
   // Helper to look up power status for a component key
@@ -545,6 +550,12 @@ export default function LoadoutBuilder() {
                 <FolderOpen size={12} /> New
               </button>
             )}
+            {canManageStarters && (
+              <button onClick={handleSaveStarter} disabled={saving || !selectedChassis}
+                className="btn-ghost flex items-center gap-1.5 whitespace-nowrap text-xs text-laser-yellow">
+                <Save size={12} /> {isStarterBuild ? 'Update Starter' : 'Save Starter'}
+              </button>
+            )}
             {saveMsg && <span className={`text-xs ${saveMsg.includes('!') ? 'text-laser-green' : 'text-laser-red'}`}>{saveMsg}</span>}
           </div>
         )}
@@ -555,6 +566,35 @@ export default function LoadoutBuilder() {
         <div className="text-center py-12">
           <div className="w-8 h-8 border-2 border-plasma-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
           <p className="text-hull-200 font-display text-sm tracking-wider">LOADING LOADOUT...</p>
+        </div>
+      )}
+
+      {canManageStarters && (starterMode || isStarterBuild || selectedChassis) && (
+        <div className="card mb-4">
+          <div className="card-header"><Info size={16} /> STARTER BUILD DETAILS</div>
+          <div className="p-3 grid md:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-display text-hull-200 mb-1">Description</label>
+              <input
+                value={starterDescription}
+                onChange={e => setStarterDescription(e.target.value)}
+                placeholder="Short note shown on the public starter builds page"
+                className="w-full text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-display text-hull-200 mb-1">Tags</label>
+              <input
+                value={starterTags}
+                onChange={e => setStarterTags(e.target.value)}
+                placeholder="Beginner, PvE, Budget"
+                className="w-full text-sm"
+              />
+            </div>
+            <div className="md:col-span-2 text-xs text-hull-300">
+              Starter builds are always published publicly and appear under the Starter Builds section. Use comma-separated tags for quick filtering.
+            </div>
+          </div>
         </div>
       )}
 

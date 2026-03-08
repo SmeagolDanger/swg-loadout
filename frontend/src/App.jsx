@@ -127,6 +127,7 @@ export default function App() {
           <Route path="/tools/re" element={<RECalculator />} />
           <Route path="/tools/fc" element={<FCCalculator />} />
           <Route path="/tools/community" element={<PublicLoadouts />} />
+          <Route path="/tools/starters" element={<PublicLoadouts />} />
           <Route path="/tools/buildouts" element={<BuildoutExplorer />} />
           <Route path="/tools/gcw" element={<GCWCalculator />} />
           <Route path="/tools/ent-buffs" element={<EntBuffBuilder />} />
@@ -143,6 +144,7 @@ export default function App() {
           <Route path="/re" element={<Navigate to="/tools/re" replace />} />
           <Route path="/fc" element={<Navigate to="/tools/fc" replace />} />
           <Route path="/community" element={<Navigate to="/tools/community" replace />} />
+          <Route path="/starters" element={<Navigate to="/tools/starters" replace />} />
           <Route path="/buildouts" element={<Navigate to="/tools/buildouts" replace />} />
           <Route path="/gcw" element={<Navigate to="/tools/gcw" replace />} />
           <Route path="/ent-buffs" element={<Navigate to="/tools/ent-buffs" replace />} />
