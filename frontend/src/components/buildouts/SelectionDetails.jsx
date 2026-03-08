@@ -1,23 +1,21 @@
 import React from 'react';
-import { Boxes, Copy, Map as MapIcon, Radio } from 'lucide-react';
+import { Boxes, Copy, Map, Radio } from 'lucide-react';
 
-import { formatCoord, getSpawnCoords, joinSelectedWaypoints } from './utils';
+import { copyText, formatCoord } from './utils';
 
-export default function SelectionDetails({ activeSpawn, selectedSpawns, onCopy }) {
+export default function SelectionDetails({ activeSpawn, selectedSpawns, setToast }) {
   if (!activeSpawn) {
     return (
       <div className="rounded-xl border border-hull-400/50 bg-hull-700/50 px-4 py-8 text-sm text-hull-200">
-        Pick one or more spawners from the list or map. The first selected item drives the details panel so the layout stays readable instead of becoming a spreadsheet with feelings.
+        Pick one or more spawners from the list. The first selected item drives the details panel so the layout stays readable.
       </div>
     );
   }
 
-  const coords = getSpawnCoords(activeSpawn);
-
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-xl font-display text-hull-50 mb-1">{activeSpawn.name}</h3>
+        <h3 className="text-xl font-display text-hull-50 mb-1">{activeSpawn.name || `Spawner ${activeSpawn.id}`}</h3>
         <div className="flex flex-wrap gap-2">
           <span className="badge badge-neutral">{activeSpawn.spawner_type}</span>
           <span className="badge badge-neutral">{activeSpawn.spawn_count} spawn</span>
@@ -29,7 +27,7 @@ export default function SelectionDetails({ activeSpawn, selectedSpawns, onCopy }
         <div className="stat-row px-0 py-0">
           <span className="stat-label">Coordinates</span>
           <span className="stat-value">
-            {formatCoord(coords[0])}, {formatCoord(coords[1])}, {formatCoord(coords[2])}
+            {formatCoord(activeSpawn.coordinates[0])}, {formatCoord(activeSpawn.coordinates[1])}, {formatCoord(activeSpawn.coordinates[2])}
           </span>
         </div>
         <div className="stat-row px-0 py-0">
@@ -89,16 +87,15 @@ export default function SelectionDetails({ activeSpawn, selectedSpawns, onCopy }
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <button type="button" className="btn-primary" onClick={() => onCopy(activeSpawn.waypoint, 'Waypoint')}>
+        <button className="btn-primary" onClick={() => copyText(activeSpawn.waypoint, 'Waypoint', setToast)}>
           <Copy size={16} /> Copy Waypoint
         </button>
         <button
-          type="button"
           className="btn-secondary"
-          onClick={() => onCopy(joinSelectedWaypoints(selectedSpawns), 'Selected waypoints')}
+          onClick={() => copyText(selectedSpawns.map((spawn) => spawn.waypoint).join('\n'), 'Selected waypoints', setToast)}
           disabled={!selectedSpawns.length}
         >
-          <MapIcon size={16} /> Copy Selected
+          <Map size={16} /> Copy Selected
         </button>
       </div>
     </div>

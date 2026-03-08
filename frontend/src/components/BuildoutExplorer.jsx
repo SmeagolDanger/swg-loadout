@@ -15,10 +15,10 @@ import {
 } from 'lucide-react';
 
 import { api } from '../api';
-import BuildoutMap from './buildouts/BuildoutMap';
+import BuildoutMap3D from './buildouts/BuildoutMap3D';
 import SelectionDetails from './buildouts/SelectionDetails';
-import { LEGEND_ITEMS, LAYER_OPTIONS } from './buildouts/constants';
-import { copyText, getSearchText, getSpawnCoords, joinSelectedWaypoints } from './buildouts/utils';
+import { COLORS, LAYER_OPTIONS, LEGEND_ITEMS } from './buildouts/constants';
+import { copyText, getSearchText } from './buildouts/utils';
 
 const LEGEND_ICONS = {
   Satellite,
@@ -107,6 +107,8 @@ export default function BuildoutExplorer() {
     return data.spawns.filter((spawn) => getSearchText(spawn).includes(query));
   }, [data, search]);
 
+  const filteredIdSet = useMemo(() => new Set(filteredSpawns.map((spawn) => spawn.id)), [filteredSpawns]);
+
   const selectedSpawns = useMemo(() => {
     if (!data?.spawns) return [];
     const spawnLookup = new Map(data.spawns.map((spawn) => [spawn.id, spawn]));
@@ -122,16 +124,8 @@ export default function BuildoutExplorer() {
 
   function toggleSelection(id) {
     setSelectedIds((current) =>
-      current.includes(id) ? current.filter((item) => item !== id) : [...current, id],
+      current.includes(id) ? current.filter((item) => item !== id) : [...current, id]
     );
-  }
-
-  function handleListSelection(event, id) {
-    if (event.shiftKey || event.ctrlKey || event.metaKey) {
-      toggleSelection(id);
-      return;
-    }
-    selectOnly(id);
   }
 
   async function handleUpload(event) {
@@ -167,13 +161,12 @@ export default function BuildoutExplorer() {
             Mission &amp; Spawn Tactical Map
           </h1>
           <p className="text-hull-200 max-w-3xl">
-            Browse bundled zones or upload a buildout tab, inspect spawners, and work directly on a pan-and-zoom tactical map instead of juggling static projections like it is still 2007.
+            Browse bundled zones or upload a buildout tab, inspect spawners, and work directly in a rotatable 3D space view instead of flattening everything into polite lies.
           </p>
         </div>
 
         <div className="flex flex-wrap gap-2">
           <button
-            type="button"
             className="btn-secondary"
             onClick={() => data && copyText(data.waypoints_all, 'All waypoints', setToast)}
             disabled={!data}
@@ -181,7 +174,6 @@ export default function BuildoutExplorer() {
             <Copy size={16} /> Copy All Waypoints
           </button>
           <button
-            type="button"
             className="btn-secondary"
             onClick={() => data?.best_static_path && copyText(data.best_static_path.waypoints, 'Static path', setToast)}
             disabled={!data?.best_static_path}
@@ -213,6 +205,7 @@ export default function BuildoutExplorer() {
               </h2>
               <label className="text-xs text-hull-200 mb-2 block">Bundled zone</label>
               <select value={selectedZone} onChange={(event) => setSelectedZone(event.target.value)}>
+                {!selectedZone && <option value="">Custom upload</option>}
                 {zones.map((zone) => (
                   <option key={zone.id} value={zone.id}>
                     {zone.label}
@@ -265,18 +258,16 @@ export default function BuildoutExplorer() {
             </div>
           </div>
 
-          <div className="card p-4">
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div className="rounded-xl border border-hull-400/50 bg-hull-700/50 px-3 py-3">
-                <div className="text-xs uppercase tracking-[0.16em] text-plasma-400 mb-1">Zone Items</div>
-                <div className="text-xl font-display text-hull-50">{data?.spawns?.length || 0}</div>
-                <div className="text-xs text-hull-300">Spawner entries</div>
-              </div>
-              <div className="rounded-xl border border-hull-400/50 bg-hull-700/50 px-3 py-3">
-                <div className="text-xs uppercase tracking-[0.16em] text-plasma-400 mb-1">Selection</div>
-                <div className="text-xl font-display text-hull-50">{selectedSpawns.length}</div>
-                <div className="text-xs text-hull-300">Active markers</div>
-              </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="card p-4">
+              <div className="text-xs font-display tracking-[0.16em] uppercase text-plasma-400 mb-2">Zone Items</div>
+              <div className="text-2xl font-display text-hull-50">{data?.spawns?.length || 0}</div>
+              <div className="text-xs text-hull-300">Spawner entries</div>
+            </div>
+            <div className="card p-4">
+              <div className="text-xs font-display tracking-[0.16em] uppercase text-plasma-400 mb-2">Selection</div>
+              <div className="text-2xl font-display text-hull-50">{selectedIds.length}</div>
+              <div className="text-xs text-hull-300">Active markers</div>
             </div>
           </div>
 
@@ -301,12 +292,10 @@ export default function BuildoutExplorer() {
               ) : (
                 filteredSpawns.map((spawn) => {
                   const active = selectedIds.includes(spawn.id);
-                  const coords = getSpawnCoords(spawn);
                   return (
                     <button
                       key={spawn.id}
-                      type="button"
-                      onClick={(event) => handleListSelection(event, spawn.id)}
+                      onClick={(event) => (event.shiftKey ? toggleSelection(spawn.id) : selectOnly(spawn.id))}
                       className={`w-full text-left rounded-xl border px-3 py-3 transition-all ${
                         active
                           ? 'border-plasma-400/70 bg-plasma-500/10 shadow-glow'
@@ -318,15 +307,13 @@ export default function BuildoutExplorer() {
                           <div className="font-medium text-hull-50 truncate">
                             {spawn.name || `Spawner ${spawn.id}`}
                           </div>
-                          <div className="text-xs text-hull-300 truncate">
-                            {spawn.spawner_type || 'Unknown type'}
-                          </div>
+                          <div className="text-xs text-hull-300 truncate">{spawn.spawner_type || 'Unknown type'}</div>
                         </div>
                         <span className="badge badge-neutral shrink-0">{spawn.spawn_count ?? 0}</span>
                       </div>
 
-                      <div className="mt-2 text-xs text-hull-300">
-                        X {Number(coords[0]).toFixed(0)} · Y {Number(coords[1]).toFixed(0)} · Z {Number(coords[2]).toFixed(0)}
+                      <div className="mt-2 text-xs text-hull-300 truncate">
+                        X {Number(spawn.coordinates?.[0] || 0).toFixed(0)} · Y {Number(spawn.coordinates?.[1] || 0).toFixed(0)} · Z {Number(spawn.coordinates?.[2] || 0).toFixed(0)}
                       </div>
                     </button>
                   );
@@ -337,36 +324,23 @@ export default function BuildoutExplorer() {
         </aside>
 
         <section className="space-y-4">
-          <BuildoutMap
+          <BuildoutMap3D
             data={data}
             visible={visible}
             selectedIds={selectedIds}
+            filteredIdSet={filteredIdSet}
+            searchActive={Boolean(search.trim())}
+            activeSpawn={activeSpawn}
+            staticPathIds={staticPathIds}
+            colors={COLORS}
             onSelectSpawn={selectOnly}
             onToggleSpawn={toggleSelection}
-            staticPathIds={staticPathIds}
           />
 
           <div className="card p-4">
-            <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
-              <div>
-                <h2 className="font-display font-semibold tracking-[0.16em] uppercase text-sm text-plasma-400 mb-1">
-                  Legend
-                </h2>
-                <p className="text-sm text-hull-200">
-                  Layer colors stay the same between the list, the detail panel, and the map so the whole thing does not turn into visual tax season.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                className="btn-ghost"
-                onClick={() => selectedSpawns.length && copyText(joinSelectedWaypoints(selectedSpawns), 'Selected waypoints', setToast)}
-                disabled={!selectedSpawns.length}
-              >
-                <MapIcon size={16} /> Copy Selected
-              </button>
-            </div>
-
+            <h2 className="font-display font-semibold tracking-[0.16em] uppercase text-sm text-plasma-400 mb-3">
+              Legend
+            </h2>
             <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
               {LEGEND_ITEMS.map((item) => {
                 const Icon = LEGEND_ICONS[item.icon];
@@ -397,11 +371,25 @@ export default function BuildoutExplorer() {
         </section>
 
         <aside className="space-y-4">
-          <SelectionDetails
-            activeSpawn={activeSpawn}
-            selectedSpawns={selectedSpawns}
-            onCopy={(text, label) => copyText(text, label, setToast)}
-          />
+          <SelectionDetails activeSpawn={activeSpawn} selectedSpawns={selectedSpawns} setToast={setToast} />
+
+          <div className="card p-4 space-y-3 text-sm text-hull-200">
+            <div className="font-display tracking-[0.16em] uppercase text-plasma-400 text-sm">Selection Actions</div>
+            <button
+              className="btn-secondary w-full justify-center"
+              onClick={() =>
+                selectedSpawns.length &&
+                copyText(
+                  selectedSpawns.map((spawn) => spawn.waypoint).join('\n'),
+                  'Selected waypoints',
+                  setToast
+                )
+              }
+              disabled={!selectedSpawns.length}
+            >
+              <MapIcon size={16} /> Copy Selected Waypoints
+            </button>
+          </div>
         </aside>
       </div>
     </div>
