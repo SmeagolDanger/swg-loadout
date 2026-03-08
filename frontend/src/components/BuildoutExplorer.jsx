@@ -15,10 +15,10 @@ import {
 } from 'lucide-react';
 
 import { api } from '../api';
-import ProjectionPanel from './buildouts/ProjectionPanel';
+import BuildoutMap from './buildouts/BuildoutMap';
 import SelectionDetails from './buildouts/SelectionDetails';
-import { COLORS, LAYER_OPTIONS, LEGEND_ITEMS, PROJECTIONS } from './buildouts/constants';
-import { copyText, getSearchText } from './buildouts/utils';
+import { LEGEND_ITEMS, LAYER_OPTIONS } from './buildouts/constants';
+import { copyText, getSearchText, getSpawnCoords, joinSelectedWaypoints } from './buildouts/utils';
 
 const LEGEND_ICONS = {
   Satellite,
@@ -116,10 +116,22 @@ export default function BuildoutExplorer() {
   const activeSpawn = selectedSpawns[0] || null;
   const staticPathIds = data?.best_static_path?.ordered_spawn_ids || [];
 
+  function selectOnly(id) {
+    setSelectedIds([id]);
+  }
+
   function toggleSelection(id) {
     setSelectedIds((current) =>
-      current.includes(id) ? current.filter((item) => item !== id) : [...current, id]
+      current.includes(id) ? current.filter((item) => item !== id) : [...current, id],
     );
+  }
+
+  function handleListSelection(event, id) {
+    if (event.shiftKey || event.ctrlKey || event.metaKey) {
+      toggleSelection(id);
+      return;
+    }
+    selectOnly(id);
   }
 
   async function handleUpload(event) {
@@ -152,16 +164,16 @@ export default function BuildoutExplorer() {
             Space Buildout Explorer
           </div>
           <h1 className="font-display font-bold text-3xl tracking-wider text-hull-50 mb-2">
-            Mission &amp; Spawn Map Parser
+            Mission &amp; Spawn Tactical Map
           </h1>
           <p className="text-hull-200 max-w-3xl">
-            Browse bundled zones or upload a buildout tab, inspect spawners, and copy waypoint strings
-            without needing a separate desktop parser.
+            Browse bundled zones or upload a buildout tab, inspect spawners, and work directly on a pan-and-zoom tactical map instead of juggling static projections like it is still 2007.
           </p>
         </div>
 
         <div className="flex flex-wrap gap-2">
           <button
+            type="button"
             className="btn-secondary"
             onClick={() => data && copyText(data.waypoints_all, 'All waypoints', setToast)}
             disabled={!data}
@@ -169,6 +181,7 @@ export default function BuildoutExplorer() {
             <Copy size={16} /> Copy All Waypoints
           </button>
           <button
+            type="button"
             className="btn-secondary"
             onClick={() => data?.best_static_path && copyText(data.best_static_path.waypoints, 'Static path', setToast)}
             disabled={!data?.best_static_path}
@@ -253,6 +266,21 @@ export default function BuildoutExplorer() {
           </div>
 
           <div className="card p-4">
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="rounded-xl border border-hull-400/50 bg-hull-700/50 px-3 py-3">
+                <div className="text-xs uppercase tracking-[0.16em] text-plasma-400 mb-1">Zone Items</div>
+                <div className="text-xl font-display text-hull-50">{data?.spawns?.length || 0}</div>
+                <div className="text-xs text-hull-300">Spawner entries</div>
+              </div>
+              <div className="rounded-xl border border-hull-400/50 bg-hull-700/50 px-3 py-3">
+                <div className="text-xs uppercase tracking-[0.16em] text-plasma-400 mb-1">Selection</div>
+                <div className="text-xl font-display text-hull-50">{selectedSpawns.length}</div>
+                <div className="text-xs text-hull-300">Active markers</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="card p-4">
             <div className="flex items-center justify-between mb-3">
               <h2 className="font-display font-semibold tracking-[0.16em] uppercase text-sm text-plasma-400">
                 Spawner List
@@ -273,10 +301,12 @@ export default function BuildoutExplorer() {
               ) : (
                 filteredSpawns.map((spawn) => {
                   const active = selectedIds.includes(spawn.id);
+                  const coords = getSpawnCoords(spawn);
                   return (
                     <button
                       key={spawn.id}
-                      onClick={() => toggleSelection(spawn.id)}
+                      type="button"
+                      onClick={(event) => handleListSelection(event, spawn.id)}
                       className={`w-full text-left rounded-xl border px-3 py-3 transition-all ${
                         active
                           ? 'border-plasma-400/70 bg-plasma-500/10 shadow-glow'
@@ -286,17 +316,17 @@ export default function BuildoutExplorer() {
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <div className="font-medium text-hull-50 truncate">
-                            {spawn.name || spawn.template || `Spawner ${spawn.id}`}
+                            {spawn.name || `Spawner ${spawn.id}`}
                           </div>
                           <div className="text-xs text-hull-300 truncate">
-                            {spawn.template || 'Unknown template'}
+                            {spawn.spawner_type || 'Unknown type'}
                           </div>
                         </div>
                         <span className="badge badge-neutral shrink-0">{spawn.spawn_count ?? 0}</span>
                       </div>
 
                       <div className="mt-2 text-xs text-hull-300">
-                        {Number(spawn.x).toFixed(0)}, {Number(spawn.y).toFixed(0)}, {Number(spawn.z).toFixed(0)}
+                        X {Number(coords[0]).toFixed(0)} · Y {Number(coords[1]).toFixed(0)} · Z {Number(coords[2]).toFixed(0)}
                       </div>
                     </button>
                   );
@@ -307,55 +337,36 @@ export default function BuildoutExplorer() {
         </aside>
 
         <section className="space-y-4">
+          <BuildoutMap
+            data={data}
+            visible={visible}
+            selectedIds={selectedIds}
+            onSelectSpawn={selectOnly}
+            onToggleSpawn={toggleSelection}
+            staticPathIds={staticPathIds}
+          />
+
           <div className="card p-4">
             <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
               <div>
                 <h2 className="font-display font-semibold tracking-[0.16em] uppercase text-sm text-plasma-400 mb-1">
-                  Multi-Projection Map
+                  Legend
                 </h2>
                 <p className="text-sm text-hull-200">
-                  Visualize the selected zone across multiple projections. Selected spawns are highlighted.
+                  Layer colors stay the same between the list, the detail panel, and the map so the whole thing does not turn into visual tax season.
                 </p>
               </div>
 
               <button
+                type="button"
                 className="btn-ghost"
-                onClick={() =>
-                  selectedSpawns.length &&
-                  copyText(
-                    selectedSpawns
-                      .map((spawn) => `wp ${spawn.x} ${spawn.z} ${spawn.name || spawn.template || spawn.id}`)
-                      .join('\n'),
-                    'Selected waypoints',
-                    setToast
-                  )
-                }
+                onClick={() => selectedSpawns.length && copyText(joinSelectedWaypoints(selectedSpawns), 'Selected waypoints', setToast)}
                 disabled={!selectedSpawns.length}
               >
                 <MapIcon size={16} /> Copy Selected
               </button>
             </div>
 
-            <div className="grid 2xl:grid-cols-2 gap-4">
-              {data && PROJECTIONS.map((projection) => (
-                <ProjectionPanel
-                  key={projection.id}
-                  title={projection.label}
-                  axes={projection.axes}
-                  data={data}
-                  visible={visible}
-                  selectedSpawns={selectedSpawns}
-                  bounds={data.bounds}
-                  staticPathIds={staticPathIds}
-                />
-              ))}
-            </div>
-          </div>
-
-          <div className="card p-4">
-            <h2 className="font-display font-semibold tracking-[0.16em] uppercase text-sm text-plasma-400 mb-3">
-              Legend
-            </h2>
             <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
               {LEGEND_ITEMS.map((item) => {
                 const Icon = LEGEND_ICONS[item.icon];
@@ -389,7 +400,7 @@ export default function BuildoutExplorer() {
           <SelectionDetails
             activeSpawn={activeSpawn}
             selectedSpawns={selectedSpawns}
-            setToast={setToast}
+            onCopy={(text, label) => copyText(text, label, setToast)}
           />
         </aside>
       </div>

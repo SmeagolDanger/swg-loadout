@@ -1,16 +1,18 @@
 import React from 'react';
-import { Boxes, Copy, Map, Radio } from 'lucide-react';
+import { Boxes, Copy, Map as MapIcon, Radio } from 'lucide-react';
 
-import { copyText, formatCoord } from './utils';
+import { formatCoord, getSpawnCoords, joinSelectedWaypoints } from './utils';
 
-export default function SelectionDetails({ activeSpawn, selectedSpawns, setToast }) {
+export default function SelectionDetails({ activeSpawn, selectedSpawns, onCopy }) {
   if (!activeSpawn) {
     return (
       <div className="rounded-xl border border-hull-400/50 bg-hull-700/50 px-4 py-8 text-sm text-hull-200">
-        Pick one or more spawners from the list. The first selected item drives the details panel so the layout stays readable.
+        Pick one or more spawners from the list or map. The first selected item drives the details panel so the layout stays readable instead of becoming a spreadsheet with feelings.
       </div>
     );
   }
+
+  const coords = getSpawnCoords(activeSpawn);
 
   return (
     <div className="space-y-4">
@@ -27,7 +29,7 @@ export default function SelectionDetails({ activeSpawn, selectedSpawns, setToast
         <div className="stat-row px-0 py-0">
           <span className="stat-label">Coordinates</span>
           <span className="stat-value">
-            {formatCoord(activeSpawn.coordinates[0])}, {formatCoord(activeSpawn.coordinates[1])}, {formatCoord(activeSpawn.coordinates[2])}
+            {formatCoord(coords[0])}, {formatCoord(coords[1])}, {formatCoord(coords[2])}
           </span>
         </div>
         <div className="stat-row px-0 py-0">
@@ -87,15 +89,16 @@ export default function SelectionDetails({ activeSpawn, selectedSpawns, setToast
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <button className="btn-primary" onClick={() => copyText(activeSpawn.waypoint, 'Waypoint', setToast)}>
+        <button type="button" className="btn-primary" onClick={() => onCopy(activeSpawn.waypoint, 'Waypoint')}>
           <Copy size={16} /> Copy Waypoint
         </button>
         <button
+          type="button"
           className="btn-secondary"
-          onClick={() => copyText(selectedSpawns.map((spawn) => spawn.waypoint).join(''), 'Selected waypoints', setToast)}
+          onClick={() => onCopy(joinSelectedWaypoints(selectedSpawns), 'Selected waypoints')}
           disabled={!selectedSpawns.length}
         >
-          <Map size={16} /> Copy Selected
+          <MapIcon size={16} /> Copy Selected
         </button>
       </div>
     </div>
