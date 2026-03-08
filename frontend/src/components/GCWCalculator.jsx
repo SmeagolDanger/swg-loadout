@@ -5,7 +5,7 @@ import {
   GCW_RANKS,
   getFactionRankTitle,
   predictGCWRank,
-} from '../lib/gcwCalculator';
+} from '../utils/gcwCalculator';
 
 const QUICK_POINTS = [0, 2500, 5000, 6001, 6500, 7202, 10000, 12002];
 
