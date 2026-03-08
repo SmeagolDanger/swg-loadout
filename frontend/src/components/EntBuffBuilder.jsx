@@ -8,7 +8,6 @@ import {
   Plus,
   RefreshCcw,
   Save,
-  Sparkles,
 } from 'lucide-react';
 import {
   ENT_BUFF_POINTS_MAX,
@@ -48,78 +47,40 @@ function copyToClipboard(text) {
   return Promise.resolve(Boolean(copied));
 }
 
-function BuffInfo({ buff }) {
+function InfoTip({ title, lines = [] }) {
   return (
     <div className="relative group shrink-0">
       <button
         type="button"
-        className="w-6 h-6 rounded-full border border-hull-400/40 bg-hull-800/80 text-hull-300 hover:text-plasma-300 hover:border-plasma-400/40 flex items-center justify-center transition-colors"
-        aria-label={`Details for ${buff.name}`}
+        className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-hull-500/40 bg-hull-800/70 text-hull-300 transition-colors hover:border-plasma-400/50 hover:text-plasma-300"
+        aria-label={title}
       >
-        <Info size={12} />
+        <Info size={14} />
       </button>
-      <div className="pointer-events-none absolute right-0 top-8 z-20 w-72 rounded-xl border border-hull-400/50 bg-hull-900/95 backdrop-blur px-3 py-3 text-xs text-hull-200 shadow-2xl opacity-0 translate-y-1 transition-all duration-150 group-hover:opacity-100 group-hover:translate-y-0 group-focus-within:opacity-100 group-focus-within:translate-y-0">
-        <div className="font-medium text-hull-50 mb-1">{buff.name}</div>
-        <div className="text-hull-300 mb-2">{buff.description}</div>
-        <div className="text-plasma-300">Effect: {formatBuffEffect(buff)}</div>
-        <div className="text-hull-300 mt-1">
-          Cost {buff.cost} point{buff.cost === 1 ? '' : 's'} • Max {buff.maxAssignments}
+      <div className="pointer-events-none absolute right-0 top-9 z-30 hidden w-72 rounded-xl border border-hull-400/60 bg-hull-900/95 p-3 text-left shadow-2xl group-hover:block group-focus-within:block">
+        <div className="text-sm font-medium text-hull-50">{title}</div>
+        <div className="mt-2 space-y-1.5 text-xs leading-relaxed text-hull-200">
+          {lines.map((line) => (
+            <div key={line}>{line}</div>
+          ))}
         </div>
       </div>
     </div>
   );
 }
 
-function BuffRow({ buff, categories, onChange }) {
-  const increaseAllowed = canIncreaseBuff(categories, buff);
-  const isSelected = buff.assignments > 0;
+function SummaryPill({ label, value, tone = 'neutral' }) {
+  const toneClass =
+    tone === 'good'
+      ? 'border-green-400/30 bg-green-500/10 text-green-200'
+      : tone === 'warn'
+        ? 'border-laser-yellow/40 bg-laser-yellow/10 text-laser-yellow'
+        : 'border-hull-400/40 bg-hull-800/70 text-hull-100';
 
   return (
-    <div
-      className={`rounded-xl border px-3 py-2 transition-all ${
-        isSelected
-          ? 'border-plasma-400/45 bg-plasma-500/8'
-          : 'border-hull-400/35 bg-hull-800/55'
-      }`}
-    >
-      <div className="flex items-start gap-2">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="text-sm font-medium text-hull-50 truncate">{buff.name}</div>
-            <span className="badge badge-neutral shrink-0">{buff.cost} pt</span>
-          </div>
-          <div className="mt-1 text-[11px] text-hull-300 truncate">
-            {formatBuffEffect(buff)}
-          </div>
-        </div>
-        <BuffInfo buff={buff} />
-      </div>
-
-      <div className="mt-2 flex items-center justify-between gap-2">
-        <div className="text-[11px] uppercase tracking-[0.16em] text-hull-400">
-          {buff.assignments} / {buff.maxAssignments}
-        </div>
-        <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            className="btn-ghost h-8 w-8 px-0 justify-center"
-            onClick={() => onChange(buff.name, -1)}
-            disabled={buff.assignments <= 0}
-            aria-label={`Decrease ${buff.name}`}
-          >
-            <Minus size={14} />
-          </button>
-          <button
-            type="button"
-            className="btn-ghost h-8 w-8 px-0 justify-center"
-            onClick={() => onChange(buff.name, 1)}
-            disabled={!increaseAllowed}
-            aria-label={`Increase ${buff.name}`}
-          >
-            <Plus size={14} />
-          </button>
-        </div>
-      </div>
+    <div className={`rounded-xl border px-3 py-2 ${toneClass}`}>
+      <div className="text-[10px] uppercase tracking-[0.18em] opacity-80">{label}</div>
+      <div className="font-display text-lg leading-none mt-1">{value}</div>
     </div>
   );
 }
@@ -156,7 +117,7 @@ export default function EntBuffBuilder() {
 
   useEffect(() => {
     if (!toast) return undefined;
-    const timer = window.setTimeout(() => setToast(''), 2600);
+    const timer = window.setTimeout(() => setToast(''), 2200);
     return () => window.clearTimeout(timer);
   }, [toast]);
 
@@ -171,177 +132,205 @@ export default function EntBuffBuilder() {
 
   function handleClearAll() {
     setCategories((current) => clearEntBuffAssignments(current));
-    setToast('Selections cleared');
+    setToast('Selection cleared');
   }
 
   function handleApplyTemplate() {
     window.localStorage.setItem(STORAGE_KEY, requestTemplate);
-    setToast('Request template saved');
+    setToast('Template saved');
   }
 
   function handleResetTemplate() {
     window.localStorage.setItem(STORAGE_KEY, ENT_BUFF_REQUEST_TEMPLATE_DEFAULT);
     setRequestTemplate(ENT_BUFF_REQUEST_TEMPLATE_DEFAULT);
-    setToast('Request template reset');
+    setToast('Template reset');
   }
 
   async function handleCopyRequest() {
     const ok = await copyToClipboard(requestText);
-    setToast(ok ? 'Request copied to clipboard' : 'Unable to copy request');
+    setToast(ok ? 'Request copied' : 'Unable to copy request');
   }
 
   async function handleCopyShareLink() {
     const ok = await copyToClipboard(window.location.href);
-    setToast(ok ? 'Share link copied to clipboard' : 'Unable to copy share link');
+    setToast(ok ? 'Share link copied' : 'Unable to copy share link');
   }
 
   return (
-    <div className="max-w-[96rem] mx-auto px-4 py-6 space-y-4 animate-slide-up">
-      <div className="flex flex-col 2xl:flex-row 2xl:items-end 2xl:justify-between gap-3">
-        <div>
-          <div className="inline-flex items-center gap-2 rounded-full border border-hull-500/50 bg-hull-800/70 px-4 py-2 text-[11px] font-display tracking-[0.25em] text-hull-200 uppercase mb-3">
-            <Music4 size={14} className="text-plasma-400" />
-            Social Tools
+    <div className="max-w-[95rem] mx-auto px-4 py-6 space-y-4 animate-slide-up">
+      <div className="card p-4 lg:p-5">
+        <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
+          <div className="min-w-0">
+            <div className="inline-flex items-center gap-2 rounded-full border border-hull-500/50 bg-hull-800/70 px-3 py-1.5 text-[11px] font-display tracking-[0.22em] text-hull-200 uppercase mb-3">
+              <Music4 size={13} className="text-plasma-400" />
+              Social Tools
+            </div>
+            <div className="flex items-center gap-2">
+              <h1 className="font-display font-bold text-2xl tracking-wider text-hull-50">
+                Entertainer Buff Builder
+              </h1>
+              <InfoTip
+                title="How this works"
+                lines={[
+                  'Pick buff packages until you reach the 20-point entertainer cap.',
+                  'Use the request template tokens %Buffs% or %buffs% to insert your current selection.',
+                  'Selections are stored in the q= URL parameter so you can bookmark or share the build.',
+                ]}
+              />
+            </div>
           </div>
-          <h1 className="font-display font-bold text-3xl tracking-wider text-hull-50 mb-2">
-            Entertainer Buff Builder
-          </h1>
-          <p className="text-hull-200 max-w-3xl text-sm lg:text-base">
-            Build a compact entertainer package, stay inside the 20-point cap, and generate a shareable request message.
-          </p>
+
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 xl:min-w-[34rem]">
+            <SummaryPill label="Assigned" value={pointsAssigned} tone="good" />
+            <SummaryPill label="Remaining" value={pointsRemaining} tone={pointsRemaining === 0 ? 'warn' : 'neutral'} />
+            <SummaryPill label="Selected" value={selectedBuffTexts.length} />
+            <div className="flex items-center justify-end gap-2">
+              <button type="button" className="btn-secondary text-xs px-3 py-2" onClick={handleCopyRequest} disabled={!requestText}>
+                <Copy size={15} /> Request
+              </button>
+              <button type="button" className="btn-ghost text-xs px-3 py-2" onClick={handleCopyShareLink}>
+                <Link2 size={15} /> Share
+              </button>
+            </div>
+          </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-3 w-full 2xl:w-auto 2xl:min-w-[28rem]">
-          <div className="card px-4 py-3 text-center">
-            <div className="text-[11px] font-display tracking-[0.18em] uppercase text-hull-300">Assigned</div>
-            <div className="text-2xl font-display text-hull-50 mt-1">{pointsAssigned}</div>
+        {toast ? (
+          <div className="mt-3 rounded-xl border border-plasma-400/40 bg-plasma-500/10 px-3 py-2 text-sm text-plasma-200">
+            {toast}
           </div>
-          <div className="card px-4 py-3 text-center">
-            <div className="text-[11px] font-display tracking-[0.18em] uppercase text-hull-300">Remaining</div>
-            <div className="text-2xl font-display text-plasma-300 mt-1">{pointsRemaining}</div>
-          </div>
-          <div className="card px-4 py-3 text-center">
-            <div className="text-[11px] font-display tracking-[0.18em] uppercase text-hull-300">Selected</div>
-            <div className="text-2xl font-display text-hull-50 mt-1">{selectedBuffTexts.length}</div>
-          </div>
-        </div>
+        ) : null}
       </div>
 
-      {toast ? (
-        <div className="rounded-xl border border-plasma-400/40 bg-plasma-500/10 px-4 py-2 text-sm text-plasma-200">
-          {toast}
-        </div>
-      ) : null}
-
-      <div className="grid 2xl:grid-cols-[minmax(0,1fr)_350px] gap-4 items-start">
+      <div className="grid xl:grid-cols-[minmax(0,1fr)_24rem] gap-4 items-start">
         <section className="space-y-4 min-w-0">
-          <div className="grid xl:grid-cols-3 lg:grid-cols-2 gap-4">
+          <div className="grid 2xl:grid-cols-3 xl:grid-cols-2 gap-3">
             {categories.map((category) => (
-              <div key={category.name} className="card p-4">
+              <div key={category.name} className="card p-3">
                 <div className="flex items-center justify-between gap-3 mb-3">
-                  <h2 className="font-display font-semibold tracking-[0.16em] uppercase text-sm text-plasma-400">
+                  <h2 className="font-display font-semibold tracking-[0.16em] uppercase text-xs text-plasma-400">
                     {category.name}
                   </h2>
                   <span className="badge badge-neutral">{category.buffs.length}</span>
                 </div>
 
-                <div className="space-y-2.5">
-                  {category.buffs.map((buff) => (
-                    <BuffRow
-                      key={buff.name}
-                      buff={buff}
-                      categories={categories}
-                      onChange={changeBuff}
-                    />
-                  ))}
+                <div className="space-y-2">
+                  {category.buffs.map((buff) => {
+                    const increaseAllowed = canIncreaseBuff(categories, buff);
+                    const isSelected = buff.assignments > 0;
+                    return (
+                      <div
+                        key={buff.name}
+                        className={`rounded-xl border px-3 py-2.5 transition-all ${
+                          isSelected
+                            ? 'border-plasma-400/50 bg-plasma-500/10'
+                            : 'border-hull-400/40 bg-hull-800/60'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="truncate text-sm font-medium text-hull-50">{buff.name}</span>
+                              <InfoTip
+                                title={buff.name}
+                                lines={[
+                                  `Cost: ${buff.cost} point${buff.cost === 1 ? '' : 's'} per package`,
+                                  `Max packages: ${buff.maxAssignments}`,
+                                  `Effect: ${formatBuffEffect(buff)}`,
+                                  buff.description,
+                                ]}
+                              />
+                            </div>
+                          </div>
+
+                          <span className="badge badge-neutral shrink-0">
+                            {buff.assignments}/{buff.maxAssignments}
+                          </span>
+
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              className="btn-ghost h-8 w-8 p-0 justify-center"
+                              onClick={() => changeBuff(buff.name, -1)}
+                              disabled={buff.assignments <= 0}
+                              aria-label={`Decrease ${buff.name}`}
+                            >
+                              <Minus size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              className="btn-secondary h-8 w-8 p-0 justify-center"
+                              onClick={() => changeBuff(buff.name, 1)}
+                              disabled={!increaseAllowed}
+                              aria-label={`Increase ${buff.name}`}
+                            >
+                              <Plus size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             ))}
           </div>
         </section>
 
-        <aside className="space-y-4 2xl:sticky 2xl:top-20">
-          <div className="card p-4 space-y-4">
+        <aside className="space-y-3 xl:sticky xl:top-20">
+          <div className="card p-4 space-y-3">
             <div className="flex items-center justify-between gap-3">
-              <h2 className="font-display font-semibold tracking-[0.16em] uppercase text-sm text-plasma-400">
+              <h2 className="font-display font-semibold tracking-[0.16em] uppercase text-xs text-plasma-400">
+                Request Message
+              </h2>
+              <div className="flex items-center gap-2">
+                <button type="button" className="btn-ghost text-xs px-2.5 py-1.5" onClick={handleApplyTemplate}>
+                  <Save size={14} /> Save
+                </button>
+                <button type="button" className="btn-ghost text-xs px-2.5 py-1.5" onClick={handleResetTemplate}>
+                  <RefreshCcw size={14} /> Reset
+                </button>
+              </div>
+            </div>
+
+            <input value={requestTemplate} onChange={(event) => setRequestTemplate(event.target.value)} />
+            <textarea
+              value={requestText}
+              readOnly
+              rows={4}
+              placeholder="Select buffs to generate a request message."
+              className="resize-none text-sm"
+            />
+          </div>
+
+          <div className="card p-4">
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <h2 className="font-display font-semibold tracking-[0.16em] uppercase text-xs text-plasma-400">
                 Selected Buffs
               </h2>
-              <span className="badge badge-neutral">{selectedBuffTexts.length}</span>
+              <div className="flex items-center gap-2">
+                <span className="badge badge-neutral">{selectedBuffTexts.length}</span>
+                {!!selectedBuffTexts.length && (
+                  <button type="button" className="btn-ghost text-xs px-2.5 py-1.5" onClick={handleClearAll}>
+                    <RefreshCcw size={14} /> Clear
+                  </button>
+                )}
+              </div>
             </div>
 
             {selectedBuffTexts.length ? (
-              <div className="flex flex-wrap gap-2 max-h-48 overflow-auto pr-1">
+              <div className="grid sm:grid-cols-2 xl:grid-cols-1 gap-2">
                 {selectedBuffTexts.map((buffText) => (
-                  <div
-                    key={buffText}
-                    className="rounded-full border border-hull-400/40 bg-hull-800/70 px-3 py-1.5 text-xs text-hull-100"
-                  >
+                  <div key={buffText} className="rounded-lg border border-hull-400/40 bg-hull-800/60 px-3 py-2 text-xs text-hull-100">
                     {buffText}
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="rounded-xl border border-dashed border-hull-400/40 bg-hull-800/45 px-3 py-4 text-sm text-hull-300">
-                Add buffs to see your package summary here.
+              <div className="rounded-lg border border-hull-400/40 bg-hull-800/60 px-3 py-3 text-sm text-hull-300">
+                Select one or more buffs to build a request.
               </div>
             )}
-
-            <div className="flex flex-wrap gap-2">
-              <button type="button" className="btn-secondary" onClick={handleClearAll}>
-                <RefreshCcw size={16} /> Clear
-              </button>
-              <button type="button" className="btn-secondary" onClick={handleCopyRequest} disabled={!requestText}>
-                <Copy size={16} /> Copy Request
-              </button>
-              <button type="button" className="btn-ghost" onClick={handleCopyShareLink}>
-                <Link2 size={16} /> Share Link
-              </button>
-            </div>
-          </div>
-
-          <div className="card p-4 space-y-3">
-            <div>
-              <h2 className="font-display font-semibold tracking-[0.16em] uppercase text-sm text-plasma-400 mb-2">
-                Request Preview
-              </h2>
-              <textarea
-                value={requestText}
-                readOnly
-                rows={4}
-                className="min-h-[6.5rem] resize-none"
-              />
-            </div>
-
-            <div>
-              <div className="flex items-center gap-2 mb-2 text-hull-50 font-display tracking-wide text-sm">
-                <Save size={15} className="text-plasma-400" />
-                Template
-              </div>
-              <input value={requestTemplate} onChange={(event) => setRequestTemplate(event.target.value)} />
-              <p className="text-xs text-hull-300 mt-2">
-                Use <code>%Buffs%</code> for original capitalization or <code>%buffs%</code> for lowercase formatting.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <button type="button" className="btn-secondary" onClick={handleApplyTemplate}>
-                <Save size={16} /> Save Template
-              </button>
-              <button type="button" className="btn-ghost" onClick={handleResetTemplate}>
-                <RefreshCcw size={16} /> Reset
-              </button>
-            </div>
-          </div>
-
-          <div className="card p-4">
-            <div className="flex items-center gap-2 mb-2 text-hull-50 font-display tracking-wide text-sm">
-              <Sparkles size={15} className="text-plasma-400" />
-              Quick Notes
-            </div>
-            <div className="space-y-2 text-xs text-hull-200 leading-relaxed">
-              <p>Hover the info icon on any buff to see the full effect and source-style description.</p>
-              <p>Selections are saved into the page URL with the <code>q</code> parameter so you can bookmark or share a build directly.</p>
-            </div>
           </div>
         </aside>
       </div>

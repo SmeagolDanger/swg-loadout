@@ -27,7 +27,7 @@ export default function App() {
       <div className="min-h-screen flex items-center justify-center bg-hull-900">
         <div className="text-center">
           <div className="w-12 h-12 border-2 border-plasma-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-hull-200 font-display tracking-wider">INITIALIZING SYSTEMS...</p>
+          <p className="text-hull-200 font-display tracking-wider">Loading your command deck...</p>
         </div>
       </div>
     );
