@@ -213,7 +213,7 @@ export default function BuildoutMap({
             Interactive Tactical Map
           </h2>
           <p className="text-sm text-hull-200">
-            Pan, zoom, click markers, and shift-click to build a multi-selection without squinting at three projection cards like a cave surveyor.
+            Pan, zoom, click markers, and shift-click to build a multi-selection from a single interactive map.
           </p>
         </div>
 

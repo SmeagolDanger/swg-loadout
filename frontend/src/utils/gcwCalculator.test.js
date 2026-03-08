@@ -6,7 +6,7 @@ import {
   calculatePointsToOffsetDecay,
   getFactionRankTitle,
   predictGCWRank,
-} from '../src/lib/gcwCalculator.js';
+} from './gcwCalculator.js';
 
 test('decay estimates match the source breakpoints', () => {
   const officerRanks = GCW_RANKS.filter((rank) => rank.Rank >= 7);

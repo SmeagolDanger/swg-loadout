@@ -60,7 +60,7 @@ export default function GCWCalculator() {
             GCW Rank Calculator
           </h1>
           <p className="text-hull-200 max-w-3xl">
-            Recreated from the public GCW calculator source and restyled to fit SWG Loadouts instead of looking like Angular 6 escaped from a museum.
+            Recreated from the public GCW calculator source and restyled to match the SWG Loadouts interface.
           </p>
         </div>
 

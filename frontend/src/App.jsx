@@ -13,6 +13,7 @@ import AuthPage from './components/AuthPage';
 import PublicLoadouts from './components/PublicLoadouts';
 import BuildoutExplorer from './components/BuildoutExplorer';
 import GCWCalculator from './components/GCWCalculator';
+import EntBuffBuilder from './components/EntBuffBuilder';
 import AdminPage from './components/AdminPage';
 import { CollectionsPage, CharacterDirectory, CollectionLeaderboard } from './components/collections';
 
@@ -49,6 +50,7 @@ export default function App() {
           <Route path="/tools/community" element={<PublicLoadouts />} />
           <Route path="/tools/buildouts" element={<BuildoutExplorer />} />
           <Route path="/tools/gcw" element={<GCWCalculator />} />
+          <Route path="/tools/ent-buffs" element={<EntBuffBuilder />} />
 
           <Route path="/collections" element={<CollectionsPage />} />
           <Route path="/collections/characters" element={<CharacterDirectory />} />
@@ -64,6 +66,7 @@ export default function App() {
           <Route path="/community" element={<Navigate to="/tools/community" replace />} />
           <Route path="/buildouts" element={<Navigate to="/tools/buildouts" replace />} />
           <Route path="/gcw" element={<Navigate to="/tools/gcw" replace />} />
+          <Route path="/ent-buffs" element={<Navigate to="/tools/ent-buffs" replace />} />
           <Route path="/characters" element={<Navigate to="/collections/characters" replace />} />
           <Route path="/leaderboard" element={<Navigate to="/collections/leaderboard" replace />} />
 

@@ -1,12 +1,12 @@
 import React, { useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Crosshair, Trophy, ArrowRight, Wrench, Orbit, Flag } from 'lucide-react';
+import { Crosshair, Trophy, ArrowRight, Wrench, Orbit, Flag, Music4 } from 'lucide-react';
 
 const ENTRY_CARDS = [
   {
     to: '/tools',
     title: 'Space Tools',
-    subtitle: 'Builders, calculators, loot, and the usual glorious spreadsheet-adjacent obsession.',
+    subtitle: 'Build loadouts, compare components, check loot tables, and use the core space calculators in one place.',
     icon: Crosshair,
     accent: 'text-plasma-400',
     border: 'border-plasma-500/40',
@@ -16,7 +16,7 @@ const ENTRY_CARDS = [
   {
     to: '/tools/buildouts',
     title: 'Buildout Maps',
-    subtitle: 'Parse SWG space buildout tabs, inspect patrol paths, and copy waypoint strings without the old desktop app drama.',
+    subtitle: 'Browse SWG space buildout tabs, inspect patrol paths, and copy waypoint strings from an interactive map.',
     icon: Orbit,
     accent: 'text-cyan-300',
     border: 'border-cyan-400/30',
@@ -26,7 +26,7 @@ const ENTRY_CARDS = [
   {
     to: '/tools/gcw',
     title: 'GCW Calculator',
-    subtitle: 'Predict next-week faction rank, inspect decay breakpoints, and stop doing officer math in your head like a maniac.',
+    subtitle: 'Estimate next-week faction rank, review decay breakpoints, and plan around weekly GCW point totals.',
     icon: Flag,
     accent: 'text-laser-yellow',
     border: 'border-laser-yellow/30',
@@ -34,9 +34,19 @@ const ENTRY_CARDS = [
     chips: ['Empire', 'Rebel', 'Decay', 'Ranks'],
   },
   {
+    to: '/tools/ent-buffs',
+    title: 'Ent Buff Builder',
+    subtitle: 'Assemble entertainer buff packages, stay within the point cap, and generate a ready-to-send request message.',
+    icon: Music4,
+    accent: 'text-fuchsia-300',
+    border: 'border-fuchsia-400/30',
+    glow: 'hover:border-fuchsia-400/50 hover:shadow-[0_0_24px_rgba(232,121,249,0.18)]',
+    chips: ['Buffs', 'Requests', 'Share Links'],
+  },
+  {
     to: '/collections',
     title: 'Collections',
-    subtitle: 'Track badges, characters, leaderboard progress, and other completionist rituals.',
+    subtitle: 'Track badges, characters, leaderboard progress, and collection completion across your roster.',
     icon: Trophy,
     accent: 'text-laser-yellow',
     border: 'border-laser-yellow/30',
@@ -66,13 +76,13 @@ export default function WelcomeScreen() {
         <div className="text-center max-w-3xl mx-auto mb-10 md:mb-14">
           <div className="inline-flex items-center gap-2 rounded-full border border-hull-500/50 bg-hull-800/70 px-4 py-2 text-xs font-display tracking-[0.25em] text-hull-200 uppercase mb-5">
             <Wrench size={14} className="text-plasma-400" />
-            Choose Your Interface
+            Choose a Section
           </div>
           <h1 className="font-display font-bold text-3xl md:text-5xl tracking-wider text-hull-50 mb-4">
             SWG:L <span className="text-plasma-400">COMMAND DECK</span>
           </h1>
           <p className="text-hull-200 text-sm md:text-base leading-relaxed">
-            Choose where to start. Adventure awaits!
+            Open the toolset you need and jump straight into it.
           </p>
         </div>
 
@@ -106,9 +116,9 @@ export default function WelcomeScreen() {
               </div>
 
               <div className="mt-8 flex items-center justify-between">
-                <span className="font-display text-sm tracking-[0.2em] uppercase text-hull-300">Enter Section</span>
+                <span className="font-display text-sm tracking-[0.2em] uppercase text-hull-300">Open Tool</span>
                 <div className="inline-flex items-center gap-2 btn-primary group-hover:translate-x-1 transition-transform duration-200">
-                  Open <ArrowRight size={16} />
+                  Launch <ArrowRight size={16} />
                 </div>
               </div>
             </Link>

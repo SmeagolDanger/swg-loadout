@@ -20,6 +20,7 @@ import {
   Shield,
   Orbit,
   Flag,
+  Music4,
 } from 'lucide-react';
 
 const TOOL_NAV_ITEMS = [
@@ -31,6 +32,7 @@ const TOOL_NAV_ITEMS = [
   { to: '/tools/loot', label: 'Loot', icon: Search },
   { to: '/tools/community', label: 'Community', icon: Users },
   { to: '/tools/gcw', label: 'GCW Calc', icon: Flag },
+  { to: '/tools/ent-buffs', label: 'Ent Buffs', icon: Music4 },
 ];
 
 const COLLECTION_NAV_ITEMS = [

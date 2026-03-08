@@ -437,7 +437,7 @@ export default function CollectionsPage() {
         {isAdmin && (
           <div className="mt-3 text-xs text-plasma-300 bg-plasma-500/5 border border-plasma-500/20 rounded-lg px-3 py-2 flex items-center gap-2">
             <Shield size={14} />
-            Admin mode enabled. You can edit categories and collection items from this page now, because apparently shipping admin tools matters.
+            Admin mode enabled. You can edit categories and collection items from this page.
           </div>
         )}
         {adminMessage && (
