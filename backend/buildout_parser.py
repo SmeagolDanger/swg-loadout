@@ -63,7 +63,6 @@ def _objvar_map(objvars: str) -> dict[str, list[str]]:
 
     while index + 2 < len(parts):
         key = parts[index]
-        type_marker = parts[index + 1]
         value = parts[index + 2]
 
         if not key:
