@@ -26,10 +26,10 @@ export const LAYER_OPTIONS = [
 ];
 
 export const LEGEND_ITEMS = [
-  ['Spawners', 'spawns', 'Satellite'],
-  ['Selected spawners', 'selected', 'Satellite'],
-  ['Static ships', 'statics', 'Boxes'],
-  ['Major stations', 'majorStations', 'Disc3'],
-  ['Beacons', 'beacons', 'Radio'],
-  ['Asteroids', 'asteroids', 'Orbit'],
+  { label: 'Spawners', color: '#7dd3fc', icon: 'Satellite', description: 'NPC ship spawn points' },
+  { label: 'Selected', color: '#facc15', icon: 'Satellite', description: 'Currently selected spawns' },
+  { label: 'Static Ships', color: '#f472b6', icon: 'Boxes', description: 'Non-spawner placed ships' },
+  { label: 'Major Stations', color: '#fb7185', icon: 'Disc3', description: 'Large space stations' },
+  { label: 'Beacons', color: '#f59e0b', icon: 'Radio', description: 'Navigation beacons' },
+  { label: 'Asteroids', color: '#94a3b8', icon: 'Orbit', description: 'Asteroid field markers' },
 ];

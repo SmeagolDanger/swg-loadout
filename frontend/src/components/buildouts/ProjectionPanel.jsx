@@ -29,27 +29,27 @@ export default function ProjectionPanel({ title, axes, data, visible, selectedSp
           <line x1={size / 2} x2={size / 2} y1={padding} y2={size - padding} stroke="rgba(125,138,170,0.18)" strokeWidth="1" />
           <rect x={padding} y={padding} width={size - padding * 2} height={size - padding * 2} fill="none" stroke="rgba(125,138,170,0.34)" strokeWidth="1.5" rx="8" />
 
-          {visible.statics && data.statics.map((point, index) => {
+          {visible.statics && data?.statics?.map((point, index) => {
             const [x, y] = projectPoint(point, axes, size, padding, bounds);
             return <path key={`static-${index}`} d={`M ${x - 4} ${y + 4} L ${x} ${y - 4} L ${x + 4} ${y + 4} Z`} fill={COLORS.statics} opacity="0.9" />;
           })}
 
-          {visible.minorStations && data.minor_stations.map((point, index) => {
+          {visible.minorStations && data?.minor_stations?.map((point, index) => {
             const [x, y] = projectPoint(point, axes, size, padding, bounds);
             return <rect key={`minor-${index}`} x={x - 3.5} y={y - 3.5} width="7" height="7" rx="1.5" fill={COLORS.minorStations} />;
           })}
 
-          {visible.majorStations && data.major_stations.map((point, index) => {
+          {visible.majorStations && data?.major_stations?.map((point, index) => {
             const [x, y] = projectPoint(point, axes, size, padding, bounds);
             return <circle key={`major-${index}`} cx={x} cy={y} r="5.5" fill={COLORS.majorStations} stroke="rgba(255,255,255,0.55)" strokeWidth="1" />;
           })}
 
-          {visible.beacons && data.beacons.map((point, index) => {
+          {visible.beacons && data?.beacons?.map((point, index) => {
             const [x, y] = projectPoint(point, axes, size, padding, bounds);
             return <circle key={`beacon-${index}`} cx={x} cy={y} r="3.5" fill={COLORS.beacons} />;
           })}
 
-          {visible.asteroids && data.asteroids.map((point, index) => {
+          {visible.asteroids && data?.asteroids?.map((point, index) => {
             const [x, y] = projectPoint(point, axes, size, padding, bounds);
             return <circle key={`asteroid-${index}`} cx={x} cy={y} r="2.6" fill={COLORS.asteroids} opacity="0.75" />;
           })}
@@ -65,7 +65,7 @@ export default function ProjectionPanel({ title, axes, data, visible, selectedSp
             />
           )}
 
-          {selectedSpawns.map((spawn) => {
+          {(selectedSpawns || []).map((spawn) => {
             const [x, y] = projectPoint(spawn.coordinates, axes, size, padding, bounds);
             const projectedPatrol = (spawn.patrol_points || []).map((point) => projectPoint(point, axes, size, padding, bounds).join(','));
 
@@ -98,8 +98,8 @@ export default function ProjectionPanel({ title, axes, data, visible, selectedSp
             );
           })}
 
-          {visible.spawns && data.spawns.map((spawn) => {
-            if (selectedSpawns.some((item) => item.id === spawn.id)) return null;
+          {visible.spawns && data?.spawns?.map((spawn) => {
+            if ((selectedSpawns || []).some((item) => item.id === spawn.id)) return null;
             const [x, y] = projectPoint(spawn.coordinates, axes, size, padding, bounds);
             return <circle key={`spawn-base-${spawn.id}`} cx={x} cy={y} r="2.6" fill={COLORS.spawns} opacity="0.55" />;
           })}

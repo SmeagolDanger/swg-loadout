@@ -292,7 +292,7 @@ export default function BuildoutExplorer() {
                             {spawn.template || 'Unknown template'}
                           </div>
                         </div>
-                        <span className="badge badge-neutral shrink-0">{spawn.count ?? 0}</span>
+                        <span className="badge badge-neutral shrink-0">{spawn.spawn_count ?? 0}</span>
                       </div>
 
                       <div className="mt-2 text-xs text-hull-300">
@@ -337,15 +337,16 @@ export default function BuildoutExplorer() {
             </div>
 
             <div className="grid 2xl:grid-cols-2 gap-4">
-              {PROJECTIONS.map((projection) => (
+              {data && PROJECTIONS.map((projection) => (
                 <ProjectionPanel
-                  key={projection.key}
-                  projection={projection}
+                  key={projection.id}
+                  title={projection.label}
+                  axes={projection.axes}
                   data={data}
                   visible={visible}
-                  selectedIds={selectedIds}
+                  selectedSpawns={selectedSpawns}
+                  bounds={data.bounds}
                   staticPathIds={staticPathIds}
-                  colors={COLORS}
                 />
               ))}
             </div>
@@ -388,8 +389,7 @@ export default function BuildoutExplorer() {
           <SelectionDetails
             activeSpawn={activeSpawn}
             selectedSpawns={selectedSpawns}
-            data={data}
-            onCopyWaypoint={(text, label) => copyText(text, label, setToast)}
+            setToast={setToast}
           />
         </aside>
       </div>
