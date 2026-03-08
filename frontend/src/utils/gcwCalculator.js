@@ -42,8 +42,13 @@ export function calculatePointsToOffsetDecay(rank) {
   return Math.floor(((rank.RatingEarningCap * rank.RatingDecayBalance - 1) / (rank.RatingEarningCap - rank.RatingDecayBalance + 1)) + 1);
 }
 
+export function normalizeVisibleProgress(rankPercent) {
+  return Math.trunc(Number(rankPercent));
+}
+
 export function estimateCurrentRating(rank, rankPercent) {
-  return Math.floor(rank.MinRating + (Number(rankPercent) / 100) * (rank.MaxRating - rank.MinRating));
+  const normalizedPercent = normalizeVisibleProgress(rankPercent);
+  return Math.floor(rank.MinRating + (normalizedPercent / 100) * (rank.MaxRating - rank.MinRating));
 }
 
 export function predictGCWRank({ rankNumber, rankPercent, gcwPoints }) {
@@ -53,6 +58,7 @@ export function predictGCWRank({ rankNumber, rankPercent, gcwPoints }) {
   }
 
   const parsedPercent = Number(rankPercent);
+  const normalizedPercent = normalizeVisibleProgress(rankPercent);
   const parsedPoints = Number(gcwPoints);
 
   if (Number.isNaN(parsedPercent) || parsedPercent < 0 || parsedPercent > 99.99) {
@@ -107,6 +113,7 @@ export function predictGCWRank({ rankNumber, rankPercent, gcwPoints }) {
   return {
     currentRank: rank,
     currentRating,
+    normalizedPercent,
     gcwPoints: parsedPoints,
     pointsToOffsetDecay,
     totalEarnedRating,

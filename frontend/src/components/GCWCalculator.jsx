@@ -125,6 +125,7 @@ export default function GCWCalculator() {
             <div className="grid sm:grid-cols-2 gap-3">
               <div>
                 <label className="text-xs text-hull-200 mb-2 block">Visible progress %</label>
+                <div className="text-[11px] text-hull-300 mb-2">Matches the original calculator by using the whole-number portion only.</div>
                 <input
                   type="number"
                   min="0"
@@ -226,7 +227,7 @@ export default function GCWCalculator() {
                     {prediction.data ? prediction.data.totalEarnedRating.toLocaleString() : '—'}
                   </div>
                   <p className="text-sm text-hull-300 mt-2">
-                    Derived from the source formula that converts weekly GCW points into rating earned.
+                    Matches the original calculator behavior, including truncating visible progress to a whole percent before prediction.
                   </p>
                 </div>
 

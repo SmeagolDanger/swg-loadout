@@ -6,6 +6,7 @@ import {
   calculatePointsToOffsetDecay,
   getFactionRankTitle,
   predictGCWRank,
+  normalizeVisibleProgress,
 } from './gcwCalculator.js';
 
 test('decay estimates match the source breakpoints', () => {
@@ -49,4 +50,15 @@ test('faction titles switch correctly for asymmetrical ranks', () => {
   const imperialRank = GCW_RANKS.find((rank) => rank.Rank === 10);
   assert.equal(getFactionRankTitle(imperialRank, 'imperial'), 'Lieutenant Colonel');
   assert.equal(getFactionRankTitle(imperialRank, 'rebel'), 'Commander');
+});
+
+
+test('visible progress is truncated to match the original calculator behavior', () => {
+  assert.equal(normalizeVisibleProgress(48.94), 48);
+  const result = predictGCWRank({ rankNumber: 10, rankPercent: 48.94, gcwPoints: 20200 });
+  assert.equal(result.normalizedPercent, 48);
+  assert.equal(result.currentRating, 47399);
+  assert.equal(result.finalRatingAdjustment, 2041);
+  assert.equal(result.nextRating, 49440);
+  assert.equal(result.nextPercent, 88.8);
 });
