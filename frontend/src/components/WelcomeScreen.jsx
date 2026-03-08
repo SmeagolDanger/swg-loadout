@@ -2,96 +2,127 @@ import React, { useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Crosshair, Download, Flag, Music4, Orbit, Sparkles, Trophy, Users, Wrench } from 'lucide-react';
 
-const ENTRY_CARDS = [
-  {
-    to: '/tools',
-    title: 'Space Tools',
-    subtitle: 'Builders, calculators, loot, and the rest of your practical shipyard toolkit.',
-    icon: Crosshair,
-    chips: ['Builder', 'Calculators', 'Community'],
-  },
-  {
-    to: '/tools/buildouts',
-    title: 'Buildout Maps',
-    subtitle: 'Parse SWG space buildout tabs, inspect patrol paths, and copy waypoint strings in one place.',
-    icon: Orbit,
-    chips: ['Zones', 'Spawners', 'Waypoints'],
-  },
-  {
-    to: '/tools/gcw',
-    title: 'GCW Calculator',
-    subtitle: 'Project next-week faction rank, inspect decay breakpoints, and check the math quickly.',
-    icon: Flag,
-    chips: ['Empire', 'Rebel', 'Decay', 'Ranks'],
-  },
-  {
-    to: '/tools/ent-buffs',
-    title: 'Ent Buffs',
-    subtitle: 'Plan entertainer buff packages, stay inside the point cap, and copy a ready-to-send request.',
-    icon: Music4,
-    chips: ['20 Points', 'Request Text', 'Share Link'],
-  },
-  {
-    to: '/tools/starters',
-    title: 'Starter Builds',
-    subtitle: 'Browse curated starter ship setups and load them into the builder as clean starting points.',
-    icon: Sparkles,
-    chips: ['Curated', 'Beginner', 'Templates'],
-  },
-  {
-    to: '/tools/community',
-    title: 'Community Builds',
-    subtitle: 'Browse public player builds, inspect their parts, and copy the ones you want to remix.',
-    icon: Users,
-    chips: ['Public', 'Shared', 'Remix'],
-  },
-  {
-    to: '/mods',
-    title: 'Game Mods',
-    subtitle: 'Browse curated downloads with screenshots, install notes, and bundled zip packages.',
-    icon: Download,
-    chips: ['Curated', 'Screenshots', 'Downloads'],
-  },
-  {
-    to: '/collections',
-    title: 'Collections',
-    subtitle: 'Track badges, characters, leaderboard progress, and other completion goals.',
-    icon: Trophy,
-    chips: ['Tracker', 'Characters', 'Leaderboard'],
-  },
-];
-
 const ROW_THEMES = {
   top: {
-    accent: 'text-plasma-300',
-    border: 'border-plasma-500/35',
-    glow: 'hover:border-plasma-400/60 hover:shadow-[0_0_26px_rgba(0,212,255,0.14)]',
-    iconBg: 'bg-plasma-500/10',
-    chipBorder: 'border-plasma-500/20',
-    chipBg: 'bg-plasma-500/8',
+    accent: 'text-cyan-300',
+    border: 'border-cyan-400/30',
+    glow: 'hover:border-cyan-400/50 hover:shadow-[0_0_24px_rgba(34,211,238,0.18)]',
   },
   middle: {
     accent: 'text-fuchsia-300',
-    border: 'border-fuchsia-500/30',
-    glow: 'hover:border-fuchsia-400/55 hover:shadow-[0_0_26px_rgba(232,121,249,0.14)]',
-    iconBg: 'bg-fuchsia-500/10',
-    chipBorder: 'border-fuchsia-500/20',
-    chipBg: 'bg-fuchsia-500/8',
+    border: 'border-fuchsia-400/30',
+    glow: 'hover:border-fuchsia-400/50 hover:shadow-[0_0_24px_rgba(232,121,249,0.18)]',
   },
   bottom: {
     accent: 'text-laser-yellow',
     border: 'border-laser-yellow/30',
-    glow: 'hover:border-laser-yellow/50 hover:shadow-[0_0_26px_rgba(255,214,10,0.14)]',
-    iconBg: 'bg-laser-yellow/10',
-    chipBorder: 'border-laser-yellow/20',
-    chipBg: 'bg-laser-yellow/8',
+    glow: 'hover:border-laser-yellow/50 hover:shadow-[0_0_24px_rgba(255,214,10,0.15)]',
   },
 };
 
-function getRowTheme(index) {
-  if (index < 3) return ROW_THEMES.top;
-  if (index < 6) return ROW_THEMES.middle;
-  return ROW_THEMES.bottom;
+const ENTRY_ROWS = [
+  {
+    key: 'top',
+    cards: [
+      {
+        to: '/tools',
+        title: 'Space Tools',
+        subtitle: 'Builders, calculators, loot, and other practical shipyard tools.',
+        icon: Crosshair,
+        chips: ['Builder', 'Calculators', 'Community'],
+      },
+      {
+        to: '/tools/buildouts',
+        title: 'Buildout Maps',
+        subtitle: 'Parse SWG space buildout tabs, inspect patrol paths, and copy waypoint strings.',
+        icon: Orbit,
+        chips: ['Zones', 'Spawners', 'Waypoints'],
+      },
+      {
+        to: '/tools/gcw',
+        title: 'GCW Calculator',
+        subtitle: 'Project next-week faction rank, inspect decay breakpoints, and verify the math.',
+        icon: Flag,
+        chips: ['Empire', 'Rebel', 'Decay', 'Ranks'],
+      },
+    ],
+  },
+  {
+    key: 'middle',
+    cards: [
+      {
+        to: '/tools/ent-buffs',
+        title: 'Ent Buffs',
+        subtitle: 'Plan entertainer buff packages, stay inside the cap, and copy a ready-to-send request.',
+        icon: Music4,
+        chips: ['20 Points', 'Request Text', 'Share Link'],
+      },
+      {
+        to: '/tools/starters',
+        title: 'Starter Builds',
+        subtitle: 'Browse curated starter ship setups and load them into the builder cleanly.',
+        icon: Sparkles,
+        chips: ['Curated', 'Beginner', 'Templates'],
+      },
+      {
+        to: '/tools/community',
+        title: 'Community Builds',
+        subtitle: 'Browse public player builds, inspect their parts, and copy the ones worth remixing.',
+        icon: Users,
+        chips: ['Public', 'Shared', 'Remix'],
+      },
+    ],
+  },
+  {
+    key: 'bottom',
+    cards: [
+      {
+        to: '/mods',
+        title: 'Game Mods',
+        subtitle: 'Browse curated downloads with screenshots, install notes, and bundled zip packages.',
+        icon: Download,
+        chips: ['Curated', 'Screenshots', 'Downloads'],
+      },
+      {
+        to: '/collections',
+        title: 'Collections',
+        subtitle: 'Track badges, characters, leaderboard progress, and other completion goals.',
+        icon: Trophy,
+        chips: ['Tracker', 'Characters', 'Leaderboard'],
+      },
+    ],
+  },
+];
+
+function WelcomeCard({ card, theme }) {
+  return (
+    <Link
+      to={card.to}
+      className={`group card border ${theme.border} ${theme.glow} transition-all duration-200 px-5 py-5 md:px-6 md:py-6 min-h-[13.25rem] flex flex-col justify-between`}
+    >
+      <div>
+        <div className={`w-10 h-10 rounded-xl bg-hull-800 border ${theme.border} flex items-center justify-center mb-4`}>
+          <card.icon size={20} className={theme.accent} />
+        </div>
+        <h2 className="font-display font-bold text-[1.75rem] leading-none tracking-wider text-hull-50 mb-3">
+          {card.title}
+        </h2>
+        <p className="text-hull-200 text-sm leading-6 mb-4 max-w-[32rem]">
+          {card.subtitle}
+        </p>
+        <div className="flex flex-wrap gap-1.5">
+          {card.chips.map((chip) => (
+            <span
+              key={chip}
+              className="rounded-full border border-hull-500/50 bg-hull-800/70 px-2.5 py-1 text-[10px] font-display tracking-wide text-hull-200"
+            >
+              {chip}
+            </span>
+          ))}
+        </div>
+      </div>
+    </Link>
+  );
 }
 
 export default function WelcomeScreen() {
@@ -120,45 +151,23 @@ export default function WelcomeScreen() {
           <h1 className="font-display font-bold text-3xl md:text-5xl tracking-wider text-hull-50 mb-3">
             SWG:L <span className="text-plasma-400">COMMAND DECK</span>
           </h1>
-          <p className="text-hull-200 text-sm md:text-base leading-relaxed">
-            Choose where to start.
-          </p>
+          <p className="text-hull-200 text-sm md:text-base leading-relaxed">Choose where to start.</p>
         </div>
 
-        <div className="grid md:grid-cols-2 xl:grid-cols-6 gap-4 md:gap-5">
-          {ENTRY_CARDS.map((card, index) => {
-            const theme = getRowTheme(index);
-            const wideClass = 'xl:col-span-2';
-            const bottomCenterClass = index >= 6 ? 'xl:col-start-2' : '';
-            return (
-              <Link
-                key={card.to}
-                to={card.to}
-                className={`group card p-4 md:p-5 border ${theme.border} ${theme.glow} transition-all duration-200 min-h-[12.5rem] md:min-h-[13rem] flex flex-col justify-between ${wideClass} ${bottomCenterClass}`}
-              >
-                <div>
-                  <div className={`w-11 h-11 rounded-2xl ${theme.iconBg} border ${theme.border} flex items-center justify-center mb-4`}>
-                    <card.icon size={22} className={theme.accent} />
-                  </div>
-                  <h2 className="font-display font-bold text-xl md:text-[1.35rem] tracking-wider text-hull-50 mb-2">
-                    {card.title}
-                  </h2>
-                  <p className="text-hull-200 text-sm leading-relaxed mb-4 line-clamp-3">
-                    {card.subtitle}
-                  </p>
-                </div>
+        <div className="space-y-5 md:space-y-6">
+          {ENTRY_ROWS.map((row) => {
+            const theme = ROW_THEMES[row.key];
+            const rowClasses =
+              row.key === 'bottom'
+                ? 'max-w-4xl mx-auto grid md:grid-cols-2 gap-5 md:gap-6'
+                : 'grid md:grid-cols-2 xl:grid-cols-3 gap-5 md:gap-6';
 
-                <div className="flex flex-wrap gap-2">
-                  {card.chips.map((chip) => (
-                    <span
-                      key={chip}
-                      className={`rounded-full border ${theme.chipBorder} ${theme.chipBg} px-2.5 py-1 text-[11px] font-display tracking-wide text-hull-200`}
-                    >
-                      {chip}
-                    </span>
-                  ))}
-                </div>
-              </Link>
+            return (
+              <div key={row.key} className={rowClasses}>
+                {row.cards.map((card) => (
+                  <WelcomeCard key={card.to} card={card} theme={theme} />
+                ))}
+              </div>
             );
           })}
         </div>
