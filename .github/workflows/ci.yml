@@ -172,7 +172,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=${{ matrix.target }}
           cache-to: type=gha,mode=max,scope=${{ matrix.target }}
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
 
   # ─────────────────────────────────────────────
   # Deploy (on tag push)
