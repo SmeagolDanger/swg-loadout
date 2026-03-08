@@ -196,7 +196,7 @@ export default function GCWCalculator() {
             <StatCard
               label="Next rating"
               value={prediction.data ? prediction.data.nextRating.toLocaleString() : '—'}
-              hint={prediction.data ? `Rank ${prediction.data.nextRank.Rank} next Thursday` : ''}
+              hint={prediction.data ? `Rank ${prediction.data.nextRank.Rank} next Saturday` : ''}
               tone="warn"
             />
             <StatCard
