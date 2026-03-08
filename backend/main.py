@@ -22,6 +22,8 @@ from routers.fc_router import router as fc_router
 from routers.gamedata_router import router as gamedata_router
 from routers.import_router import router as import_router
 from routers.loadout_router import router as loadout_router
+from routers.mods_router import admin_router as admin_mods_router
+from routers.mods_router import router as mods_router
 from routers.re_router import router as re_router
 
 logger = logging.getLogger("slt")
@@ -105,6 +107,8 @@ app.include_router(fc_router)
 app.include_router(gamedata_router)
 app.include_router(import_router)
 app.include_router(loadout_router)
+app.include_router(mods_router)
+app.include_router(admin_mods_router)
 app.include_router(re_router)
 
 

@@ -74,6 +74,51 @@ export const api = {
     return res.json();
   },
 
+
+  // Mods
+  getMods: (params = {}) => {
+    const qs = new URLSearchParams();
+    if (params.search) qs.set('search', params.search);
+    if (params.category) qs.set('category', params.category);
+    if (params.featured !== undefined && params.featured !== null) qs.set('featured', params.featured);
+    return request(`/mods${qs.toString() ? `?${qs.toString()}` : ''}`);
+  },
+  getMod: (slug) => request(`/mods/${encodeURIComponent(slug)}`),
+  getAdminMods: () => request('/admin/mods'),
+  getAdminMod: (id) => request(`/admin/mods/${id}`),
+  createMod: (data) => request('/admin/mods', { method: 'POST', body: JSON.stringify(data) }),
+  updateMod: (id, data) => request(`/admin/mods/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteMod: (id) => request(`/admin/mods/${id}`, { method: 'DELETE' }),
+  uploadModFiles: async (id, files) => {
+    const form = new FormData();
+    Array.from(files).forEach((file) => form.append('files', file));
+    const token = getToken();
+    const headers = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const res = await fetch(`${BASE}/admin/mods/${id}/files`, { method: 'POST', headers, body: form });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Upload failed' }));
+      throw new Error(err.detail || 'Upload failed');
+    }
+    return res.json();
+  },
+  uploadModScreenshots: async (id, files) => {
+    const form = new FormData();
+    Array.from(files).forEach((file) => form.append('files', file));
+    const token = getToken();
+    const headers = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const res = await fetch(`${BASE}/admin/mods/${id}/screenshots`, { method: 'POST', headers, body: form });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Upload failed' }));
+      throw new Error(err.detail || 'Upload failed');
+    }
+    return res.json();
+  },
+  updateModFileLabel: (id, label) => request(`/admin/mods/files/${id}`, { method: 'PUT', body: JSON.stringify({ label }) }),
+  deleteModFile: (id) => request(`/admin/mods/files/${id}`, { method: 'DELETE' }),
+  deleteModScreenshot: (id) => request(`/admin/mods/screenshots/${id}`, { method: 'DELETE' }),
+
   // Loadouts
   getLoadouts: () => request('/loadouts'),
   getPublicLoadouts: () => request('/loadouts/public'),

@@ -50,6 +50,7 @@ class User(Base):
     re_projects = relationship("REProject", back_populates="owner", cascade="all, delete-orphan")
     # Collections relationships
     characters = relationship("Character", back_populates="owner", cascade="all, delete-orphan")
+    mods = relationship("Mod", cascade="all, delete-orphan")
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -152,6 +153,60 @@ class REProject(Base):
     stat8 = Column(Float, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)
     owner = relationship("User", back_populates="re_projects")
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Curated Mods
+# ══════════════════════════════════════════════════════════════════════
+
+
+class Mod(Base):
+    __tablename__ = "mods"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    slug = Column(String(120), unique=True, index=True, nullable=False)
+    title = Column(String(160), nullable=False)
+    author_name = Column(String(120), default="")
+    summary = Column(String(280), default="")
+    description = Column(Text, default="")
+    category = Column(String(80), default="general")
+    tags = Column(String(255), default="")
+    version = Column(String(40), default="1.0")
+    compatibility = Column(String(120), default="SWG Legends")
+    install_instructions = Column(Text, default="")
+    is_published = Column(Boolean, default=False)
+    is_featured = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    files = relationship("ModFile", back_populates="mod", cascade="all, delete-orphan")
+    screenshots = relationship("ModScreenshot", back_populates="mod", cascade="all, delete-orphan")
+
+
+class ModFile(Base):
+    __tablename__ = "mod_files"
+    id = Column(Integer, primary_key=True, index=True)
+    mod_id = Column(Integer, ForeignKey("mods.id", ondelete="CASCADE"), nullable=False, index=True)
+    label = Column(String(160), default="")
+    original_filename = Column(String(255), nullable=False)
+    stored_filename = Column(String(255), nullable=False)
+    file_size = Column(Integer, default=0)
+    uploaded_at = Column(DateTime, default=datetime.utcnow)
+
+    mod = relationship("Mod", back_populates="files")
+
+
+class ModScreenshot(Base):
+    __tablename__ = "mod_screenshots"
+    id = Column(Integer, primary_key=True, index=True)
+    mod_id = Column(Integer, ForeignKey("mods.id", ondelete="CASCADE"), nullable=False, index=True)
+    caption = Column(String(200), default="")
+    original_filename = Column(String(255), nullable=False)
+    stored_filename = Column(String(255), nullable=False)
+    sort_order = Column(Integer, default=0)
+    uploaded_at = Column(DateTime, default=datetime.utcnow)
+
+    mod = relationship("Mod", back_populates="screenshots")
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -263,6 +318,43 @@ def _run_migrations():
         db.execute(text("UPDATE loadouts SET is_starter = false WHERE is_starter IS NULL"))
         db.execute(text("UPDATE loadouts SET starter_description = '' WHERE starter_description IS NULL"))
         db.execute(text("UPDATE loadouts SET starter_tags = '' WHERE starter_tags IS NULL"))
+
+        inspector = inspect(engine)
+        tables = set(inspector.get_table_names())
+        if "mods" in tables:
+            mod_cols = {c["name"] for c in inspector.get_columns("mods")}
+            if "author_name" not in mod_cols:
+                db.execute(text("ALTER TABLE mods ADD COLUMN author_name VARCHAR(120) DEFAULT ''"))
+            if "summary" not in mod_cols:
+                db.execute(text("ALTER TABLE mods ADD COLUMN summary VARCHAR(280) DEFAULT ''"))
+            if "description" not in mod_cols:
+                db.execute(text("ALTER TABLE mods ADD COLUMN description TEXT DEFAULT ''"))
+            if "category" not in mod_cols:
+                db.execute(text("ALTER TABLE mods ADD COLUMN category VARCHAR(80) DEFAULT 'general'"))
+            if "tags" not in mod_cols:
+                db.execute(text("ALTER TABLE mods ADD COLUMN tags VARCHAR(255) DEFAULT ''"))
+            if "version" not in mod_cols:
+                db.execute(text("ALTER TABLE mods ADD COLUMN version VARCHAR(40) DEFAULT '1.0'"))
+            if "compatibility" not in mod_cols:
+                db.execute(text("ALTER TABLE mods ADD COLUMN compatibility VARCHAR(120) DEFAULT 'SWG Legends'"))
+            if "install_instructions" not in mod_cols:
+                db.execute(text("ALTER TABLE mods ADD COLUMN install_instructions TEXT DEFAULT ''"))
+            if "is_published" not in mod_cols:
+                db.execute(text("ALTER TABLE mods ADD COLUMN is_published BOOLEAN DEFAULT false"))
+            if "is_featured" not in mod_cols:
+                db.execute(text("ALTER TABLE mods ADD COLUMN is_featured BOOLEAN DEFAULT false"))
+
+            db.execute(text("UPDATE mods SET author_name = '' WHERE author_name IS NULL"))
+            db.execute(text("UPDATE mods SET summary = '' WHERE summary IS NULL"))
+            db.execute(text("UPDATE mods SET description = '' WHERE description IS NULL"))
+            db.execute(text("UPDATE mods SET category = 'general' WHERE category IS NULL"))
+            db.execute(text("UPDATE mods SET tags = '' WHERE tags IS NULL"))
+            db.execute(text("UPDATE mods SET version = '1.0' WHERE version IS NULL"))
+            db.execute(text("UPDATE mods SET compatibility = 'SWG Legends' WHERE compatibility IS NULL"))
+            db.execute(text("UPDATE mods SET install_instructions = '' WHERE install_instructions IS NULL"))
+            db.execute(text("UPDATE mods SET is_published = false WHERE is_published IS NULL"))
+            db.execute(text("UPDATE mods SET is_featured = false WHERE is_featured IS NULL"))
+
         db.commit()
     except Exception:
         db.rollback()

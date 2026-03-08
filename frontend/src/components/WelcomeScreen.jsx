@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowRight, Crosshair, Flag, Music4, Orbit, Sparkles, Trophy, Users, Wrench } from 'lucide-react';
+import { ArrowRight, Crosshair, Download, Flag, Music4, Orbit, Sparkles, Trophy, Users, Wrench } from 'lucide-react';
 
 const ENTRY_CARDS = [
   {
@@ -62,6 +62,16 @@ const ENTRY_CARDS = [
     border: 'border-cyan-400/30',
     glow: 'hover:border-cyan-400/50 hover:shadow-[0_0_24px_rgba(34,211,238,0.18)]',
     chips: ['Public', 'Shared', 'Remix'],
+  },
+  {
+    to: '/mods',
+    title: 'Game Mods',
+    subtitle: 'Browse curated downloads with screenshots, install notes, and bundled zip packages.',
+    icon: Download,
+    accent: 'text-emerald-300',
+    border: 'border-emerald-400/30',
+    glow: 'hover:border-emerald-400/50 hover:shadow-[0_0_24px_rgba(52,211,153,0.18)]',
+    chips: ['Curated', 'Screenshots', 'Downloads'],
   },
   {
     to: '/collections',

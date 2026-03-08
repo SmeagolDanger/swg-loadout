@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api';
+import ModsAdminTab from './ModsAdminTab';
 import {
   Shield, Users, Star, BarChart3, Search, ChevronDown,
-  Trash2, Key, UserX, UserCheck, X, Check, AlertTriangle, Sparkles, ExternalLink
+  Trash2, Key, UserX, UserCheck, X, Check, AlertTriangle, Sparkles, ExternalLink, Download
 } from 'lucide-react';
 
 const ROLES = ['user', 'admin', 'collection_admin'];
@@ -11,6 +12,7 @@ const TABS = [
   { key: 'users', label: 'Users', icon: Users },
   { key: 'featured', label: 'Featured', icon: Star },
   { key: 'starters', label: 'Starters', icon: Sparkles },
+  { key: 'mods', label: 'Mods', icon: Download },
   { key: 'stats', label: 'Stats', icon: BarChart3 },
 ];
 
@@ -62,6 +64,7 @@ export default function AdminPage() {
       {tab === 'users' && <UsersTab />}
       {tab === 'featured' && <FeaturedTab />}
       {tab === 'starters' && <StarterBuildsTab />}
+      {tab === 'mods' && <ModsAdminTab />}
       {tab === 'stats' && <StatsTab />}
     </div>
   );

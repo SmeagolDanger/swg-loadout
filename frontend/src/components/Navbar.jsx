@@ -7,6 +7,7 @@ import {
   ChevronRight,
   Crosshair,
   Cpu,
+  Download,
   Flag,
   FlaskConical,
   LogOut,
@@ -47,6 +48,7 @@ const FEATURE_MODES = [
   { key: 'buildouts', to: '/tools/buildouts', label: 'Buildout Maps', icon: Orbit, sublabel: 'Zone parser and map tools' },
   { key: 'gcw', to: '/tools/gcw', label: 'GCW Calculator', icon: Flag, sublabel: 'Rank and decay projection' },
   { key: 'ent', to: '/tools/ent-buffs', label: 'Ent Buffs', icon: Music4, sublabel: 'Buff planning and requests' },
+  { key: 'mods', to: '/mods', label: 'Game Mods', icon: Download, sublabel: 'Curated downloads and screenshots' },
   { key: 'collections', to: '/collections', label: 'Collections', icon: Trophy, sublabel: 'Tracker and leaderboard' },
 ];
 
@@ -61,6 +63,7 @@ function resolveSection(pathname) {
   if (pathname.startsWith('/tools/buildouts')) return 'buildouts';
   if (pathname.startsWith('/tools/gcw')) return 'gcw';
   if (pathname.startsWith('/tools/ent-buffs')) return 'ent';
+  if (pathname.startsWith('/mods')) return 'mods';
   if (pathname.startsWith('/collections')) return 'collections';
   if (pathname.startsWith('/tools')) return 'tools';
   return 'home';
@@ -73,7 +76,7 @@ export default function Navbar() {
   const [modeOpen, setModeOpen] = useState(false);
 
   const section = useMemo(() => resolveSection(location.pathname), [location.pathname]);
-  const currentMode = FEATURE_MODES.find((mode) => mode.key === section) || FEATURE_MODES[0];
+  const currentMode = FEATURE_MODES.find((mode) => mode.key === section) || FEATURE_MODES.find((mode) => mode.key === 'tools') || FEATURE_MODES[0];
 
   const navItems = useMemo(() => {
     if (section === 'collections') return COLLECTION_NAV_ITEMS;
@@ -89,6 +92,8 @@ export default function Navbar() {
         return 'Faction rank projection and decay planning';
       case 'ent':
         return 'Entertainer buff planning and request generator';
+      case 'mods':
+        return 'Curated mod downloads, screenshots, and install notes';
       case 'collections':
         return 'Collection tracking and leaderboard tools';
       case 'tools':

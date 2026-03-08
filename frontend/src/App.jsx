@@ -14,6 +14,7 @@ import PublicLoadouts from './components/PublicLoadouts';
 import BuildoutExplorer from './components/BuildoutExplorer';
 import GCWCalculator from './components/GCWCalculator';
 import EntBuffBuilder from './components/EntBuffBuilder';
+import ModsBrowser from './components/ModsBrowser';
 import AdminPage from './components/AdminPage';
 import { CollectionsPage, CharacterDirectory, CollectionLeaderboard } from './components/collections';
 
@@ -55,6 +56,13 @@ function resolveFooter(pathname) {
           {' '}by Sipherius.
         </>
       ),
+    };
+  }
+
+  if (pathname.startsWith('/mods')) {
+    return {
+      id: 'mods',
+      content: <>Curated game mods are an original feature of this site.</>,
     };
   }
 
@@ -131,6 +139,8 @@ export default function App() {
           <Route path="/tools/buildouts" element={<BuildoutExplorer />} />
           <Route path="/tools/gcw" element={<GCWCalculator />} />
           <Route path="/tools/ent-buffs" element={<EntBuffBuilder />} />
+          <Route path="/mods" element={<ModsBrowser />} />
+          <Route path="/mods/:slug" element={<ModsBrowser />} />
 
           <Route path="/collections" element={<CollectionsPage />} />
           <Route path="/collections/characters" element={<CharacterDirectory />} />
@@ -148,6 +158,7 @@ export default function App() {
           <Route path="/buildouts" element={<Navigate to="/tools/buildouts" replace />} />
           <Route path="/gcw" element={<Navigate to="/tools/gcw" replace />} />
           <Route path="/ent-buffs" element={<Navigate to="/tools/ent-buffs" replace />} />
+          <Route path="/tools/mods" element={<Navigate to="/mods" replace />} />
           <Route path="/characters" element={<Navigate to="/collections/characters" replace />} />
           <Route path="/leaderboard" element={<Navigate to="/collections/leaderboard" replace />} />
 
