@@ -142,7 +142,7 @@ class TestPublicLoadouts:
         create_res = auth_client.post("/api/loadouts", json={**TestLoadoutCRUD.LOADOUT_PAYLOAD, "is_public": True})
         assert create_res.status_code == 200
 
-        from database import SessionLocal, Loadout
+        from database import Loadout, SessionLocal
 
         loadout_id = create_res.json()["id"]
         db = SessionLocal()

@@ -98,12 +98,25 @@ class LoadoutResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+def _loadout_to_response(loadout: Loadout) -> LoadoutResponse:
+    payload = {
+        column.name: getattr(loadout, column.name)
+        for column in Loadout.__table__.columns
+        if column.name in LoadoutResponse.model_fields
+    }
+    payload["is_featured"] = bool(payload.get("is_featured"))
+    payload["is_starter"] = bool(payload.get("is_starter"))
+    payload["starter_description"] = payload.get("starter_description") or ""
+    payload["starter_tags"] = payload.get("starter_tags") or ""
+    return LoadoutResponse.model_validate(payload)
+
+
 @router.get("/loadouts", response_model=list[LoadoutResponse])
 def list_loadouts(user: User = Depends(require_user), db: Session = Depends(get_db)):
     loadouts = db.query(Loadout).filter(Loadout.user_id == user.id).all()
     result = []
     for lo in loadouts:
-        r = LoadoutResponse.model_validate(lo)
+        r = _loadout_to_response(lo)
         r.owner_name = user.display_name or user.username
         result.append(r)
     return result
@@ -112,7 +125,7 @@ def list_loadouts(user: User = Depends(require_user), db: Session = Depends(get_
 def _build_loadout_responses(loadouts: list[Loadout], db: Session) -> list[LoadoutResponse]:
     result: list[LoadoutResponse] = []
     for lo in loadouts:
-        r = LoadoutResponse.model_validate(lo)
+        r = _loadout_to_response(lo)
         owner = db.query(User).filter(User.id == lo.user_id).first()
         r.owner_name = owner.display_name or owner.username if owner else "Unknown"
         result.append(r)
@@ -150,7 +163,7 @@ def get_loadout(loadout_id: int, user: User | None = Depends(get_current_user), 
         raise HTTPException(status_code=404, detail="Loadout not found")
     if not lo.is_public and (not user or lo.user_id != user.id):
         raise HTTPException(status_code=403, detail="Access denied")
-    r = LoadoutResponse.model_validate(lo)
+    r = _loadout_to_response(lo)
     owner = db.query(User).filter(User.id == lo.user_id).first()
     r.owner_name = owner.display_name or owner.username if owner else "Unknown"
 
@@ -215,7 +228,7 @@ def create_loadout(req: LoadoutCreate, user: User = Depends(require_user), db: S
     db.add(loadout)
     db.commit()
     db.refresh(loadout)
-    r = LoadoutResponse.model_validate(loadout)
+    r = _loadout_to_response(loadout)
     r.owner_name = user.display_name or user.username
     return r
 
@@ -241,7 +254,7 @@ def update_loadout(
         setattr(lo, key, val)
     db.commit()
     db.refresh(lo)
-    r = LoadoutResponse.model_validate(lo)
+    r = _loadout_to_response(lo)
     r.owner_name = user.display_name or user.username
     return r
 
@@ -304,7 +317,7 @@ def duplicate_loadout(
     db.add(new_loadout)
     db.commit()
     db.refresh(new_loadout)
-    r = LoadoutResponse.model_validate(new_loadout)
+    r = _loadout_to_response(new_loadout)
     r.owner_name = user.display_name or user.username
     return r
 
