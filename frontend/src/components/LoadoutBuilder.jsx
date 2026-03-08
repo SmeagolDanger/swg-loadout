@@ -342,7 +342,16 @@ export default function LoadoutBuilder() {
       stats: c.stats || [],
     }));
 
-    return [{ name: 'None', stats: [] }, ...userMatches, ...libMatches];
+    const options = [{ name: 'None', stats: [] }, ...userMatches, ...libMatches];
+    const selected = components[compType.key];
+    if (selected?.name && selected.name !== 'None' && !options.some(o => o.name === selected.name)) {
+      options.push({
+        name: selected.name,
+        stats: selected.stats || [],
+      });
+    }
+
+    return options;
   };
 
   const getSlotOptions = (slotIndex) => {
@@ -379,7 +388,17 @@ export default function LoadoutBuilder() {
       };
     });
 
-    return [{ name: 'None', stats: [], comp_type: '' }, ...userMatches, ...libMatches];
+    const options = [{ name: 'None', stats: [], comp_type: '' }, ...userMatches, ...libMatches];
+    const selected = components[`slot${slotIndex + 1}`];
+    if (selected?.name && selected.name !== 'None' && !options.some(o => o.name === selected.name)) {
+      options.push({
+        name: selected.name,
+        stats: selected.stats || [],
+        comp_type: selected.comp_type || 'weapon',
+      });
+    }
+
+    return options;
   };
 
   const selectComp = (key, comp) => {
