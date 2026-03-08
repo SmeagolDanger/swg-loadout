@@ -2,60 +2,72 @@
 set -euo pipefail
 
 # ============================================================
-# SWG:L Loadout Tool — Server Setup Script
+# SWG:L Tools — Deployment Setup Script
 #
-# Usage:
-#   curl -sSL https://raw.githubusercontent.com/OWNER/REPO/main/scripts/deploy.sh | bash
-#
-# Or clone and run locally:
+# Run from the repo root:
 #   chmod +x scripts/deploy.sh
 #   ./scripts/deploy.sh
+#
+# Optional env overrides:
+#   DEPLOY_PATH=/opt/swg-loadout
+#   MOD_DATA_PATH=/opt/swg-loadout-data/mods
 # ============================================================
 
-DEPLOY_DIR="${DEPLOY_PATH:-/opt/slt}"
+DEPLOY_DIR="${DEPLOY_PATH:-/opt/swg-loadout}"
+MOD_DATA_DIR="${MOD_DATA_PATH:-/opt/swg-loadout-data/mods}"
 COMPOSE_FILE="docker-compose.prod.yml"
+APP_UID="999"
+APP_GID="999"
 
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "  SWG:L Loadout Tool — Deployment Setup"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+banner() {
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "  SWG:L Tools — Deployment Setup"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+}
 
-# Check prerequisites
-for cmd in docker git; do
-    if ! command -v "$cmd" &> /dev/null; then
-        echo "ERROR: $cmd is required but not installed."
-        exit 1
-    fi
+require_cmd() {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    echo "ERROR: $1 is required but not installed."
+    exit 1
+  fi
+}
+
+banner
+
+for cmd in docker git openssl curl; do
+  require_cmd "$cmd"
 done
 
-if ! docker compose version &> /dev/null; then
-    echo "ERROR: docker compose (v2) is required."
-    exit 1
+if ! docker compose version >/dev/null 2>&1; then
+  echo "ERROR: docker compose (v2) is required."
+  exit 1
 fi
 
-# Create deploy directory
 echo ""
-echo "[1/5] Creating deployment directory: $DEPLOY_DIR"
+echo "[1/6] Preparing deployment directory: $DEPLOY_DIR"
 sudo mkdir -p "$DEPLOY_DIR"
 sudo chown "$(whoami):$(whoami)" "$DEPLOY_DIR"
 
-# Copy files if running from repo
+echo "[2/6] Preparing persistent curated mod storage: $MOD_DATA_DIR"
+sudo mkdir -p "$MOD_DATA_DIR/files" "$MOD_DATA_DIR/screenshots" "$MOD_DATA_DIR/uploads"
+sudo chown -R "$APP_UID:$APP_GID" "$MOD_DATA_DIR"
+sudo chmod -R u+rwX,go+rX "$MOD_DATA_DIR"
+
 if [ -f "$COMPOSE_FILE" ]; then
-    echo "[2/5] Copying project files..."
-    cp -r . "$DEPLOY_DIR/"
+  echo "[3/6] Copying project files into deployment directory"
+  cp -r . "$DEPLOY_DIR/"
 else
-    echo "[2/5] Skipping file copy (run from repo root)"
+  echo "[3/6] No local compose file found, assuming files already exist in $DEPLOY_DIR"
 fi
 
 cd "$DEPLOY_DIR"
 
-# Generate .env if not present
 if [ ! -f .env ]; then
-    echo "[3/5] Generating .env file..."
+  echo "[4/6] Generating .env file"
+  SECRET_KEY=$(openssl rand -hex 32)
+  PG_PASSWORD=$(openssl rand -hex 16)
 
-    SECRET_KEY=$(openssl rand -hex 32)
-    PG_PASSWORD=$(openssl rand -hex 16)
-
-    cat > .env <<EOF
+  cat > .env <<ENVEOF
 # Generated on $(date -u +"%Y-%m-%dT%H:%M:%SZ")
 POSTGRES_DB=slt_db
 POSTGRES_USER=slt_user
@@ -64,38 +76,38 @@ SECRET_KEY=${SECRET_KEY}
 LOG_LEVEL=info
 HTTP_PORT=80
 HTTPS_PORT=443
-EOF
+ENVEOF
 
-    chmod 600 .env
-    echo "  → .env created with random secrets"
-    echo "  → IMPORTANT: Back up this file securely!"
+  chmod 600 .env
+  echo "  → .env created with random secrets"
+  echo "  → back this file up somewhere safe"
 else
-    echo "[3/5] .env already exists, skipping generation"
+  echo "[4/6] .env already exists, leaving it untouched"
 fi
 
-# Build and start
-echo "[4/5] Building and starting services..."
-docker compose -f "$COMPOSE_FILE" up -d --build
+echo "[5/6] Building and starting services"
+docker compose -f "$COMPOSE_FILE" up -d --build --remove-orphans
 
-# Wait for health
-echo "[5/5] Waiting for services to become healthy..."
+echo "[6/6] Waiting for health endpoint"
 for i in $(seq 1 60); do
-    if curl -sf http://localhost:8000/api/health > /dev/null 2>&1; then
-        echo ""
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo "  ✓ Deployment successful!"
-        echo ""
-        echo "  App:    http://$(hostname -f 2>/dev/null || echo localhost)"
-        echo "  Health: http://localhost:8000/api/health"
-        echo "  Logs:   docker compose -f $COMPOSE_FILE logs -f"
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        exit 0
-    fi
-    printf "."
-    sleep 2
+  if curl -sf "http://localhost/api/health" >/dev/null 2>&1; then
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "  ✓ Deployment successful"
+    echo ""
+    echo "  App URL:        http://$(hostname -f 2>/dev/null || echo localhost)"
+    echo "  Health:         http://localhost/api/health"
+    echo "  Mod storage:    $MOD_DATA_DIR"
+    echo "  Upload owner:   ${APP_UID}:${APP_GID}"
+    echo "  Logs:           docker compose -f $COMPOSE_FILE logs -f"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    exit 0
+  fi
+  printf "."
+  sleep 2
 done
 
 echo ""
-echo "WARNING: Health check timed out. Check logs:"
+echo "WARNING: Health check timed out. Check logs with:"
 echo "  docker compose -f $COMPOSE_FILE logs"
 exit 1

@@ -5,7 +5,6 @@ import { Download, Filter, Search, Tag } from 'lucide-react';
 import { api } from '../api';
 import { formatBytes, splitModTags } from '../utils/mods';
 
-const CATEGORIES = ['all', 'ui', 'icons', 'quality-of-life', 'space', 'combat', 'tools', 'textures', 'packs', 'general'];
 
 export default function ModsBrowser() {
   const navigate = useNavigate();
@@ -38,6 +37,17 @@ export default function ModsBrowser() {
       active = false;
     };
   }, []);
+
+  const availableCategories = useMemo(() => {
+    const values = Array.from(new Set(mods.map((mod) => (mod.category || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+    return ['all', ...values];
+  }, [mods]);
+
+  useEffect(() => {
+    if (category !== 'all' && !availableCategories.includes(category)) {
+      setCategory('all');
+    }
+  }, [availableCategories, category]);
 
   const filteredMods = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -125,8 +135,10 @@ export default function ModsBrowser() {
             <div>
               <label className="text-xs text-hull-200 block mb-2">Category</label>
               <select value={category} onChange={(e) => setCategory(e.target.value)}>
-                {CATEGORIES.map((item) => (
-                  <option key={item} value={item}>{item === 'all' ? 'All categories' : item}</option>
+                {availableCategories.map((item) => (
+                  <option key={item} value={item}>
+                    {item === 'all' ? 'All categories' : item.replace(/-/g, ' ')}
+                  </option>
                 ))}
               </select>
             </div>
