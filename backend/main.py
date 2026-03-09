@@ -12,7 +12,6 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
-from prometheus_client import multiprocess
 from prometheus_client import (
     CONTENT_TYPE_LATEST,
     CollectorRegistry,
@@ -20,6 +19,7 @@ from prometheus_client import (
     Gauge,
     Histogram,
     generate_latest,
+    multiprocess,
 )
 from sqlalchemy import text
 
