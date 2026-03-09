@@ -87,6 +87,8 @@ class TestDiscordAuth:
         monkeypatch.setenv("DISCORD_REDIRECT_URI", "http://testserver/api/auth/discord/callback")
         monkeypatch.setenv("PUBLIC_BASE_URL", "http://frontend.test")
 
+        state = "test-state-123"
+
         with (
             patch("routers.auth_router._exchange_discord_code", return_value={"access_token": "discord-token"}),
             patch(
@@ -101,7 +103,11 @@ class TestDiscordAuth:
                 },
             ),
         ):
-            res = client.get("/api/auth/discord/callback?code=testcode", follow_redirects=False)
+            res = client.get(
+                f"/api/auth/discord/callback?code=testcode&state={state}",
+                cookies={"discord_oauth_state": state},
+                follow_redirects=False,
+            )
 
         assert res.status_code in (302, 307)
         location = res.headers["location"]
@@ -125,6 +131,8 @@ class TestDiscordAuth:
         monkeypatch.setenv("DISCORD_REDIRECT_URI", "http://testserver/api/auth/discord/callback")
         monkeypatch.setenv("PUBLIC_BASE_URL", "http://frontend.test")
 
+        state = "test-state-456"
+
         with (
             patch("routers.auth_router._exchange_discord_code", return_value={"access_token": "discord-token"}),
             patch(
@@ -138,7 +146,11 @@ class TestDiscordAuth:
                 },
             ),
         ):
-            res = client.get("/api/auth/discord/callback?code=testcode", follow_redirects=False)
+            res = client.get(
+                f"/api/auth/discord/callback?code=testcode&state={state}",
+                cookies={"discord_oauth_state": state},
+                follow_redirects=False,
+            )
 
         assert res.status_code in (302, 307)
         assert "token=" in res.headers["location"]
@@ -158,6 +170,8 @@ class TestDiscordAuth:
         monkeypatch.setenv("DISCORD_REDIRECT_URI", "http://testserver/api/auth/discord/callback")
         monkeypatch.setenv("PUBLIC_BASE_URL", "http://frontend.test")
 
+        state = "test-state-789"
+
         with (
             patch("routers.auth_router._exchange_discord_code", return_value={"access_token": "discord-token"}),
             patch(
@@ -172,7 +186,11 @@ class TestDiscordAuth:
                 },
             ),
         ):
-            client.get("/api/auth/discord/callback?code=testcode", follow_redirects=False)
+            client.get(
+                f"/api/auth/discord/callback?code=testcode&state={state}",
+                cookies={"discord_oauth_state": state},
+                follow_redirects=False,
+            )
 
         res = client.post("/api/auth/login", data={"username": "localpilot", "password": "password123"})
         assert res.status_code == 200
@@ -231,10 +249,11 @@ class TestForgotPassword:
         )
         monkeypatch.setenv("POSTMARK_SERVER_TOKEN", "pm-token")
         monkeypatch.setenv("POSTMARK_FROM_EMAIL", "noreply@jawatracks.com")
+        monkeypatch.setenv("PUBLIC_BASE_URL", "http://frontend.test")
 
         captured = {}
 
-        def fake_send(*, to_email, subject, text_body, html_body):
+        def fake_send(to_email, subject, text_body, html_body):
             captured["text_body"] = text_body
 
         with patch("routers.auth_router._send_postmark_email", side_effect=fake_send):
