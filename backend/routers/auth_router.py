@@ -3,7 +3,7 @@ import json
 import logging
 import os
 import secrets
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request as URLRequest
@@ -90,7 +90,7 @@ class AuthProvidersResponse(BaseModel):
 
 
 def _utcnow() -> datetime:
-    return datetime.now(datetime.UTC).replace(tzinfo=None)
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 def _get_public_base_url() -> str:
