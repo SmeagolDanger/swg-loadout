@@ -16,7 +16,9 @@ async function request(path, options = {}) {
   }
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: 'Request failed' }));
-    throw new Error(err.detail || 'Request failed');
+    const error = new Error(err.detail || 'Request failed');
+    error.status = res.status;
+    throw error;
   }
   return res.json();
 }
@@ -35,7 +37,9 @@ export const api = {
     }
     if (!res.ok) {
       const err = await res.json().catch(() => ({ detail: 'Invalid credentials' }));
-      throw new Error(err.detail || 'Invalid credentials');
+      const error = new Error(err.detail || 'Invalid credentials');
+      error.status = res.status;
+      throw error;
     }
     return res.json();
   },

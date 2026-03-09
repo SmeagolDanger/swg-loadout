@@ -101,7 +101,13 @@ class TestDiscordAuth:
                 },
             ),
         ):
-            res = client.get("/api/auth/discord/callback?code=testcode", follow_redirects=False)
+            login_res = client.get("/api/auth/discord/login", follow_redirects=False)
+            state_cookie = login_res.cookies.get("discord_oauth_state")
+            res = client.get(
+                f"/api/auth/discord/callback?code=testcode&state={state_cookie}",
+                cookies={"discord_oauth_state": state_cookie},
+                follow_redirects=False,
+            )
 
         assert res.status_code in (302, 307)
         location = res.headers["location"]
@@ -138,7 +144,13 @@ class TestDiscordAuth:
                 },
             ),
         ):
-            res = client.get("/api/auth/discord/callback?code=testcode", follow_redirects=False)
+            login_res = client.get("/api/auth/discord/login", follow_redirects=False)
+            state_cookie = login_res.cookies.get("discord_oauth_state")
+            res = client.get(
+                f"/api/auth/discord/callback?code=testcode&state={state_cookie}",
+                cookies={"discord_oauth_state": state_cookie},
+                follow_redirects=False,
+            )
 
         assert res.status_code in (302, 307)
         assert "token=" in res.headers["location"]
@@ -172,11 +184,54 @@ class TestDiscordAuth:
                 },
             ),
         ):
-            client.get("/api/auth/discord/callback?code=testcode", follow_redirects=False)
+            login_res = client.get("/api/auth/discord/login", follow_redirects=False)
+            state_cookie = login_res.cookies.get("discord_oauth_state")
+            client.get(
+                f"/api/auth/discord/callback?code=testcode&state={state_cookie}",
+                cookies={"discord_oauth_state": state_cookie},
+                follow_redirects=False,
+            )
 
         res = client.post("/api/auth/login", data={"username": "localpilot", "password": "password123"})
         assert res.status_code == 200
         assert res.json()["user"]["auth_provider"] == "local"
+
+    def test_discord_callback_requires_valid_state(self, client, monkeypatch):
+        monkeypatch.setenv("DISCORD_CLIENT_ID", "cid")
+        monkeypatch.setenv("DISCORD_CLIENT_SECRET", "secret")
+        monkeypatch.setenv("DISCORD_REDIRECT_URI", "http://testserver/api/auth/discord/callback")
+        monkeypatch.setenv("PUBLIC_BASE_URL", "http://frontend.test")
+
+        res = client.get(
+            "/api/auth/discord/callback?code=testcode&state=wrong",
+            cookies={"discord_oauth_state": "different"},
+            follow_redirects=False,
+        )
+        assert res.status_code in (302, 307)
+        assert res.headers["location"].endswith("error=invalid_state")
+
+    def test_discord_rate_limit_maps_to_specific_error(self, client, monkeypatch):
+        monkeypatch.setenv("DISCORD_CLIENT_ID", "cid")
+        monkeypatch.setenv("DISCORD_CLIENT_SECRET", "secret")
+        monkeypatch.setenv("DISCORD_REDIRECT_URI", "http://testserver/api/auth/discord/callback")
+        monkeypatch.setenv("PUBLIC_BASE_URL", "http://frontend.test")
+
+        with patch(
+            "routers.auth_router._exchange_discord_code",
+            side_effect=__import__("routers.auth_router", fromlist=["DiscordOAuthError"]).DiscordOAuthError(
+                "discord_rate_limited"
+            ),
+        ):
+            login_res = client.get("/api/auth/discord/login", follow_redirects=False)
+            state_cookie = login_res.cookies.get("discord_oauth_state")
+            res = client.get(
+                f"/api/auth/discord/callback?code=testcode&state={state_cookie}",
+                cookies={"discord_oauth_state": state_cookie},
+                follow_redirects=False,
+            )
+
+        assert res.status_code in (302, 307)
+        assert res.headers["location"].endswith("error=discord_rate_limited")
 
 
 class TestAuthMe:

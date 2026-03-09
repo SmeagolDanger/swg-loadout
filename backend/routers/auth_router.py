@@ -27,6 +27,8 @@ DISCORD_HTTP_HEADERS = {
     "Accept": "application/json",
     "User-Agent": "SWGL-Tools/1.0 (+https://jawatracks.com)",
 }
+DISCORD_STATE_COOKIE = "discord_oauth_state"
+DISCORD_STATE_MAX_AGE = 600
 
 
 class DiscordOAuthError(Exception):
@@ -87,6 +89,38 @@ def _discord_enabled(request: FastAPIRequest | None = None) -> bool:
     )
 
 
+def _cookie_secure() -> bool:
+    return _get_public_base_url().startswith("https://")
+
+
+def _with_state_cookie(
+    response: RedirectResponse, state: str | None = None, *, clear: bool = False
+) -> RedirectResponse:
+    if clear:
+        response.delete_cookie(DISCORD_STATE_COOKIE, path="/", samesite="lax")
+        return response
+    if state:
+        response.set_cookie(
+            DISCORD_STATE_COOKIE,
+            state,
+            max_age=DISCORD_STATE_MAX_AGE,
+            httponly=True,
+            secure=_cookie_secure(),
+            samesite="lax",
+            path="/",
+        )
+    return response
+
+
+def _redirect_frontend(
+    *, token: str | None = None, error: str | None = None, clear_state: bool = True
+) -> RedirectResponse:
+    response = RedirectResponse(_build_frontend_redirect(token=token, error=error))
+    if clear_state:
+        return _with_state_cookie(response, clear=True)
+    return response
+
+
 def _build_frontend_redirect(token: str | None = None, error: str | None = None) -> str:
     qs = {}
     if token:
@@ -104,6 +138,9 @@ def _load_json(req: Request, *, error_code: str, context: str) -> dict:
     except HTTPError as exc:
         body = exc.read().decode("utf-8", errors="replace")[:500]
         logger.warning("Discord OAuth HTTP error during %s: status=%s body=%s", context, exc.code, body)
+        lowered = body.lower()
+        if "rate limited" in lowered or "too many tokens" in lowered or exc.code == 429:
+            raise DiscordOAuthError("discord_rate_limited") from exc
         raise DiscordOAuthError(error_code) from exc
     except (URLError, TimeoutError, OSError) as exc:
         logger.exception("Discord OAuth network error during %s", context)
@@ -250,20 +287,29 @@ def discord_login(request: FastAPIRequest):
         raise HTTPException(status_code=503, detail="Discord login is not configured")
 
     redirect_uri = _get_discord_redirect_uri(request)
-    url = f"{DISCORD_AUTHORIZE_URL}?{urlencode({'client_id': os.getenv('DISCORD_CLIENT_ID', '').strip(), 'response_type': 'code', 'redirect_uri': redirect_uri, 'scope': 'identify email'})}"
-    return RedirectResponse(url)
+    state = secrets.token_urlsafe(24)
+    url = f"{DISCORD_AUTHORIZE_URL}?{urlencode({'client_id': os.getenv('DISCORD_CLIENT_ID', '').strip(), 'response_type': 'code', 'redirect_uri': redirect_uri, 'scope': 'identify email', 'state': state})}"
+    return _with_state_cookie(RedirectResponse(url), state)
 
 
 @router.get("/discord/callback", name="discord_callback")
 def discord_callback(
-    request: FastAPIRequest, code: str | None = None, error: str | None = None, db: Session = Depends(get_db)
+    request: FastAPIRequest,
+    code: str | None = None,
+    error: str | None = None,
+    state: str | None = None,
+    db: Session = Depends(get_db),
 ):
+    state_cookie = request.cookies.get(DISCORD_STATE_COOKIE, "")
     if error:
-        return RedirectResponse(_build_frontend_redirect(error=error))
+        return _redirect_frontend(error=error)
     if not code:
-        return RedirectResponse(_build_frontend_redirect(error="missing_code"))
+        return _redirect_frontend(error="missing_code")
     if not _discord_enabled(request):
-        return RedirectResponse(_build_frontend_redirect(error="discord_not_configured"))
+        return _redirect_frontend(error="discord_not_configured")
+    if not state or not state_cookie or not secrets.compare_digest(state_cookie, state):
+        logger.warning("Discord OAuth state validation failed")
+        return _redirect_frontend(error="invalid_state")
 
     redirect_uri = _get_discord_redirect_uri(request)
     try:
@@ -271,15 +317,15 @@ def discord_callback(
         access_token = token_data.get("access_token")
         if not access_token:
             logger.warning("Discord token exchange returned no access_token: payload=%s", token_data)
-            return RedirectResponse(_build_frontend_redirect(error="token_exchange_failed"))
+            return _redirect_frontend(error="token_exchange_failed")
         discord_user = _get_discord_me(access_token)
     except DiscordOAuthError as exc:
-        return RedirectResponse(_build_frontend_redirect(error=exc.code))
+        return _redirect_frontend(error=exc.code)
 
     discord_id = str(discord_user.get("id") or "").strip()
     if not discord_id:
         logger.warning("Discord profile response missing id: payload=%s", discord_user)
-        return RedirectResponse(_build_frontend_redirect(error="discord_identity_failed"))
+        return _redirect_frontend(error="discord_identity_failed")
 
     discord_username = discord_user.get("global_name") or discord_user.get("username") or f"discord_{discord_id}"
     avatar_hash = discord_user.get("avatar")
@@ -303,7 +349,7 @@ def discord_callback(
             )
         except (IntegrityError, RuntimeError):
             logger.exception("Discord account conflict while creating/linking user")
-            return RedirectResponse(_build_frontend_redirect(error="discord_account_conflict"))
+            return _redirect_frontend(error="discord_account_conflict")
     else:
         user.discord_id = discord_id
         user.discord_username = discord_user.get("username") or discord_username
@@ -318,10 +364,10 @@ def discord_callback(
         except IntegrityError:
             db.rollback()
             logger.exception("Discord account conflict while updating existing user")
-            return RedirectResponse(_build_frontend_redirect(error="discord_account_conflict"))
+            return _redirect_frontend(error="discord_account_conflict")
 
     token = create_access_token(data={"sub": user.username})
-    return RedirectResponse(_build_frontend_redirect(token=token))
+    return _redirect_frontend(token=token)
 
 
 @router.get("/me", response_model=UserResponse)

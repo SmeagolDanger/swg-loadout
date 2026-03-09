@@ -11,6 +11,7 @@ export default function AuthPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [providers, setProviders] = useState({ discord: false });
+  const [discordRedirecting, setDiscordRedirecting] = useState(false);
   const { login, register } = useAuth();
   const navigate = useNavigate();
 
@@ -37,6 +38,8 @@ export default function AuthPage() {
   };
 
   const startDiscordLogin = () => {
+    if (discordRedirecting) return;
+    setDiscordRedirecting(true);
     window.location.href = api.getDiscordLoginUrl();
   };
 
@@ -155,8 +158,13 @@ export default function AuthPage() {
             </button>
 
             {providers.discord && (
-              <button type="button" onClick={startDiscordLogin} className="btn-ghost w-full py-3 justify-center">
-                <MessageSquare size={16} /> Sign in with Discord
+              <button
+                type="button"
+                onClick={startDiscordLogin}
+                disabled={discordRedirecting}
+                className="btn-ghost w-full py-3 justify-center disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                <MessageSquare size={16} /> {discordRedirecting ? 'Redirecting to Discord...' : 'Sign in with Discord'}
               </button>
             )}
           </form>

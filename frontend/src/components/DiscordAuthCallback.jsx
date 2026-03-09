@@ -11,6 +11,8 @@ const ERROR_MESSAGES = {
   discord_request_failed: 'Discord could not be reached right now.',
   discord_identity_failed: 'Discord did not return a usable account identity.',
   discord_account_conflict: 'Discord sign-in could not be linked automatically. Sign in locally for now, then finish linking after the account rules are updated.',
+  discord_rate_limited: 'Discord is rate limiting sign-in attempts. Wait a minute, then try again once.',
+  invalid_state: 'Discord sign-in expired or was opened in another tab. Please start again from the sign-in page.',
 };
 
 export default function DiscordAuthCallback() {

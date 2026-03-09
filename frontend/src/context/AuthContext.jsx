@@ -3,6 +3,26 @@ import { api } from '../api';
 
 const AuthContext = createContext(null);
 
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function getMeWithRetry() {
+  let lastError = null;
+  for (const delay of [0, 400, 900, 1600]) {
+    if (delay) {
+      await wait(delay);
+    }
+    try {
+      return await api.getMe();
+    } catch (error) {
+      lastError = error;
+      if (error?.status !== 503) {
+        throw error;
+      }
+    }
+  }
+  throw lastError || new Error('Authentication service is temporarily unavailable.');
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
     const saved = localStorage.getItem('slt_user');
@@ -20,7 +40,7 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const token = localStorage.getItem('slt_token');
     if (token) {
-      api.getMe()
+      getMeWithRetry()
         .then((u) => {
           setUser(u);
           localStorage.setItem('slt_user', JSON.stringify(u));
@@ -49,7 +69,7 @@ export function AuthProvider({ children }) {
   const completeOAuthLogin = async (token) => {
     localStorage.setItem('slt_token', token);
     try {
-      const nextUser = await api.getMe();
+      const nextUser = await getMeWithRetry();
       localStorage.setItem('slt_user', JSON.stringify(nextUser));
       setUser(nextUser);
       return nextUser;
