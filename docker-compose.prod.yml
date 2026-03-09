@@ -97,7 +97,7 @@ services:
       GRAFANA_CLOUD_METRICS_USER_ID: ${GRAFANA_CLOUD_METRICS_USER_ID:-}
       GRAFANA_CLOUD_METRICS_API_KEY: ${GRAFANA_CLOUD_METRICS_API_KEY:-}
       PROMETHEUS_SCRAPE_INTERVAL: ${PROMETHEUS_SCRAPE_INTERVAL:-15s}
-    command:
+    entrypoint:
       - /bin/sh
       - -ec
       - |
@@ -147,7 +147,6 @@ services:
       resources:
         limits:
           memory: 256M
-
 volumes:
   postgres_data:
     driver: local
