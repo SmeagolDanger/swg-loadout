@@ -354,7 +354,9 @@ def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_db)):
     raw_token = secrets.token_urlsafe(32)
     user.password_reset_token_hash = _hash_reset_token(raw_token)
     user.password_reset_sent_at = datetime.now(UTC).replace(tzinfo=None)
-    user.password_reset_expires_at = (datetime.now(UTC) + timedelta(minutes=RESET_TOKEN_TTL_MINUTES)).replace(tzinfo=None)
+    user.password_reset_expires_at = (datetime.now(UTC) + timedelta(minutes=RESET_TOKEN_TTL_MINUTES)).replace(
+        tzinfo=None
+    )
     db.commit()
 
     reset_link = _generate_reset_link(raw_token)
@@ -373,11 +375,7 @@ def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db)):
     token_hash = _hash_reset_token(req.token)
     user = db.query(User).filter(User.password_reset_token_hash == token_hash).first()
     now = datetime.now(UTC).replace(tzinfo=None)
-    if (
-        not user
-        or not user.password_reset_expires_at
-        or user.password_reset_expires_at < now
-    ):
+    if not user or not user.password_reset_expires_at or user.password_reset_expires_at < now:
         raise HTTPException(status_code=400, detail="Password reset link is invalid or expired")
 
     user.hashed_password = get_password_hash(req.password)

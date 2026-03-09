@@ -196,45 +196,55 @@ class TestAuthMe:
 
 class TestForgotPassword:
     def test_forgot_password_requires_postmark_config(self, client):
-        res = client.post('/api/auth/forgot-password', json={'email': 'nobody@swg.com'})
+        res = client.post("/api/auth/forgot-password", json={"email": "nobody@swg.com"})
         assert res.status_code == 503
 
     def test_forgot_password_sends_email_and_stores_token(self, client, monkeypatch):
         client.post(
-            '/api/auth/register',
-            json={'username': 'resetpilot', 'email': 'reset@swg.com', 'password': 'secret123', 'display_name': 'Reset Pilot'},
+            "/api/auth/register",
+            json={
+                "username": "resetpilot",
+                "email": "reset@swg.com",
+                "password": "secret123",
+                "display_name": "Reset Pilot",
+            },
         )
-        monkeypatch.setenv('POSTMARK_SERVER_TOKEN', 'pm-token')
-        monkeypatch.setenv('POSTMARK_FROM_EMAIL', 'noreply@jawatracks.com')
-        monkeypatch.setenv('PUBLIC_BASE_URL', 'http://frontend.test')
+        monkeypatch.setenv("POSTMARK_SERVER_TOKEN", "pm-token")
+        monkeypatch.setenv("POSTMARK_FROM_EMAIL", "noreply@jawatracks.com")
+        monkeypatch.setenv("PUBLIC_BASE_URL", "http://frontend.test")
 
-        with patch('routers.auth_router._send_postmark_email') as mocked_send:
-            res = client.post('/api/auth/forgot-password', json={'email': 'reset@swg.com'})
+        with patch("routers.auth_router._send_postmark_email") as mocked_send:
+            res = client.post("/api/auth/forgot-password", json={"email": "reset@swg.com"})
 
         assert res.status_code == 200
         assert mocked_send.called
 
     def test_reset_password_updates_password(self, client, monkeypatch):
         client.post(
-            '/api/auth/register',
-            json={'username': 'resetpilot2', 'email': 'reset2@swg.com', 'password': 'secret123', 'display_name': 'Reset Pilot 2'},
+            "/api/auth/register",
+            json={
+                "username": "resetpilot2",
+                "email": "reset2@swg.com",
+                "password": "secret123",
+                "display_name": "Reset Pilot 2",
+            },
         )
-        monkeypatch.setenv('POSTMARK_SERVER_TOKEN', 'pm-token')
-        monkeypatch.setenv('POSTMARK_FROM_EMAIL', 'noreply@jawatracks.com')
+        monkeypatch.setenv("POSTMARK_SERVER_TOKEN", "pm-token")
+        monkeypatch.setenv("POSTMARK_FROM_EMAIL", "noreply@jawatracks.com")
 
         captured = {}
 
         def fake_send(*, to_email, subject, text_body, html_body):
-            captured['text_body'] = text_body
+            captured["text_body"] = text_body
 
-        with patch('routers.auth_router._send_postmark_email', side_effect=fake_send):
-            res = client.post('/api/auth/forgot-password', json={'email': 'reset2@swg.com'})
+        with patch("routers.auth_router._send_postmark_email", side_effect=fake_send):
+            res = client.post("/api/auth/forgot-password", json={"email": "reset2@swg.com"})
         assert res.status_code == 200
-        link_line = [line for line in captured['text_body'].splitlines() if line.startswith('http')][0]
-        token = link_line.rsplit('token=', 1)[1]
+        link_line = [line for line in captured["text_body"].splitlines() if line.startswith("http")][0]
+        token = link_line.rsplit("token=", 1)[1]
 
-        reset = client.post('/api/auth/reset-password', json={'token': token, 'password': 'newsecret456'})
+        reset = client.post("/api/auth/reset-password", json={"token": token, "password": "newsecret456"})
         assert reset.status_code == 200
 
-        login = client.post('/api/auth/login', data={'username': 'resetpilot2', 'password': 'newsecret456'})
+        login = client.post("/api/auth/login", data={"username": "resetpilot2", "password": "newsecret456"})
         assert login.status_code == 200
