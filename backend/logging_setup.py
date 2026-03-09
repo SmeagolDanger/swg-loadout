@@ -114,10 +114,7 @@ class RemoteNoiseFilter(logging.Filter):
         if not self._include_access_logs and message in {"request_started", "request_finished"}:
             return False
 
-        if not self._include_healthchecks and path.startswith("/api/health"):
-            return False
-
-        return True
+        return self._include_healthchecks or not path.startswith("/api/health")
 
 
 class SafeGrafanaLokiHandler(logging.Handler):
@@ -252,8 +249,8 @@ def load_logging_settings() -> LoggingSettings:
 
 def configure_logging() -> LoggingSettings:
     root = logging.getLogger()
-    if getattr(root, "_slt_logging_configured", False):
-        return getattr(root, "_slt_logging_settings")
+    if hasattr(root, "_slt_logging_configured") and root._slt_logging_configured:
+        return root._slt_logging_settings
 
     settings = load_logging_settings()
     context_filter = RequestContextFilter(settings.env, settings.service_name)
