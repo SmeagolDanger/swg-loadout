@@ -1,23 +1,19 @@
-import json
 import logging
 import os
 import time
 import uuid
 from contextlib import asynccontextmanager
+from secrets import compare_digest
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
+from prometheus_client import CONTENT_TYPE_LATEST, Counter, Gauge, Histogram, generate_latest
 from sqlalchemy import text
 
-from database import (
-    CollectionGroup,
-    CollectionItem,
-    SessionLocal,
-    init_db,
-)
-from logging_setup import configure_logging, reset_request_id, set_request_id
+from database import CollectionGroup, CollectionItem, SessionLocal, init_db
+from logging_setup import REQUEST_ID_CTX, configure_logging
 from routers.admin_router import router as admin_router
 from routers.auth_router import router as auth_router
 from routers.buildout_router import router as buildout_router
@@ -31,32 +27,42 @@ from routers.mods_router import admin_router as admin_mods_router
 from routers.mods_router import router as mods_router
 from routers.re_router import router as re_router
 
-logger = logging.getLogger("slt")
 APP_VERSION = "3.0.0"
-LOGGING_STATE = configure_logging(service="backend")
+REQUEST_COUNT = Counter(
+    "slt_http_requests_total",
+    "Total HTTP requests handled by the backend.",
+    ["method", "path", "status_code"],
+)
+REQUEST_DURATION = Histogram(
+    "slt_http_request_duration_seconds",
+    "HTTP request duration in seconds.",
+    ["method", "path", "status_code"],
+    buckets=(0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0),
+)
+REQUEST_IN_PROGRESS = Gauge(
+    "slt_http_requests_in_progress",
+    "Current number of HTTP requests being processed.",
+    ["method", "path"],
+)
+AUTH_CALLBACK_TOTAL = Counter(
+    "slt_auth_discord_callback_total",
+    "Total Discord OAuth callbacks handled by outcome.",
+    ["outcome"],
+)
+AUTH_ME_TOTAL = Counter(
+    "slt_auth_me_total",
+    "Total /api/auth/me requests by outcome.",
+    ["outcome"],
+)
+settings = configure_logging()
+logger = logging.getLogger("slt")
+METRICS_ENABLED = os.getenv("METRICS_ENABLED", "false").strip().lower() == "true"
+METRICS_USERNAME = os.getenv("METRICS_BASIC_AUTH_USERNAME", "").strip()
+METRICS_PASSWORD = os.getenv("METRICS_BASIC_AUTH_PASSWORD", "").strip()
 
-if LOGGING_STATE.get("better_stack_requested"):
-    if LOGGING_STATE.get("better_stack_enabled"):
-        logger.info(
-            "better_stack_logging_enabled",
-            extra={
-                "better_stack_host": LOGGING_STATE.get("better_stack_host"),
-                "include_access_logs": LOGGING_STATE.get("better_stack_include_access_logs"),
-                "include_healthchecks": LOGGING_STATE.get("better_stack_include_healthchecks"),
-            },
-        )
-    else:
-        logger.warning(
-            "better_stack_logging_unavailable",
-            extra={
-                "reason": LOGGING_STATE.get("better_stack_reason"),
-                **(
-                    {"error_type": LOGGING_STATE.get("better_stack_error_type")}
-                    if LOGGING_STATE.get("better_stack_error_type")
-                    else {}
-                ),
-            },
-        )
+
+if settings.provider not in {"", "none", "off", "disabled"}:
+    logger.info("observability_provider_selected", extra={"provider": settings.provider})
 
 
 def _uptime_seconds(application: FastAPI) -> float:
@@ -76,8 +82,36 @@ def _db_ready() -> tuple[bool, str | None]:
         db.close()
 
 
+def _metric_path_label(request: Request) -> str:
+    route = request.scope.get("route")
+    path = getattr(route, "path", request.url.path)
+    if isinstance(path, str):
+        return path
+    return request.url.path
+
+
+def _check_metrics_auth(request: Request) -> None:
+    if not METRICS_USERNAME and not METRICS_PASSWORD:
+        return
+
+    auth_header = request.headers.get("authorization", "")
+    scheme, _, encoded = auth_header.partition(" ")
+    if scheme.lower() != "basic" or not encoded:
+        raise HTTPException(status_code=401, headers={"WWW-Authenticate": "Basic"})
+
+    import base64
+
+    try:
+        decoded = base64.b64decode(encoded).decode("utf-8")
+        username, _, password = decoded.partition(":")
+    except Exception as exc:  # pragma: no cover - malformed credentials
+        raise HTTPException(status_code=401, headers={"WWW-Authenticate": "Basic"}) from exc
+
+    if not (compare_digest(username, METRICS_USERNAME) and compare_digest(password, METRICS_PASSWORD)):
+        raise HTTPException(status_code=401, headers={"WWW-Authenticate": "Basic"})
+
+
 def seed_collections() -> None:
-    """Seed collection groups and items from JSON if the DB is empty."""
     data_path = os.path.join(os.path.dirname(__file__), "data", "collections-data.json")
     if not os.path.exists(data_path):
         logger.warning("collections_seed_skipped", extra={"reason": "missing_data_file"})
@@ -89,6 +123,8 @@ def seed_collections() -> None:
         if existing > 0:
             logger.info("collections_seed_skipped", extra={"reason": "already_seeded", "group_count": existing})
             return
+
+        import json
 
         with open(data_path, encoding="utf-8") as file_handle:
             collections = json.load(file_handle)
@@ -120,10 +156,7 @@ def seed_collections() -> None:
                 total_items += 1
 
         db.commit()
-        logger.info(
-            "collections_seed_complete",
-            extra={"group_count": group_order, "item_count": total_items},
-        )
+        logger.info("collections_seed_complete", extra={"group_count": group_order, "item_count": total_items})
     except Exception:
         db.rollback()
         logger.exception("collections_seed_failed")
@@ -161,22 +194,28 @@ app = FastAPI(title="SWG:L Space Tools", version=APP_VERSION, lifespan=lifespan)
 async def request_logging_middleware(request: Request, call_next):
     request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
     request.state.request_id = request_id
-    token = set_request_id(request_id)
+    token = REQUEST_ID_CTX.set(request_id)
     start = time.perf_counter()
+    initial_path = request.url.path
 
     logger.info(
         "request_started",
         extra={
             "request_id": request_id,
             "method": request.method,
-            "path": request.url.path,
+            "path": initial_path,
             "client_ip": request.client.host if request.client else None,
             "user_agent": request.headers.get("user-agent"),
         },
     )
 
+    metric_labels = {"method": request.method, "path": initial_path}
+    REQUEST_IN_PROGRESS.labels(**metric_labels).inc()
+    status_code = 500
+
     try:
         response = await call_next(request)
+        status_code = response.status_code
     except Exception:
         duration_ms = round((time.perf_counter() - start) * 1000, 3)
         logger.exception(
@@ -184,11 +223,26 @@ async def request_logging_middleware(request: Request, call_next):
             extra={
                 "request_id": request_id,
                 "method": request.method,
-                "path": request.url.path,
+                "path": initial_path,
                 "duration_ms": duration_ms,
             },
         )
         response = JSONResponse(status_code=500, content={"detail": "Internal server error"})
+    finally:
+        REQUEST_IN_PROGRESS.labels(**metric_labels).dec()
+
+    resolved_path = _metric_path_label(request)
+    duration_s = max(0.0, time.perf_counter() - start)
+    metric_result_labels = {"method": request.method, "path": resolved_path, "status_code": str(status_code)}
+    REQUEST_COUNT.labels(**metric_result_labels).inc()
+    REQUEST_DURATION.labels(**metric_result_labels).observe(duration_s)
+
+    if resolved_path == "/api/auth/discord/callback":
+        outcome = "success" if 200 <= status_code < 400 else "error"
+        AUTH_CALLBACK_TOTAL.labels(outcome=outcome).inc()
+    elif resolved_path == "/api/auth/me":
+        outcome = "success" if 200 <= status_code < 400 else "error"
+        AUTH_ME_TOTAL.labels(outcome=outcome).inc()
 
     response.headers["X-Request-ID"] = request_id
     logger.info(
@@ -196,12 +250,12 @@ async def request_logging_middleware(request: Request, call_next):
         extra={
             "request_id": request_id,
             "method": request.method,
-            "path": request.url.path,
+            "path": resolved_path,
             "status_code": response.status_code,
-            "duration_ms": round((time.perf_counter() - start) * 1000, 3),
+            "duration_ms": round(duration_s * 1000, 3),
         },
     )
-    reset_request_id(token)
+    REQUEST_ID_CTX.reset(token)
     return response
 
 
@@ -264,7 +318,14 @@ def ready_health(request: Request):
     return JSONResponse(status_code=status_code, content=payload)
 
 
-# Serve frontend static files in production
+@app.get("/api/metrics")
+def metrics(request: Request):
+    if not METRICS_ENABLED:
+        raise HTTPException(status_code=404, detail="Metrics disabled")
+    _check_metrics_auth(request)
+    return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
+
 frontend_path = os.path.join(os.path.dirname(__file__), "static")
 if os.path.exists(frontend_path):
     app.mount("/", StaticFiles(directory=frontend_path, html=True), name="frontend")

@@ -9,4 +9,6 @@ pydantic==2.9.2
 pydantic-settings==2.5.2
 alembic==1.13.2
 email-validator>=2.0.0
+prometheus-client==0.21.0
+requests==2.32.3
 logtail-python==0.3.4
