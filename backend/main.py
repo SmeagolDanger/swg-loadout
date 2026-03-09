@@ -1,11 +1,17 @@
+import contextvars
 import json
 import logging
 import os
+import time
+import uuid
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
 
 from database import (
     CollectionGroup,
@@ -27,24 +33,118 @@ from routers.mods_router import router as mods_router
 from routers.re_router import router as re_router
 
 logger = logging.getLogger("slt")
+APP_VERSION = "3.0.0"
+_REQUEST_ID_CTX: contextvars.ContextVar[str] = contextvars.ContextVar("request_id", default="-")
 
 
-def seed_collections():
+class RequestContextFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        if not hasattr(record, "request_id"):
+            record.request_id = _REQUEST_ID_CTX.get()
+        if not hasattr(record, "service"):
+            record.service = "backend"
+        if not hasattr(record, "environment"):
+            record.environment = os.getenv("ENV", "development")
+        return True
+
+
+class JsonFormatter(logging.Formatter):
+    _skip_fields = {
+        "args",
+        "asctime",
+        "created",
+        "exc_info",
+        "exc_text",
+        "filename",
+        "funcName",
+        "levelname",
+        "levelno",
+        "lineno",
+        "module",
+        "msecs",
+        "message",
+        "msg",
+        "name",
+        "pathname",
+        "process",
+        "processName",
+        "relativeCreated",
+        "stack_info",
+        "thread",
+        "threadName",
+    }
+
+    def format(self, record: logging.LogRecord) -> str:
+        payload: dict[str, object] = {
+            "timestamp": datetime.now(UTC).isoformat(),
+            "level": record.levelname,
+            "logger": record.name,
+            "message": record.getMessage(),
+            "request_id": getattr(record, "request_id", _REQUEST_ID_CTX.get()),
+            "service": getattr(record, "service", "backend"),
+            "environment": getattr(record, "environment", os.getenv("ENV", "development")),
+        }
+        for key, value in record.__dict__.items():
+            if key not in self._skip_fields and key not in payload:
+                payload[key] = value
+        if record.exc_info:
+            payload["exception"] = self.formatException(record.exc_info)
+        return json.dumps(payload, default=str)
+
+
+def configure_logging() -> None:
+    root = logging.getLogger()
+    if getattr(root, "_slt_logging_configured", False):
+        return
+
+    handler = logging.StreamHandler()
+    handler.setFormatter(JsonFormatter())
+    context_filter = RequestContextFilter()
+    handler.addFilter(context_filter)
+
+    root.handlers.clear()
+    root.addHandler(handler)
+    root.setLevel(getattr(logging, os.getenv("LOG_LEVEL", "INFO").upper(), logging.INFO))
+    root.addFilter(context_filter)
+    root._slt_logging_configured = True  # type: ignore[attr-defined]
+
+
+configure_logging()
+
+
+def _uptime_seconds(application: FastAPI) -> float:
+    started_at = getattr(application.state, "started_at", time.monotonic())
+    return round(max(0.0, time.monotonic() - started_at), 3)
+
+
+def _db_ready() -> tuple[bool, str | None]:
+    db = SessionLocal()
+    try:
+        db.execute(text("SELECT 1"))
+        return True, None
+    except Exception as exc:  # pragma: no cover - defensive guard for runtime only
+        logger.warning("database_health_check_failed", extra={"error_type": type(exc).__name__})
+        return False, type(exc).__name__
+    finally:
+        db.close()
+
+
+def seed_collections() -> None:
     """Seed collection groups and items from JSON if the DB is empty."""
     data_path = os.path.join(os.path.dirname(__file__), "data", "collections-data.json")
     if not os.path.exists(data_path):
-        logger.warning("collections-data.json not found — skipping seed")
+        logger.warning("collections_seed_skipped", extra={"reason": "missing_data_file"})
         return
 
     db = SessionLocal()
     try:
         existing = db.query(CollectionGroup).count()
         if existing > 0:
-            logger.info(f"Collections already seeded ({existing} groups)")
+            logger.info("collections_seed_skipped", extra={"reason": "already_seeded", "group_count": existing})
             return
 
-        with open(data_path) as f:
-            collections = json.load(f)
+        with open(data_path, encoding="utf-8") as file_handle:
+            collections = json.load(file_handle)
 
         group_order = 0
         total_items = 0
@@ -73,22 +173,90 @@ def seed_collections():
                 total_items += 1
 
         db.commit()
-        logger.info(f"Seeded {group_order} collection groups with {total_items} items")
-    except Exception as e:
+        logger.info(
+            "collections_seed_complete",
+            extra={"group_count": group_order, "item_count": total_items},
+        )
+    except Exception:
         db.rollback()
-        logger.error(f"Collection seed failed: {e}")
+        logger.exception("collections_seed_failed")
+        raise
     finally:
         db.close()
 
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):
-    init_db()
-    seed_collections()
-    yield
+    application.state.started_at = time.monotonic()
+    application.state.is_ready = False
+    application.state.startup_error = None
+    logger.info("app_startup_started", extra={"version": APP_VERSION})
+    try:
+        init_db()
+        logger.info("app_startup_db_initialized")
+        seed_collections()
+        application.state.is_ready = True
+        logger.info("app_startup_complete", extra={"version": APP_VERSION})
+        yield
+    except Exception as exc:  # pragma: no cover - startup failures are runtime concerns
+        application.state.startup_error = type(exc).__name__
+        logger.exception("app_startup_failed")
+        raise
+    finally:
+        application.state.is_ready = False
+        logger.info("app_shutdown_complete")
 
 
-app = FastAPI(title="SWG:L Space Tools", version="3.0.0", lifespan=lifespan)
+app = FastAPI(title="SWG:L Space Tools", version=APP_VERSION, lifespan=lifespan)
+
+
+@app.middleware("http")
+async def request_logging_middleware(request: Request, call_next):
+    request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
+    request.state.request_id = request_id
+    token = _REQUEST_ID_CTX.set(request_id)
+    start = time.perf_counter()
+
+    logger.info(
+        "request_started",
+        extra={
+            "request_id": request_id,
+            "method": request.method,
+            "path": request.url.path,
+            "client_ip": request.client.host if request.client else None,
+            "user_agent": request.headers.get("user-agent"),
+        },
+    )
+
+    try:
+        response = await call_next(request)
+    except Exception:
+        duration_ms = round((time.perf_counter() - start) * 1000, 3)
+        logger.exception(
+            "request_failed",
+            extra={
+                "request_id": request_id,
+                "method": request.method,
+                "path": request.url.path,
+                "duration_ms": duration_ms,
+            },
+        )
+        response = JSONResponse(status_code=500, content={"detail": "Internal server error"})
+
+    response.headers["X-Request-ID"] = request_id
+    logger.info(
+        "request_finished",
+        extra={
+            "request_id": request_id,
+            "method": request.method,
+            "path": request.url.path,
+            "status_code": response.status_code,
+            "duration_ms": round((time.perf_counter() - start) * 1000, 3),
+        },
+    )
+    _REQUEST_ID_CTX.reset(token)
+    return response
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -113,8 +281,40 @@ app.include_router(re_router)
 
 
 @app.get("/api/health")
-def health():
-    return {"status": "ok", "version": "3.0.0"}
+def health(request: Request):
+    ready, db_error = _db_ready()
+    return {
+        "status": "ok",
+        "version": APP_VERSION,
+        "ready": bool(getattr(request.app.state, "is_ready", False) and ready),
+        "uptime_s": _uptime_seconds(request.app),
+        "database": "ok" if ready else "degraded",
+        **({"database_error": db_error} if db_error else {}),
+    }
+
+
+@app.get("/api/health/live")
+def live_health(request: Request):
+    return {"status": "ok", "version": APP_VERSION, "uptime_s": _uptime_seconds(request.app)}
+
+
+@app.get("/api/health/ready")
+def ready_health(request: Request):
+    startup_ready = bool(getattr(request.app.state, "is_ready", False))
+    db_ready, db_error = _db_ready()
+    is_ready = startup_ready and db_ready
+    payload = {
+        "status": "ok" if is_ready else "not_ready",
+        "version": APP_VERSION,
+        "ready": is_ready,
+        "uptime_s": _uptime_seconds(request.app),
+        "startup_error": getattr(request.app.state, "startup_error", None),
+        "database": "ok" if db_ready else "degraded",
+    }
+    if db_error:
+        payload["database_error"] = db_error
+    status_code = 200 if is_ready else 503
+    return JSONResponse(status_code=status_code, content=payload)
 
 
 # Serve frontend static files in production

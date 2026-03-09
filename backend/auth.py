@@ -1,4 +1,5 @@
 import datetime
+import logging
 import os
 
 import bcrypt
@@ -8,6 +9,8 @@ from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 
 from database import User, get_db
+
+logger = logging.getLogger(__name__)
 
 _ENV = os.getenv("ENV", "development").lower()
 _secret = os.getenv("SECRET_KEY", "")
@@ -40,15 +43,20 @@ def create_access_token(data: dict, expires_delta: datetime.timedelta | None = N
 
 async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User | None:
     if token is None:
+        logger.info("auth_token_missing")
         return None
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
+        username: str | None = payload.get("sub")
         if username is None:
+            logger.warning("auth_token_missing_subject")
             return None
     except JWTError:
+        logger.warning("auth_token_invalid")
         return None
     user = db.query(User).filter(User.username == username).first()
+    if user is None:
+        logger.warning("auth_user_lookup_failed", extra={"username": username})
     return user
 
 

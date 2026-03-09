@@ -32,8 +32,8 @@ access_log_format = '%(h)s %(l)s %(u)s %(t)s "%(r)s" %(s)s %(b)s "%(f)s" "%(a)s"
 # ── Process naming ───────────────────────────────────────────
 proc_name = "slt-backend"
 
-# ── Preload for memory efficiency ────────────────────────────
-preload_app = True
+# ── Preload disabled to avoid inheriting pooled DB state across forks ─
+preload_app = False
 
 # ── Server hooks ─────────────────────────────────────────────
 def on_starting(server):

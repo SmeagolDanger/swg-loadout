@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import secrets
+import time
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request as URLRequest
@@ -87,6 +88,16 @@ class TokenResponse(BaseModel):
 
 class AuthProvidersResponse(BaseModel):
     discord: bool
+
+
+def _request_extra(request: FastAPIRequest, **extra: object) -> dict[str, object]:
+    base = {
+        "request_id": getattr(request.state, "request_id", request.headers.get("x-request-id", "-")),
+        "path": request.url.path,
+        "method": request.method,
+    }
+    base.update(extra)
+    return base
 
 
 def _utcnow() -> datetime.datetime:
@@ -184,34 +195,59 @@ def _unique_username(base: str, db: Session) -> str:
     return candidate
 
 
-def _load_json(req: URLRequest, *, error_code: str, context: str) -> dict:
+def _load_json(req: URLRequest, *, error_code: str, context: str, request_id: str | None = None) -> dict:
+    start = time.perf_counter()
     try:
         with urlopen(req, timeout=15) as response:
             payload = response.read().decode("utf-8")
+            logger.info(
+                f"discord_{context.replace(' ', '_')}_complete",
+                extra={
+                    "request_id": request_id or "-",
+                    "status_code": getattr(response, "status", 200),
+                    "duration_ms": round((time.perf_counter() - start) * 1000, 3),
+                },
+            )
     except HTTPError as exc:
         body = exc.read().decode("utf-8", errors="replace")[:500]
         logger.warning(
-            "Discord OAuth HTTP error during %s: status=%s body=%s",
-            context,
-            exc.code,
-            body,
+            f"discord_{context.replace(' ', '_')}_http_error",
+            extra={
+                "request_id": request_id or "-",
+                "status_code": exc.code,
+                "duration_ms": round((time.perf_counter() - start) * 1000, 3),
+                "body_preview": body,
+            },
         )
         lowered = body.lower()
         if "rate limited" in lowered or "too many tokens" in lowered or exc.code == 429:
             raise DiscordOAuthError("discord_rate_limited") from exc
         raise DiscordOAuthError(error_code) from exc
     except (URLError, TimeoutError, OSError) as exc:
-        logger.exception("Discord OAuth network error during %s", context)
+        logger.exception(
+            f"discord_{context.replace(' ', '_')}_network_error",
+            extra={
+                "request_id": request_id or "-",
+                "duration_ms": round((time.perf_counter() - start) * 1000, 3),
+                "error_type": type(exc).__name__,
+            },
+        )
         raise DiscordOAuthError(error_code) from exc
 
     try:
         return json.loads(payload)
     except json.JSONDecodeError as exc:
-        logger.warning("Discord OAuth JSON parse error during %s: payload=%s", context, payload[:500])
+        logger.warning(
+            f"discord_{context.replace(' ', '_')}_json_error",
+            extra={
+                "request_id": request_id or "-",
+                "payload_preview": payload[:500],
+            },
+        )
         raise DiscordOAuthError(error_code) from exc
 
 
-def _exchange_discord_code(code: str, redirect_uri: str) -> dict:
+def _exchange_discord_code(code: str, redirect_uri: str, request_id: str | None = None) -> dict:
     payload = urlencode(
         {
             "client_id": os.getenv("DISCORD_CLIENT_ID", "").strip(),
@@ -229,10 +265,10 @@ def _exchange_discord_code(code: str, redirect_uri: str) -> dict:
             "Content-Type": "application/x-www-form-urlencoded",
         },
     )
-    return _load_json(req, error_code="discord_token_exchange_failed", context="token exchange")
+    return _load_json(req, error_code="discord_token_exchange_failed", context="token exchange", request_id=request_id)
 
 
-def _get_discord_me(access_token: str) -> dict:
+def _get_discord_me(access_token: str, request_id: str | None = None) -> dict:
     req = URLRequest(
         DISCORD_ME_URL,
         headers={
@@ -240,7 +276,7 @@ def _get_discord_me(access_token: str) -> dict:
             "Authorization": f"Bearer {access_token}",
         },
     )
-    return _load_json(req, error_code="discord_profile_fetch_failed", context="profile fetch")
+    return _load_json(req, error_code="discord_profile_fetch_failed", context="profile fetch", request_id=request_id)
 
 
 def _create_discord_user(
@@ -318,14 +354,16 @@ def _send_postmark_email(to_email: str, subject: str, text_body: str, html_body:
         with urlopen(req, timeout=15) as response:
             body = response.read().decode("utf-8", errors="replace")
             if response.status >= 400:
-                logger.warning("Postmark error: status=%s body=%s", response.status, body[:500])
+                logger.warning(
+                    "postmark_send_failed", extra={"status_code": response.status, "body_preview": body[:500]}
+                )
                 raise HTTPException(status_code=502, detail="Failed to send reset email")
     except HTTPError as exc:
         body = exc.read().decode("utf-8", errors="replace")[:500]
-        logger.warning("Postmark HTTP error: status=%s body=%s", exc.code, body)
+        logger.warning("postmark_http_error", extra={"status_code": exc.code, "body_preview": body})
         raise HTTPException(status_code=502, detail="Failed to send reset email") from exc
     except (URLError, TimeoutError, OSError) as exc:
-        logger.exception("Postmark network error")
+        logger.exception("postmark_network_error", extra={"error_type": type(exc).__name__})
         raise HTTPException(status_code=502, detail="Failed to send reset email") from exc
 
 
@@ -335,7 +373,9 @@ def _build_reset_url(raw_token: str) -> str:
 
 @router.get("/providers", response_model=AuthProvidersResponse)
 def providers(request: FastAPIRequest):
-    return AuthProvidersResponse(discord=_discord_enabled(request))
+    enabled = _discord_enabled(request)
+    logger.info("auth_providers_checked", extra=_request_extra(request, discord_enabled=enabled))
+    return AuthProvidersResponse(discord=enabled)
 
 
 @router.post("/register", response_model=TokenResponse)
@@ -373,11 +413,13 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 @router.get("/discord/login")
 def discord_login(request: FastAPIRequest):
     if not _discord_enabled(request):
+        logger.warning("discord_login_unavailable", extra=_request_extra(request))
         raise HTTPException(status_code=503, detail="Discord login is not configured")
 
     redirect_uri = _get_discord_redirect_uri(request)
     state = secrets.token_urlsafe(24)
     url = f"{DISCORD_AUTHORIZE_URL}?{urlencode({'client_id': os.getenv('DISCORD_CLIENT_ID', '').strip(), 'response_type': 'code', 'redirect_uri': redirect_uri, 'scope': 'identify email', 'state': state})}"
+    logger.info("discord_login_redirect_created", extra=_request_extra(request, redirect_uri=redirect_uri))
     return _with_state_cookie(RedirectResponse(url), state)
 
 
@@ -389,31 +431,53 @@ def discord_callback(
     state: str | None = None,
     db: Session = Depends(get_db),
 ):
+    logger.info(
+        "discord_callback_started",
+        extra=_request_extra(
+            request,
+            has_code=bool(code),
+            has_error=bool(error),
+            has_state=bool(state),
+        ),
+    )
     state_cookie = request.cookies.get(DISCORD_STATE_COOKIE, "")
     if error:
+        logger.warning("discord_callback_denied", extra=_request_extra(request, provider_error=error))
         return _redirect_frontend(error=error)
     if not code:
+        logger.warning("discord_callback_missing_code", extra=_request_extra(request))
         return _redirect_frontend(error="missing_code")
     if not _discord_enabled(request):
+        logger.warning("discord_callback_not_configured", extra=_request_extra(request))
         return _redirect_frontend(error="discord_not_configured")
     if not state or not state_cookie or not secrets.compare_digest(state_cookie, state):
-        logger.warning("Discord OAuth state validation failed")
+        logger.warning(
+            "discord_state_validation_failed",
+            extra=_request_extra(
+                request,
+                has_state_cookie=bool(state_cookie),
+                has_state=bool(state),
+            ),
+        )
         return _redirect_frontend(error="invalid_state")
 
+    logger.info("discord_state_validated", extra=_request_extra(request))
     redirect_uri = _get_discord_redirect_uri(request)
+    request_id = getattr(request.state, "request_id", request.headers.get("x-request-id", "-"))
     try:
-        token_data = _exchange_discord_code(code, redirect_uri)
+        token_data = _exchange_discord_code(code, redirect_uri, request_id=request_id)
         access_token = token_data.get("access_token")
         if not access_token:
-            logger.warning("Discord token exchange returned no access_token: payload=%s", token_data)
+            logger.warning("discord_token_missing", extra=_request_extra(request, token_payload=token_data))
             return _redirect_frontend(error="token_exchange_failed")
-        discord_user = _get_discord_me(access_token)
+        discord_user = _get_discord_me(access_token, request_id=request_id)
     except DiscordOAuthError as exc:
+        logger.warning("discord_callback_failed", extra=_request_extra(request, error_code=exc.code))
         return _redirect_frontend(error=exc.code)
 
     discord_id = str(discord_user.get("id") or "").strip()
     if not discord_id:
-        logger.warning("Discord profile response missing id: payload=%s", discord_user)
+        logger.warning("discord_identity_missing", extra=_request_extra(request, profile_payload=discord_user))
         return _redirect_frontend(error="discord_identity_failed")
 
     discord_username = discord_user.get("global_name") or discord_user.get("username") or f"discord_{discord_id}"
@@ -436,8 +500,9 @@ def discord_callback(
                 avatar_url=avatar_url,
                 real_email=real_email,
             )
+            logger.info("auth_user_created", extra=_request_extra(request, auth_provider="discord", user_id=user.id))
         except (IntegrityError, RuntimeError):
-            logger.exception("Discord account conflict while creating/linking user")
+            logger.exception("discord_account_conflict_create", extra=_request_extra(request, discord_id=discord_id))
             return _redirect_frontend(error="discord_account_conflict")
     else:
         user.discord_id = discord_id
@@ -450,12 +515,16 @@ def discord_callback(
         try:
             db.commit()
             db.refresh(user)
+            logger.info(
+                "auth_user_updated", extra=_request_extra(request, auth_provider=user.auth_provider, user_id=user.id)
+            )
         except IntegrityError:
             db.rollback()
-            logger.exception("Discord account conflict while updating existing user")
+            logger.exception("discord_account_conflict_update", extra=_request_extra(request, discord_id=discord_id))
             return _redirect_frontend(error="discord_account_conflict")
 
     token = create_access_token(data={"sub": user.username})
+    logger.info("auth_session_created", extra=_request_extra(request, user_id=user.id, auth_provider="discord"))
     return _redirect_frontend(token=token)
 
 
@@ -526,5 +595,6 @@ def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db)):
 
 
 @router.get("/me", response_model=UserResponse)
-def get_me(user: User = Depends(require_user)):
+def get_me(request: FastAPIRequest, user: User = Depends(require_user)):
+    logger.info("auth_me_succeeded", extra=_request_extra(request, user_id=user.id, auth_provider=user.auth_provider))
     return _coalesce_user(user)
