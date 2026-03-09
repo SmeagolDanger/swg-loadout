@@ -75,7 +75,7 @@ function resolveFooter(pathname) {
     };
   }
 
-  if (pathname.startsWith('/tools') || pathname === '/') {
+  if (pathname.startsWith('/tools')) {
     return {
       id: 'tools',
       content: (

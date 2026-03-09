@@ -40,12 +40,12 @@ export default function DiscordAuthCallback() {
     completeOAuthLogin(token)
       .then(() => navigate('/', { replace: true }))
       .catch((authError) => {
-        if (authError?.status === 503 || authError?.status === 502 || authError?.status === 504) {
-          setMessage('Signed in, but the site is still waking up. Redirecting…');
+        if (authError?.status === 503 || authError?.status === 502 || authError?.status === 504 || authError?.status === 0) {
+          setMessage('Signed in, but the API is still waking up. Taking you in anyway…');
           setTimeout(() => navigate('/', { replace: true }), 1400);
           return;
         }
-        setMessage('Discord sign-in could not finish.');
+        setMessage(authError?.message || 'Discord sign-in could not finish.');
         setTimeout(() => navigate('/auth', { replace: true }), 1800);
       });
   }, [completeOAuthLogin, navigate, searchParams]);

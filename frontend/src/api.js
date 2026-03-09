@@ -4,20 +4,47 @@ function getToken() {
   return localStorage.getItem('slt_token');
 }
 
+function createApiError(message, status = 0, detail = null) {
+  const error = new Error(message || 'Request failed');
+  error.status = status;
+  error.detail = detail || message || 'Request failed';
+  return error;
+}
+
+async function parseErrorResponse(res, fallbackMessage) {
+  const contentType = res.headers.get('content-type') || '';
+
+  if (contentType.includes('application/json')) {
+    const body = await res.json().catch(() => null);
+    return body?.detail || fallbackMessage;
+  }
+
+  const text = await res.text().catch(() => '');
+  return text || fallbackMessage;
+}
+
 async function request(path, options = {}) {
   const token = getToken();
   const headers = { 'Content-Type': 'application/json', ...options.headers };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
+  if (token) headers.Authorization = `Bearer ${token}`;
 
-  const res = await fetch(`${BASE}${path}`, { ...options, headers });
+  let res;
+  try {
+    res = await fetch(`${BASE}${path}`, { ...options, headers });
+  } catch (error) {
+    throw createApiError(error?.message || 'Network request failed', 0);
+  }
+
   if (res.status === 401) {
     localStorage.removeItem('slt_token');
     localStorage.removeItem('slt_user');
   }
+
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: 'Request failed' }));
-    throw new Error(err.detail || 'Request failed');
+    const detail = await parseErrorResponse(res, 'Request failed');
+    throw createApiError(detail, res.status, detail);
   }
+
   return res.json();
 }
 
@@ -28,14 +55,19 @@ export const api = {
     const form = new URLSearchParams();
     form.append('username', username);
     form.append('password', password);
-    const res = await fetch(`${BASE}/auth/login`, { method: 'POST', body: form });
+    let res;
+    try {
+      res = await fetch(`${BASE}/auth/login`, { method: 'POST', body: form });
+    } catch (error) {
+      throw createApiError(error?.message || 'Login request failed', 0);
+    }
     if (res.status === 401) {
       localStorage.removeItem('slt_token');
       localStorage.removeItem('slt_user');
     }
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ detail: 'Invalid credentials' }));
-      throw new Error(err.detail || 'Invalid credentials');
+      const detail = await parseErrorResponse(res, 'Invalid credentials');
+      throw createApiError(detail, res.status, detail);
     }
     return res.json();
   },
@@ -66,14 +98,19 @@ export const api = {
     const token = getToken();
     const headers = {};
     if (token) headers['Authorization'] = `Bearer ${token}`;
-    const res = await fetch(`${BASE}/buildouts/parse`, { method: 'POST', headers, body: form });
+    let res;
+    try {
+      res = await fetch(`${BASE}/buildouts/parse`, { method: 'POST', headers, body: form });
+    } catch (error) {
+      throw createApiError(error?.message || 'Buildout parse failed', 0);
+    }
     if (res.status === 401) {
       localStorage.removeItem('slt_token');
       localStorage.removeItem('slt_user');
     }
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ detail: 'Buildout parse failed' }));
-      throw new Error(err.detail || 'Buildout parse failed');
+      const detail = await parseErrorResponse(res, 'Buildout parse failed');
+      throw createApiError(detail, res.status, detail);
     }
     return res.json();
   },
@@ -99,10 +136,15 @@ export const api = {
     const token = getToken();
     const headers = {};
     if (token) headers['Authorization'] = `Bearer ${token}`;
-    const res = await fetch(`${BASE}/admin/mods/${id}/files`, { method: 'POST', headers, body: form });
+    let res;
+    try {
+      res = await fetch(`${BASE}/admin/mods/${id}/files`, { method: 'POST', headers, body: form });
+    } catch (error) {
+      throw createApiError(error?.message || 'Upload failed', 0);
+    }
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ detail: 'Upload failed' }));
-      throw new Error(err.detail || 'Upload failed');
+      const detail = await parseErrorResponse(res, 'Upload failed');
+      throw createApiError(detail, res.status, detail);
     }
     return res.json();
   },
@@ -112,10 +154,15 @@ export const api = {
     const token = getToken();
     const headers = {};
     if (token) headers['Authorization'] = `Bearer ${token}`;
-    const res = await fetch(`${BASE}/admin/mods/${id}/screenshots`, { method: 'POST', headers, body: form });
+    let res;
+    try {
+      res = await fetch(`${BASE}/admin/mods/${id}/screenshots`, { method: 'POST', headers, body: form });
+    } catch (error) {
+      throw createApiError(error?.message || 'Upload failed', 0);
+    }
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ detail: 'Upload failed' }));
-      throw new Error(err.detail || 'Upload failed');
+      const detail = await parseErrorResponse(res, 'Upload failed');
+      throw createApiError(detail, res.status, detail);
     }
     return res.json();
   },
@@ -146,14 +193,19 @@ export const api = {
     const token = getToken();
     const headers = {};
     if (token) headers['Authorization'] = `Bearer ${token}`;
-    const res = await fetch(`${BASE}/import/savedata`, { method: 'POST', headers, body: form });
+    let res;
+    try {
+      res = await fetch(`${BASE}/import/savedata`, { method: 'POST', headers, body: form });
+    } catch (error) {
+      throw createApiError(error?.message || 'Import failed', 0);
+    }
     if (res.status === 401) {
       localStorage.removeItem('slt_token');
       localStorage.removeItem('slt_user');
     }
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ detail: 'Import failed' }));
-      throw new Error(err.detail || 'Import failed');
+      const detail = await parseErrorResponse(res, 'Import failed');
+      throw createApiError(detail, res.status, detail);
     }
     return res.json();
   },

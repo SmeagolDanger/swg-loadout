@@ -3,7 +3,7 @@ import { api } from '../api';
 
 const AuthContext = createContext(null);
 
-const TRANSIENT_AUTH_STATUSES = new Set([429, 502, 503, 504]);
+const TRANSIENT_AUTH_STATUSES = new Set([0, 429, 502, 503, 504]);
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -62,7 +62,7 @@ export function AuthProvider({ children }) {
     return nextUser;
   }, []);
 
-  const fetchMeWithRetry = useCallback(async (attempts = 4) => {
+  const fetchMeWithRetry = useCallback(async (attempts = 7) => {
     let lastError = null;
     for (let attempt = 0; attempt < attempts; attempt += 1) {
       try {
@@ -72,7 +72,7 @@ export function AuthProvider({ children }) {
         if (!isTransient(error) || attempt === attempts - 1) {
           throw error;
         }
-        await sleep(350 * (attempt + 1));
+        await sleep(Math.min(500 * (attempt + 1), 2500));
       }
     }
     throw lastError || new Error('Unable to load user');
