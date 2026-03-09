@@ -101,7 +101,49 @@ On first startup:
 - All database tables are created automatically
 - The 920+ collection items are seeded from `collections-data.json`
 
-#### 3. Create your admin user
+#### 3. Optional: Send metrics to Grafana Cloud
+
+This project can expose Prometheus-format metrics from the FastAPI app and ship them to Grafana Cloud using a small Prometheus sidecar.
+
+Add these values to `.env`:
+
+```bash
+METRICS_ENABLED=true
+METRICS_PATH=/api/metrics
+METRICS_BASIC_AUTH_USERNAME=metrics
+METRICS_BASIC_AUTH_PASSWORD=replace-with-a-long-random-password
+
+# From Grafana Cloud -> Metrics -> Send Metrics -> Prometheus
+GRAFANA_CLOUD_METRICS_URL=https://prometheus-prod-<region>.grafana.net/api/prom/push
+GRAFANA_CLOUD_METRICS_USER_ID=<your-metrics-user-id>
+GRAFANA_CLOUD_METRICS_API_KEY=<your-access-policy-token>
+PROMETHEUS_SCRAPE_INTERVAL=15s
+```
+
+Then rebuild and restart:
+
+```bash
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+How it works:
+- the app exposes metrics at `/api/metrics`
+- the internal `prometheus` service scrapes that endpoint every 15 seconds
+- Prometheus forwards metrics to Grafana Cloud with `remote_write`
+
+Useful checks:
+
+```bash
+# Verify local metrics endpoint from inside the app container
+docker compose -f docker-compose.prod.yml exec app \
+  curl -u "$METRICS_BASIC_AUTH_USERNAME:$METRICS_BASIC_AUTH_PASSWORD" \
+  -s http://localhost/api/metrics | head
+
+# Watch Prometheus logs for remote_write problems
+docker compose -f docker-compose.prod.yml logs -f --tail=200 prometheus
+```
+
+#### 4. Create your admin user
 
 After the app is running, register a normal account through the UI, then promote it to admin via the database:
 
@@ -317,83 +359,3 @@ The app supports forgot-password emails through Postmark. Configure these enviro
 - `PUBLIC_BASE_URL`
 
 Reset links are sent to `${PUBLIC_BASE_URL}/auth/reset-password?token=...` and expire after 60 minutes. Postmark uses the server token in the `X-Postmark-Server-Token` header for `/email` requests.
-
-
-## Observability providers
-
-The backend supports an environment-driven observability provider toggle so you can switch remote log shipping without changing code:
-
-- `OBSERVABILITY_PROVIDER=none` keeps logs local only.
-- `OBSERVABILITY_PROVIDER=better_stack` ships logs to Better Stack.
-- `OBSERVABILITY_PROVIDER=grafana_cloud` ships logs to Grafana Cloud Logs (Loki HTTP API).
-
-Local JSON logs always stay enabled. Remote shipping is additive and fail-safe: if the remote provider is misconfigured or temporarily unavailable, the app keeps serving traffic and continues writing local logs.
-
-### Grafana Cloud setup
-
-1. In Grafana Cloud, open your stack and go to **Logs**. Copy the Loki push URL and your logs instance user ID from the Cloud Portal. Grafana documents that logs can be sent to Grafana Cloud Logs using Loki's HTTP API, and their Python example posts JSON to the Loki push URL using basic auth with the logs user ID and API key. citeturn1view1
-2. Create a Grafana Cloud Access Policy token or API key with permission to write logs.
-3. Set these variables in `.env`:
-
-```bash
-OBSERVABILITY_PROVIDER=grafana_cloud
-GRAFANA_CLOUD_LOGS_URL=https://logs-prod-<region>.grafana.net/loki/api/v1/push
-GRAFANA_CLOUD_LOGS_USER_ID=<your_logs_user_id>
-GRAFANA_CLOUD_API_KEY=<your_access_policy_token>
-GRAFANA_CLOUD_LOGS_JOB=backend
-ENV=production
-```
-
-4. Rebuild and restart:
-
-```bash
-docker compose -f docker-compose.prod.yml up -d --build
-```
-
-5. Verify startup output:
-
-```bash
-docker compose -f docker-compose.prod.yml logs -f --tail=200 app | grep -Ei "remote_logging|observability|grafana"
-```
-
-Grafana Cloud's free plan currently includes **10k active metrics series**, **50 GB logs/month**, and **14 days retention** for metrics and logs, which is generally plenty for a small site if you keep label cardinality under control. citeturn1view2
-
-### Better Stack setup
-
-1. In Better Stack, create a log source and copy its **Source token** from **Sources → your source → Configure**. Better Stack's logging docs say every source has a unique source token used to connect the source to Better Stack. citeturn0search5turn1view3
-2. Set these variables in `.env`:
-
-```bash
-OBSERVABILITY_PROVIDER=better_stack
-BETTER_STACK_SOURCE_TOKEN=<your_source_token>
-BETTER_STACK_INGESTING_HOST=<your_ingesting_host>
-ENV=production
-```
-
-3. Rebuild and restart:
-
-```bash
-docker compose -f docker-compose.prod.yml up -d --build
-```
-
-### Metrics endpoint
-
-The backend can also expose Prometheus-format metrics at `/api/metrics`.
-
-Enable it with:
-
-```bash
-METRICS_ENABLED=true
-METRICS_BASIC_AUTH_USERNAME=<random_username>
-METRICS_BASIC_AUTH_PASSWORD=<random_password>
-```
-
-What you get immediately:
-
-- request totals by method/path/status
-- request duration histogram
-- requests in progress gauge
-- Discord callback success/error counter
-- `/api/auth/me` success/error counter
-
-For Grafana Cloud, point your Prometheus-compatible scraper or Alloy pipeline at `https://<your-domain>/api/metrics` using the basic auth credentials above. Keep the endpoint disabled unless you are actively scraping it.

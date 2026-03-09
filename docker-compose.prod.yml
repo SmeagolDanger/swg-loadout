@@ -46,6 +46,11 @@ services:
       SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env}
       ENV: ${ENV:-production}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      METRICS_ENABLED: ${METRICS_ENABLED:-false}
+      METRICS_PATH: ${METRICS_PATH:-/api/metrics}
+      METRICS_BASIC_AUTH_USERNAME: ${METRICS_BASIC_AUTH_USERNAME:-}
+      METRICS_BASIC_AUTH_PASSWORD: ${METRICS_BASIC_AUTH_PASSWORD:-}
+      PROMETHEUS_MULTIPROC_DIR: /var/run/slt/prometheus
       DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID:-}
       DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET:-}
       DISCORD_REDIRECT_URI: ${DISCORD_REDIRECT_URI:-}
@@ -53,23 +58,6 @@ services:
       POSTMARK_SERVER_TOKEN: ${POSTMARK_SERVER_TOKEN:-}
       POSTMARK_FROM_EMAIL: ${POSTMARK_FROM_EMAIL:-}
       POSTMARK_MESSAGE_STREAM: ${POSTMARK_MESSAGE_STREAM:-outbound}
-      OBSERVABILITY_PROVIDER: ${OBSERVABILITY_PROVIDER:-none}
-      OBSERVABILITY_SERVICE_NAME: ${OBSERVABILITY_SERVICE_NAME:-backend}
-      OBSERVABILITY_INCLUDE_ACCESS_LOGS: ${OBSERVABILITY_INCLUDE_ACCESS_LOGS:-false}
-      OBSERVABILITY_INCLUDE_HEALTHCHECKS: ${OBSERVABILITY_INCLUDE_HEALTHCHECKS:-false}
-      OBSERVABILITY_REMOTE_TIMEOUT_S: ${OBSERVABILITY_REMOTE_TIMEOUT_S:-3.0}
-      OBSERVABILITY_REMOTE_BATCH_SIZE: ${OBSERVABILITY_REMOTE_BATCH_SIZE:-25}
-      OBSERVABILITY_REMOTE_FLUSH_INTERVAL_S: ${OBSERVABILITY_REMOTE_FLUSH_INTERVAL_S:-2.0}
-      BETTER_STACK_SOURCE_TOKEN: ${BETTER_STACK_SOURCE_TOKEN:-}
-      BETTER_STACK_INGESTING_HOST: ${BETTER_STACK_INGESTING_HOST:-}
-      BETTER_STACK_HTTP_API_URL: ${BETTER_STACK_HTTP_API_URL:-}
-      GRAFANA_CLOUD_LOGS_URL: ${GRAFANA_CLOUD_LOGS_URL:-}
-      GRAFANA_CLOUD_LOGS_USER_ID: ${GRAFANA_CLOUD_LOGS_USER_ID:-}
-      GRAFANA_CLOUD_API_KEY: ${GRAFANA_CLOUD_API_KEY:-}
-      GRAFANA_CLOUD_LOGS_JOB: ${GRAFANA_CLOUD_LOGS_JOB:-backend}
-      METRICS_ENABLED: ${METRICS_ENABLED:-false}
-      METRICS_BASIC_AUTH_USERNAME: ${METRICS_BASIC_AUTH_USERNAME:-}
-      METRICS_BASIC_AUTH_PASSWORD: ${METRICS_BASIC_AUTH_PASSWORD:-}
     ports:
       - "${HTTP_PORT:-80}:80"
       - "${HTTPS_PORT:-443}:443"
@@ -95,10 +83,77 @@ services:
           memory: 1G
           cpus: '1'
 
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      METRICS_PATH: ${METRICS_PATH:-/api/metrics}
+      METRICS_BASIC_AUTH_USERNAME: ${METRICS_BASIC_AUTH_USERNAME:-}
+      METRICS_BASIC_AUTH_PASSWORD: ${METRICS_BASIC_AUTH_PASSWORD:-}
+      GRAFANA_CLOUD_METRICS_URL: ${GRAFANA_CLOUD_METRICS_URL:-}
+      GRAFANA_CLOUD_METRICS_USER_ID: ${GRAFANA_CLOUD_METRICS_USER_ID:-}
+      GRAFANA_CLOUD_METRICS_API_KEY: ${GRAFANA_CLOUD_METRICS_API_KEY:-}
+      PROMETHEUS_SCRAPE_INTERVAL: ${PROMETHEUS_SCRAPE_INTERVAL:-15s}
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        mkdir -p /etc/prometheus/generated
+        cat > /etc/prometheus/generated/prometheus.yml <<EOF
+        global:
+          scrape_interval: $${PROMETHEUS_SCRAPE_INTERVAL}
+          evaluation_interval: $${PROMETHEUS_SCRAPE_INTERVAL}
+
+        scrape_configs:
+          - job_name: 'jawatracks-backend'
+            metrics_path: '$${METRICS_PATH}'
+            scheme: http
+            basic_auth:
+              username: '$${METRICS_BASIC_AUTH_USERNAME}'
+              password: '$${METRICS_BASIC_AUTH_PASSWORD}'
+            static_configs:
+              - targets: ['app:80']
+        EOF
+
+        if [ -n "$${GRAFANA_CLOUD_METRICS_URL}" ] && [ -n "$${GRAFANA_CLOUD_METRICS_USER_ID}" ] && [ -n "$${GRAFANA_CLOUD_METRICS_API_KEY}" ]; then
+          cat >> /etc/prometheus/generated/prometheus.yml <<EOF
+
+        remote_write:
+          - url: '$${GRAFANA_CLOUD_METRICS_URL}'
+            basic_auth:
+              username: '$${GRAFANA_CLOUD_METRICS_USER_ID}'
+              password: '$${GRAFANA_CLOUD_METRICS_API_KEY}'
+            queue_config:
+              capacity: 2500
+              max_shards: 10
+              min_shards: 1
+              max_samples_per_send: 1000
+              batch_send_deadline: 5s
+        EOF
+          echo 'Prometheus remote_write enabled for Grafana Cloud'
+        else
+          echo 'Prometheus running without remote_write because Grafana Cloud metrics env vars are incomplete'
+        fi
+
+        exec /bin/prometheus --config.file=/etc/prometheus/generated/prometheus.yml --storage.tsdb.path=/prometheus --web.listen-address=:9090
+    volumes:
+      - prometheus_data:/prometheus
+    networks:
+      - internal
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
 volumes:
   postgres_data:
     driver: local
   app_logs:
+    driver: local
+  prometheus_data:
     driver: local
 
 networks:
