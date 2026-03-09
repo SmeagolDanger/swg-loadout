@@ -19,7 +19,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["database", "auth", "gamedata", "calculations", "routers"]
+known-first-party = ["database", "auth", "gamedata", "calculations", "logging_setup", "routers"]
 
 [tool.ruff.format]
 quote-style = "double"

@@ -1,11 +1,9 @@
-import contextvars
 import json
 import logging
 import os
 import time
 import uuid
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -32,84 +30,34 @@ from routers.mods_router import admin_router as admin_mods_router
 from routers.mods_router import router as mods_router
 from routers.re_router import router as re_router
 
+from logging_setup import configure_logging, reset_request_id, set_request_id
+
 logger = logging.getLogger("slt")
 APP_VERSION = "3.0.0"
-_REQUEST_ID_CTX: contextvars.ContextVar[str] = contextvars.ContextVar("request_id", default="-")
+LOGGING_STATE = configure_logging(service="backend")
 
-
-class RequestContextFilter(logging.Filter):
-    def filter(self, record: logging.LogRecord) -> bool:
-        if not hasattr(record, "request_id"):
-            record.request_id = _REQUEST_ID_CTX.get()
-        if not hasattr(record, "service"):
-            record.service = "backend"
-        if not hasattr(record, "environment"):
-            record.environment = os.getenv("ENV", "development")
-        return True
-
-
-class JsonFormatter(logging.Formatter):
-    _skip_fields = {
-        "args",
-        "asctime",
-        "created",
-        "exc_info",
-        "exc_text",
-        "filename",
-        "funcName",
-        "levelname",
-        "levelno",
-        "lineno",
-        "module",
-        "msecs",
-        "message",
-        "msg",
-        "name",
-        "pathname",
-        "process",
-        "processName",
-        "relativeCreated",
-        "stack_info",
-        "thread",
-        "threadName",
-    }
-
-    def format(self, record: logging.LogRecord) -> str:
-        payload: dict[str, object] = {
-            "timestamp": datetime.now(UTC).isoformat(),
-            "level": record.levelname,
-            "logger": record.name,
-            "message": record.getMessage(),
-            "request_id": getattr(record, "request_id", _REQUEST_ID_CTX.get()),
-            "service": getattr(record, "service", "backend"),
-            "environment": getattr(record, "environment", os.getenv("ENV", "development")),
-        }
-        for key, value in record.__dict__.items():
-            if key not in self._skip_fields and key not in payload:
-                payload[key] = value
-        if record.exc_info:
-            payload["exception"] = self.formatException(record.exc_info)
-        return json.dumps(payload, default=str)
-
-
-def configure_logging() -> None:
-    root = logging.getLogger()
-    if getattr(root, "_slt_logging_configured", False):
-        return
-
-    handler = logging.StreamHandler()
-    handler.setFormatter(JsonFormatter())
-    context_filter = RequestContextFilter()
-    handler.addFilter(context_filter)
-
-    root.handlers.clear()
-    root.addHandler(handler)
-    root.setLevel(getattr(logging, os.getenv("LOG_LEVEL", "INFO").upper(), logging.INFO))
-    root.addFilter(context_filter)
-    root._slt_logging_configured = True  # type: ignore[attr-defined]
-
-
-configure_logging()
+if LOGGING_STATE.get("better_stack_requested"):
+    if LOGGING_STATE.get("better_stack_enabled"):
+        logger.info(
+            "better_stack_logging_enabled",
+            extra={
+                "better_stack_host": LOGGING_STATE.get("better_stack_host"),
+                "include_access_logs": LOGGING_STATE.get("better_stack_include_access_logs"),
+                "include_healthchecks": LOGGING_STATE.get("better_stack_include_healthchecks"),
+            },
+        )
+    else:
+        logger.warning(
+            "better_stack_logging_unavailable",
+            extra={
+                "reason": LOGGING_STATE.get("better_stack_reason"),
+                **(
+                    {"error_type": LOGGING_STATE.get("better_stack_error_type")}
+                    if LOGGING_STATE.get("better_stack_error_type")
+                    else {}
+                ),
+            },
+        )
 
 
 def _uptime_seconds(application: FastAPI) -> float:
@@ -214,7 +162,7 @@ app = FastAPI(title="SWG:L Space Tools", version=APP_VERSION, lifespan=lifespan)
 async def request_logging_middleware(request: Request, call_next):
     request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
     request.state.request_id = request_id
-    token = _REQUEST_ID_CTX.set(request_id)
+    token = set_request_id(request_id)
     start = time.perf_counter()
 
     logger.info(
@@ -254,7 +202,7 @@ async def request_logging_middleware(request: Request, call_next):
             "duration_ms": round((time.perf_counter() - start) * 1000, 3),
         },
     )
-    _REQUEST_ID_CTX.reset(token)
+    reset_request_id(token)
     return response
 
 

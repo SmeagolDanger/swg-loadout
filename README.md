@@ -89,6 +89,19 @@ DISCORD_CLIENT_SECRET=your-discord-client-secret
 DISCORD_REDIRECT_URI=https://your-domain.example/api/auth/discord/callback
 ```
 
+Optional Better Stack logging settings:
+
+```bash
+BETTER_STACK_ENABLED=true
+BETTER_STACK_SOURCE_TOKEN=your-better-stack-source-token
+BETTER_STACK_INGESTING_HOST=your-ingesting-host
+# Or use BETTER_STACK_HTTP_API_URL if Better Stack gave you a full URL
+BETTER_STACK_INCLUDE_ACCESS_LOGS=false
+BETTER_STACK_INCLUDE_HEALTHCHECKS=false
+```
+
+This integration keeps local JSON logs in place and, when configured, forwards backend application logs to Better Stack. Access logs and health-check request logs are excluded from Better Stack by default to keep noise and free-tier usage under control.
+
 #### 2. Build and deploy
 
 ```bash
@@ -146,6 +159,8 @@ gunicorn main:app -k uvicorn.workers.UvicornWorker \
 #### 4. Put Nginx in front
 
 Use the provided `nginx/nginx.prod.conf` as a starting point, adjusting the upstream to point at your Gunicorn socket or port.
+
+For uptime monitoring, point your monitor at `/api/health/ready`. The endpoint returns HTTP 200 only when startup has completed and the database check passes.
 
 ---
 
@@ -239,6 +254,13 @@ server {
 | `POSTGRES_DB` | No | `slt_db` | Database name |
 | `POSTGRES_USER` | No | `slt_user` | Database user |
 | `LOG_LEVEL` | No | `info` | Gunicorn log level |
+| `BETTER_STACK_ENABLED` | No | `true` when configured | Enable Better Stack log forwarding when credentials are present |
+| `BETTER_STACK_SOURCE_TOKEN` | No | — | Better Stack Logs source token |
+| `BETTER_STACK_INGESTING_HOST` | No | — | Better Stack ingesting host, such as `s12345.eu-nbg-2.betterstackdata.com` |
+| `BETTER_STACK_HTTP_API_URL` | No | — | Full Better Stack HTTP ingest URL, used instead of `BETTER_STACK_INGESTING_HOST` |
+| `BETTER_STACK_LOG_LEVEL` | No | `LOG_LEVEL` | Minimum level sent to Better Stack |
+| `BETTER_STACK_INCLUDE_ACCESS_LOGS` | No | `false` | Forward per-request access logs to Better Stack |
+| `BETTER_STACK_INCLUDE_HEALTHCHECKS` | No | `false` | Forward `/api/health*` request logs to Better Stack |
 
 ---
 
