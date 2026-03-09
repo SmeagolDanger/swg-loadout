@@ -9,10 +9,10 @@ const ERROR_MESSAGES = {
   discord_not_configured: 'Discord login is not configured on this server.',
   token_exchange_failed: 'Discord login could not be completed.',
   discord_request_failed: 'Discord could not be reached right now.',
+  discord_rate_limited: 'Discord is rate limiting login attempts right now. Please wait a moment and try again.',
+  invalid_state: 'Discord sign-in expired or was interrupted. Please try again.',
   discord_identity_failed: 'Discord did not return a usable account identity.',
   discord_account_conflict: 'Discord sign-in could not be linked automatically. Sign in locally for now, then finish linking after the account rules are updated.',
-  discord_rate_limited: 'Discord is rate limiting sign-in attempts. Wait a minute, then try again once.',
-  invalid_state: 'Discord sign-in expired or was opened in another tab. Please start again from the sign-in page.',
 };
 
 export default function DiscordAuthCallback() {
@@ -39,7 +39,12 @@ export default function DiscordAuthCallback() {
 
     completeOAuthLogin(token)
       .then(() => navigate('/', { replace: true }))
-      .catch(() => {
+      .catch((authError) => {
+        if (authError?.status === 503 || authError?.status === 502 || authError?.status === 504) {
+          setMessage('Signed in, but the site is still waking up. Redirecting…');
+          setTimeout(() => navigate('/', { replace: true }), 1400);
+          return;
+        }
         setMessage('Discord sign-in could not finish.');
         setTimeout(() => navigate('/auth', { replace: true }), 1800);
       });
