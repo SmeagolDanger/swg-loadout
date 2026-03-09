@@ -1,11 +1,9 @@
-import base64
 import hashlib
-import hmac
 import json
 import logging
 import os
 import secrets
-from datetime import datetime, timedelta, timezone
+import datetime
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request as URLRequest
@@ -91,38 +89,8 @@ class AuthProvidersResponse(BaseModel):
     discord: bool
 
 
-def _utcnow() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
-
-
-def _discord_state_secret() -> str:
-    return os.getenv("SECRET_KEY", "") or "slt-dev-only-secret-do-not-use-in-prod"
-
-
-def _make_discord_state() -> str:
-    nonce = secrets.token_urlsafe(24)
-    sig = hmac.new(_discord_state_secret().encode("utf-8"), nonce.encode("utf-8"), hashlib.sha256).digest()
-    encoded_sig = base64.urlsafe_b64encode(sig).decode("utf-8").rstrip("=")
-    return f"{nonce}.{encoded_sig}"
-
-
-def _validate_discord_state_signature(state: str | None) -> bool:
-    if not state or "." not in state:
-        return False
-
-    nonce, provided_sig = state.rsplit(".", 1)
-    if not nonce or not provided_sig:
-        return False
-
-    expected_sig = hmac.new(_discord_state_secret().encode("utf-8"), nonce.encode("utf-8"), hashlib.sha256).digest()
-    encoded_expected_sig = base64.urlsafe_b64encode(expected_sig).decode("utf-8").rstrip("=")
-    return secrets.compare_digest(encoded_expected_sig, provided_sig)
-
-
-def _state_matches_cookie_or_signature(state: str | None, state_cookie: str | None) -> bool:
-    if state and state_cookie and secrets.compare_digest(state_cookie, state):
-        return True
-    return _validate_discord_state_signature(state)
+def _utcnow() -> datetime.datetime:
+    return datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
 
 
 def _get_public_base_url() -> str:
@@ -408,7 +376,7 @@ def discord_login(request: FastAPIRequest):
         raise HTTPException(status_code=503, detail="Discord login is not configured")
 
     redirect_uri = _get_discord_redirect_uri(request)
-    state = _make_discord_state()
+    state = secrets.token_urlsafe(24)
     url = f"{DISCORD_AUTHORIZE_URL}?{urlencode({'client_id': os.getenv('DISCORD_CLIENT_ID', '').strip(), 'response_type': 'code', 'redirect_uri': redirect_uri, 'scope': 'identify email', 'state': state})}"
     return _with_state_cookie(RedirectResponse(url), state)
 
@@ -428,7 +396,7 @@ def discord_callback(
         return _redirect_frontend(error="missing_code")
     if not _discord_enabled(request):
         return _redirect_frontend(error="discord_not_configured")
-    if not _state_matches_cookie_or_signature(state, state_cookie):
+    if not state or not state_cookie or not secrets.compare_digest(state_cookie, state):
         logger.warning("Discord OAuth state validation failed")
         return _redirect_frontend(error="invalid_state")
 
@@ -505,7 +473,7 @@ def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_db)):
 
     raw_token = secrets.token_urlsafe(32)
     token_hash = _hash_token(raw_token)
-    expires_at = _utcnow() + timedelta(minutes=PASSWORD_RESET_EXPIRY_MINUTES)
+    expires_at = _utcnow() + datetime.timedelta(minutes=PASSWORD_RESET_EXPIRY_MINUTES)
 
     user.password_reset_token_hash = token_hash
     user.password_reset_expires_at = expires_at
