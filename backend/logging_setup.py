@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import sys
+from contextlib import suppress
 from datetime import UTC, datetime
 from typing import Any
 
@@ -100,15 +101,11 @@ class BetterStackNoiseFilter(logging.Filter):
         if not self.include_access_logs and message in {"request_started", "request_finished"}:
             return False
 
-        if (
-            not self.include_healthchecks
-            and isinstance(path, str)
+        return self.include_healthchecks or not (
+            isinstance(path, str)
             and path.startswith("/api/health")
             and message in {"request_started", "request_finished"}
-        ):
-            return False
-
-        return True
+        )
 
 
 class SafeBetterStackHandler(logging.Handler):
@@ -125,22 +122,16 @@ class SafeBetterStackHandler(logging.Handler):
         except Exception as exc:  # pragma: no cover - defensive runtime guard
             if not self._reported_failure:
                 self._reported_failure = True
-                try:
+                with suppress(Exception):
                     sys.stderr.write(f"Better Stack logging disabled after handler error: {type(exc).__name__}\n")
-                except Exception:
-                    pass
 
     def flush(self) -> None:
-        try:
+        with suppress(Exception):
             self._handler.flush()
-        except Exception:
-            pass
 
     def close(self) -> None:
-        try:
+        with suppress(Exception):
             self._handler.close()
-        except Exception:
-            pass
         super().close()
 
 

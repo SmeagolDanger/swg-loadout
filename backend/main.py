@@ -17,6 +17,7 @@ from database import (
     SessionLocal,
     init_db,
 )
+from logging_setup import configure_logging, reset_request_id, set_request_id
 from routers.admin_router import router as admin_router
 from routers.auth_router import router as auth_router
 from routers.buildout_router import router as buildout_router
@@ -29,8 +30,6 @@ from routers.loadout_router import router as loadout_router
 from routers.mods_router import admin_router as admin_mods_router
 from routers.mods_router import router as mods_router
 from routers.re_router import router as re_router
-
-from logging_setup import configure_logging, reset_request_id, set_request_id
 
 logger = logging.getLogger("slt")
 APP_VERSION = "3.0.0"
