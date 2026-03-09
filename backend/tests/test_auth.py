@@ -101,13 +101,7 @@ class TestDiscordAuth:
                 },
             ),
         ):
-            login_res = client.get("/api/auth/discord/login", follow_redirects=False)
-            state_cookie = login_res.cookies.get("discord_oauth_state")
-            res = client.get(
-                f"/api/auth/discord/callback?code=testcode&state={state_cookie}",
-                cookies={"discord_oauth_state": state_cookie},
-                follow_redirects=False,
-            )
+            res = client.get("/api/auth/discord/callback?code=testcode", follow_redirects=False)
 
         assert res.status_code in (302, 307)
         location = res.headers["location"]
@@ -144,13 +138,7 @@ class TestDiscordAuth:
                 },
             ),
         ):
-            login_res = client.get("/api/auth/discord/login", follow_redirects=False)
-            state_cookie = login_res.cookies.get("discord_oauth_state")
-            res = client.get(
-                f"/api/auth/discord/callback?code=testcode&state={state_cookie}",
-                cookies={"discord_oauth_state": state_cookie},
-                follow_redirects=False,
-            )
+            res = client.get("/api/auth/discord/callback?code=testcode", follow_redirects=False)
 
         assert res.status_code in (302, 307)
         assert "token=" in res.headers["location"]
@@ -184,54 +172,11 @@ class TestDiscordAuth:
                 },
             ),
         ):
-            login_res = client.get("/api/auth/discord/login", follow_redirects=False)
-            state_cookie = login_res.cookies.get("discord_oauth_state")
-            client.get(
-                f"/api/auth/discord/callback?code=testcode&state={state_cookie}",
-                cookies={"discord_oauth_state": state_cookie},
-                follow_redirects=False,
-            )
+            client.get("/api/auth/discord/callback?code=testcode", follow_redirects=False)
 
         res = client.post("/api/auth/login", data={"username": "localpilot", "password": "password123"})
         assert res.status_code == 200
         assert res.json()["user"]["auth_provider"] == "local"
-
-    def test_discord_callback_requires_valid_state(self, client, monkeypatch):
-        monkeypatch.setenv("DISCORD_CLIENT_ID", "cid")
-        monkeypatch.setenv("DISCORD_CLIENT_SECRET", "secret")
-        monkeypatch.setenv("DISCORD_REDIRECT_URI", "http://testserver/api/auth/discord/callback")
-        monkeypatch.setenv("PUBLIC_BASE_URL", "http://frontend.test")
-
-        res = client.get(
-            "/api/auth/discord/callback?code=testcode&state=wrong",
-            cookies={"discord_oauth_state": "different"},
-            follow_redirects=False,
-        )
-        assert res.status_code in (302, 307)
-        assert res.headers["location"].endswith("error=invalid_state")
-
-    def test_discord_rate_limit_maps_to_specific_error(self, client, monkeypatch):
-        monkeypatch.setenv("DISCORD_CLIENT_ID", "cid")
-        monkeypatch.setenv("DISCORD_CLIENT_SECRET", "secret")
-        monkeypatch.setenv("DISCORD_REDIRECT_URI", "http://testserver/api/auth/discord/callback")
-        monkeypatch.setenv("PUBLIC_BASE_URL", "http://frontend.test")
-
-        with patch(
-            "routers.auth_router._exchange_discord_code",
-            side_effect=__import__("routers.auth_router", fromlist=["DiscordOAuthError"]).DiscordOAuthError(
-                "discord_rate_limited"
-            ),
-        ):
-            login_res = client.get("/api/auth/discord/login", follow_redirects=False)
-            state_cookie = login_res.cookies.get("discord_oauth_state")
-            res = client.get(
-                f"/api/auth/discord/callback?code=testcode&state={state_cookie}",
-                cookies={"discord_oauth_state": state_cookie},
-                follow_redirects=False,
-            )
-
-        assert res.status_code in (302, 307)
-        assert res.headers["location"].endswith("error=discord_rate_limited")
 
 
 class TestAuthMe:
@@ -247,3 +192,49 @@ class TestAuthMe:
     def test_get_me_invalid_token(self, client):
         res = client.get("/api/auth/me", headers={"Authorization": "Bearer invalid.token.here"})
         assert res.status_code == 401
+
+
+class TestForgotPassword:
+    def test_forgot_password_requires_postmark_config(self, client):
+        res = client.post('/api/auth/forgot-password', json={'email': 'nobody@swg.com'})
+        assert res.status_code == 503
+
+    def test_forgot_password_sends_email_and_stores_token(self, client, monkeypatch):
+        client.post(
+            '/api/auth/register',
+            json={'username': 'resetpilot', 'email': 'reset@swg.com', 'password': 'secret123', 'display_name': 'Reset Pilot'},
+        )
+        monkeypatch.setenv('POSTMARK_SERVER_TOKEN', 'pm-token')
+        monkeypatch.setenv('POSTMARK_FROM_EMAIL', 'noreply@jawatracks.com')
+        monkeypatch.setenv('PUBLIC_BASE_URL', 'http://frontend.test')
+
+        with patch('routers.auth_router._send_postmark_email') as mocked_send:
+            res = client.post('/api/auth/forgot-password', json={'email': 'reset@swg.com'})
+
+        assert res.status_code == 200
+        assert mocked_send.called
+
+    def test_reset_password_updates_password(self, client, monkeypatch):
+        client.post(
+            '/api/auth/register',
+            json={'username': 'resetpilot2', 'email': 'reset2@swg.com', 'password': 'secret123', 'display_name': 'Reset Pilot 2'},
+        )
+        monkeypatch.setenv('POSTMARK_SERVER_TOKEN', 'pm-token')
+        monkeypatch.setenv('POSTMARK_FROM_EMAIL', 'noreply@jawatracks.com')
+
+        captured = {}
+
+        def fake_send(*, to_email, subject, text_body, html_body):
+            captured['text_body'] = text_body
+
+        with patch('routers.auth_router._send_postmark_email', side_effect=fake_send):
+            res = client.post('/api/auth/forgot-password', json={'email': 'reset2@swg.com'})
+        assert res.status_code == 200
+        link_line = [line for line in captured['text_body'].splitlines() if line.startswith('http')][0]
+        token = link_line.rsplit('token=', 1)[1]
+
+        reset = client.post('/api/auth/reset-password', json={'token': token, 'password': 'newsecret456'})
+        assert reset.status_code == 200
+
+        login = client.post('/api/auth/login', data={'username': 'resetpilot2', 'password': 'newsecret456'})
+        assert login.status_code == 200

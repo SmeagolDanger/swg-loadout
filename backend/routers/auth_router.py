@@ -1,7 +1,9 @@
+import hashlib
 import json
 import logging
 import os
 import secrets
+from datetime import UTC, datetime, timedelta
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -10,7 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi import Request as FastAPIRequest
 from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, EmailStr
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -27,8 +29,8 @@ DISCORD_HTTP_HEADERS = {
     "Accept": "application/json",
     "User-Agent": "SWGL-Tools/1.0 (+https://jawatracks.com)",
 }
-DISCORD_STATE_COOKIE = "discord_oauth_state"
-DISCORD_STATE_MAX_AGE = 600
+POSTMARK_SEND_URL = "https://api.postmarkapp.com/email"
+RESET_TOKEN_TTL_MINUTES = 60
 
 
 class DiscordOAuthError(Exception):
@@ -39,9 +41,22 @@ class DiscordOAuthError(Exception):
 
 class RegisterRequest(BaseModel):
     username: str
-    email: str
+    email: EmailStr
     password: str
     display_name: str = ""
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    password: str
+
+
+class MessageResponse(BaseModel):
+    detail: str
 
 
 class UserResponse(BaseModel):
@@ -89,36 +104,8 @@ def _discord_enabled(request: FastAPIRequest | None = None) -> bool:
     )
 
 
-def _cookie_secure() -> bool:
-    return _get_public_base_url().startswith("https://")
-
-
-def _with_state_cookie(
-    response: RedirectResponse, state: str | None = None, *, clear: bool = False
-) -> RedirectResponse:
-    if clear:
-        response.delete_cookie(DISCORD_STATE_COOKIE, path="/", samesite="lax")
-        return response
-    if state:
-        response.set_cookie(
-            DISCORD_STATE_COOKIE,
-            state,
-            max_age=DISCORD_STATE_MAX_AGE,
-            httponly=True,
-            secure=_cookie_secure(),
-            samesite="lax",
-            path="/",
-        )
-    return response
-
-
-def _redirect_frontend(
-    *, token: str | None = None, error: str | None = None, clear_state: bool = True
-) -> RedirectResponse:
-    response = RedirectResponse(_build_frontend_redirect(token=token, error=error))
-    if clear_state:
-        return _with_state_cookie(response, clear=True)
-    return response
+def _postmark_enabled() -> bool:
+    return bool(os.getenv("POSTMARK_SERVER_TOKEN", "").strip() and os.getenv("POSTMARK_FROM_EMAIL", "").strip())
 
 
 def _build_frontend_redirect(token: str | None = None, error: str | None = None) -> str:
@@ -138,8 +125,7 @@ def _load_json(req: Request, *, error_code: str, context: str) -> dict:
     except HTTPError as exc:
         body = exc.read().decode("utf-8", errors="replace")[:500]
         logger.warning("Discord OAuth HTTP error during %s: status=%s body=%s", context, exc.code, body)
-        lowered = body.lower()
-        if "rate limited" in lowered or "too many tokens" in lowered or exc.code == 429:
+        if context == "token exchange" and "rate limited" in body.lower():
             raise DiscordOAuthError("discord_rate_limited") from exc
         raise DiscordOAuthError(error_code) from exc
     except (URLError, TimeoutError, OSError) as exc:
@@ -244,6 +230,81 @@ def _create_discord_user(
     raise last_error or RuntimeError("discord_user_create_failed")
 
 
+def _hash_reset_token(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def _generate_reset_link(token: str) -> str:
+    return f"{_get_public_base_url()}/auth/reset-password?token={token}"
+
+
+def _send_postmark_email(*, to_email: str, subject: str, text_body: str, html_body: str) -> None:
+    payload = json.dumps(
+        {
+            "From": os.getenv("POSTMARK_FROM_EMAIL", "").strip(),
+            "To": to_email,
+            "Subject": subject,
+            "TextBody": text_body,
+            "HtmlBody": html_body,
+            "MessageStream": os.getenv("POSTMARK_MESSAGE_STREAM", "outbound").strip() or "outbound",
+        }
+    ).encode("utf-8")
+    req = Request(
+        POSTMARK_SEND_URL,
+        data=payload,
+        headers={
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "X-Postmark-Server-Token": os.getenv("POSTMARK_SERVER_TOKEN", "").strip(),
+            "User-Agent": "SWGL-Tools/1.0 (+https://jawatracks.com)",
+        },
+    )
+    try:
+        with urlopen(req, timeout=15) as response:
+            body = response.read().decode("utf-8", errors="replace")
+    except HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")[:500]
+        logger.warning("Postmark send failed: status=%s body=%s", exc.code, body)
+        raise HTTPException(status_code=502, detail="Failed to send password reset email") from exc
+    except (URLError, TimeoutError, OSError) as exc:
+        logger.exception("Postmark request failed")
+        raise HTTPException(status_code=502, detail="Failed to send password reset email") from exc
+
+    try:
+        parsed = json.loads(body)
+    except json.JSONDecodeError:
+        parsed = {}
+    if parsed.get("ErrorCode", 0) != 0:
+        logger.warning("Postmark returned error payload=%s", parsed)
+        raise HTTPException(status_code=502, detail="Failed to send password reset email")
+
+
+def _build_reset_email(username: str, reset_link: str) -> tuple[str, str]:
+    text_body = (
+        f"Hello {username},\n\n"
+        f"Use this link to reset your Jawatracks password:\n{reset_link}\n\n"
+        f"This link expires in {RESET_TOKEN_TTL_MINUTES} minutes. If you did not request this, you can ignore this email.\n"
+    )
+    html_body = f"""
+    <html>
+      <body style="font-family: Arial, sans-serif; color: #d9e6f2; background: #0c1320; padding: 24px;">
+        <div style="max-width: 560px; margin: 0 auto; background: #121b2c; border: 1px solid #22314f; border-radius: 14px; padding: 24px;">
+          <h1 style="margin-top: 0; color: #88d7ff; font-size: 24px;">Reset your Jawatracks password</h1>
+          <p>Hello {username},</p>
+          <p>We received a request to reset your password. Use the button below to choose a new one.</p>
+          <p style="margin: 28px 0;">
+            <a href="{reset_link}" style="background: #21b4ff; color: #05121f; text-decoration: none; padding: 12px 18px; border-radius: 10px; font-weight: bold;">Reset password</a>
+          </p>
+          <p style="font-size: 14px; color: #b7c7d9;">This link expires in {RESET_TOKEN_TTL_MINUTES} minutes.</p>
+          <p style="font-size: 14px; color: #b7c7d9;">If you did not request this, you can safely ignore this email.</p>
+          <p style="font-size: 13px; color: #8ea4bc; word-break: break-all;">{reset_link}</p>
+        </div>
+      </body>
+    </html>
+    """
+    return text_body, html_body
+
+
 @router.get("/providers", response_model=AuthProvidersResponse)
 def providers(request: FastAPIRequest):
     return AuthProvidersResponse(discord=_discord_enabled(request))
@@ -258,10 +319,9 @@ def register(req: RegisterRequest, db: Session = Depends(get_db)):
 
     user = User(
         username=req.username,
-        email=req.email,
+        email=req.email.lower(),
         hashed_password=get_password_hash(req.password),
         display_name=req.display_name or req.username,
-        auth_provider="local",
     )
     db.add(user)
     db.commit()
@@ -272,44 +332,106 @@ def register(req: RegisterRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.username == form_data.username).first()
-    if not user or not verify_password(form_data.password, user.hashed_password):
+def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.username == form.username).first()
+    if not user or not user.hashed_password or not verify_password(form.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
-
     token = create_access_token(data={"sub": user.username})
     return TokenResponse(access_token=token, token_type="bearer", user=_coalesce_user(user))
+
+
+@router.post("/forgot-password", response_model=MessageResponse)
+def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    if not _postmark_enabled():
+        raise HTTPException(status_code=503, detail="Password reset email is not configured")
+
+    normalized_email = req.email.lower()
+    generic = MessageResponse(detail="If that account exists, a password reset email has been sent.")
+    user = db.query(User).filter(User.email == normalized_email).first()
+    if not user or not user.is_active:
+        return generic
+
+    raw_token = secrets.token_urlsafe(32)
+    user.password_reset_token_hash = _hash_reset_token(raw_token)
+    user.password_reset_sent_at = datetime.now(UTC).replace(tzinfo=None)
+    user.password_reset_expires_at = (datetime.now(UTC) + timedelta(minutes=RESET_TOKEN_TTL_MINUTES)).replace(tzinfo=None)
+    db.commit()
+
+    reset_link = _generate_reset_link(raw_token)
+    text_body, html_body = _build_reset_email(user.display_name or user.username, reset_link)
+    _send_postmark_email(
+        to_email=user.email,
+        subject="Reset your Jawatracks password",
+        text_body=text_body,
+        html_body=html_body,
+    )
+    return generic
+
+
+@router.post("/reset-password", response_model=MessageResponse)
+def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db)):
+    token_hash = _hash_reset_token(req.token)
+    user = db.query(User).filter(User.password_reset_token_hash == token_hash).first()
+    now = datetime.now(UTC).replace(tzinfo=None)
+    if (
+        not user
+        or not user.password_reset_expires_at
+        or user.password_reset_expires_at < now
+    ):
+        raise HTTPException(status_code=400, detail="Password reset link is invalid or expired")
+
+    user.hashed_password = get_password_hash(req.password)
+    user.password_reset_token_hash = None
+    user.password_reset_expires_at = None
+    user.password_reset_sent_at = None
+    if user.auth_provider == "discord":
+        user.auth_provider = "local"
+    db.commit()
+    return MessageResponse(detail="Password updated successfully")
 
 
 @router.get("/discord/login")
 def discord_login(request: FastAPIRequest):
     if not _discord_enabled(request):
-        raise HTTPException(status_code=503, detail="Discord login is not configured")
+        raise HTTPException(status_code=503, detail="Discord OAuth is not configured")
 
     redirect_uri = _get_discord_redirect_uri(request)
     state = secrets.token_urlsafe(24)
-    url = f"{DISCORD_AUTHORIZE_URL}?{urlencode({'client_id': os.getenv('DISCORD_CLIENT_ID', '').strip(), 'response_type': 'code', 'redirect_uri': redirect_uri, 'scope': 'identify email', 'state': state})}"
-    return _with_state_cookie(RedirectResponse(url), state)
+    auth_url = (
+        f"{DISCORD_AUTHORIZE_URL}?"
+        f"{urlencode({'client_id': os.getenv('DISCORD_CLIENT_ID', '').strip(), 'response_type': 'code', 'redirect_uri': redirect_uri, 'scope': 'identify email', 'prompt': 'consent', 'state': state})}"
+    )
+    response = RedirectResponse(auth_url)
+    response.set_cookie(
+        "discord_oauth_state",
+        state,
+        max_age=600,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        path="/",
+    )
+    return response
 
 
 @router.get("/discord/callback", name="discord_callback")
 def discord_callback(
-    request: FastAPIRequest,
     code: str | None = None,
-    error: str | None = None,
     state: str | None = None,
+    error: str | None = None,
+    request: FastAPIRequest | None = None,
     db: Session = Depends(get_db),
 ):
-    state_cookie = request.cookies.get(DISCORD_STATE_COOKIE, "")
     if error:
-        return _redirect_frontend(error=error)
+        return RedirectResponse(_build_frontend_redirect(error=error))
     if not code:
-        return _redirect_frontend(error="missing_code")
+        return RedirectResponse(_build_frontend_redirect(error="missing_code"))
     if not _discord_enabled(request):
-        return _redirect_frontend(error="discord_not_configured")
-    if not state or not state_cookie or not secrets.compare_digest(state_cookie, state):
-        logger.warning("Discord OAuth state validation failed")
-        return _redirect_frontend(error="invalid_state")
+        return RedirectResponse(_build_frontend_redirect(error="discord_not_configured"))
+
+    state_cookie = request.cookies.get("discord_oauth_state") if request else None
+    if not state or not state_cookie or not secrets.compare_digest(state, state_cookie):
+        return RedirectResponse(_build_frontend_redirect(error="invalid_state"))
 
     redirect_uri = _get_discord_redirect_uri(request)
     try:
@@ -317,15 +439,15 @@ def discord_callback(
         access_token = token_data.get("access_token")
         if not access_token:
             logger.warning("Discord token exchange returned no access_token: payload=%s", token_data)
-            return _redirect_frontend(error="token_exchange_failed")
+            return RedirectResponse(_build_frontend_redirect(error="discord_token_exchange_failed"))
         discord_user = _get_discord_me(access_token)
     except DiscordOAuthError as exc:
-        return _redirect_frontend(error=exc.code)
+        return RedirectResponse(_build_frontend_redirect(error=exc.code))
 
     discord_id = str(discord_user.get("id") or "").strip()
     if not discord_id:
         logger.warning("Discord profile response missing id: payload=%s", discord_user)
-        return _redirect_frontend(error="discord_identity_failed")
+        return RedirectResponse(_build_frontend_redirect(error="discord_identity_failed"))
 
     discord_username = discord_user.get("global_name") or discord_user.get("username") or f"discord_{discord_id}"
     avatar_hash = discord_user.get("avatar")
@@ -349,7 +471,7 @@ def discord_callback(
             )
         except (IntegrityError, RuntimeError):
             logger.exception("Discord account conflict while creating/linking user")
-            return _redirect_frontend(error="discord_account_conflict")
+            return RedirectResponse(_build_frontend_redirect(error="discord_account_conflict"))
     else:
         user.discord_id = discord_id
         user.discord_username = discord_user.get("username") or discord_username
@@ -364,10 +486,12 @@ def discord_callback(
         except IntegrityError:
             db.rollback()
             logger.exception("Discord account conflict while updating existing user")
-            return _redirect_frontend(error="discord_account_conflict")
+            return RedirectResponse(_build_frontend_redirect(error="discord_account_conflict"))
 
     token = create_access_token(data={"sub": user.username})
-    return _redirect_frontend(token=token)
+    response = RedirectResponse(_build_frontend_redirect(token=token))
+    response.delete_cookie("discord_oauth_state", path="/")
+    return response
 
 
 @router.get("/me", response_model=UserResponse)

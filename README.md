@@ -305,3 +305,15 @@ All endpoints are prefixed with `/api`.
 - `PUT /api/admin/collections/items/:id` — edit item
 - `POST /api/admin/collections/items` — create item
 - `DELETE /api/admin/collections/items/:id` — delete item
+
+
+## Password reset email
+
+The app supports forgot-password emails through Postmark. Configure these environment variables in production:
+
+- `POSTMARK_SERVER_TOKEN`
+- `POSTMARK_FROM_EMAIL`
+- `POSTMARK_MESSAGE_STREAM` (optional, defaults to `outbound`)
+- `PUBLIC_BASE_URL`
+
+Reset links are sent to `${PUBLIC_BASE_URL}/auth/reset-password?token=...` and expire after 60 minutes. Postmark uses the server token in the `X-Postmark-Server-Token` header for `/email` requests.

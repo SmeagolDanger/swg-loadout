@@ -43,6 +43,9 @@ class User(Base):
     discord_username = Column(String(100), nullable=True)
     discord_avatar = Column(String(255), nullable=True)
     auth_provider = Column(String(30), default="local")
+    password_reset_token_hash = Column(String(64), nullable=True)
+    password_reset_expires_at = Column(DateTime, nullable=True)
+    password_reset_sent_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     is_active = Column(Boolean, default=True)
     is_admin = Column(Boolean, default=False)
@@ -314,6 +317,12 @@ def _run_migrations():
             db.execute(text("ALTER TABLE users ADD COLUMN discord_avatar VARCHAR(255)"))
         if "auth_provider" not in user_cols:
             db.execute(text("ALTER TABLE users ADD COLUMN auth_provider VARCHAR(30) DEFAULT 'local'"))
+        if "password_reset_token_hash" not in user_cols:
+            db.execute(text("ALTER TABLE users ADD COLUMN password_reset_token_hash VARCHAR(64)"))
+        if "password_reset_expires_at" not in user_cols:
+            db.execute(text("ALTER TABLE users ADD COLUMN password_reset_expires_at TIMESTAMP"))
+        if "password_reset_sent_at" not in user_cols:
+            db.execute(text("ALTER TABLE users ADD COLUMN password_reset_sent_at TIMESTAMP"))
 
         db.execute(text("UPDATE users SET auth_provider = 'local' WHERE auth_provider IS NULL OR auth_provider = ''"))
 

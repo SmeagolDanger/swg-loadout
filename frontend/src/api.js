@@ -16,9 +16,7 @@ async function request(path, options = {}) {
   }
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: 'Request failed' }));
-    const error = new Error(err.detail || 'Request failed');
-    error.status = res.status;
-    throw error;
+    throw new Error(err.detail || 'Request failed');
   }
   return res.json();
 }
@@ -37,13 +35,13 @@ export const api = {
     }
     if (!res.ok) {
       const err = await res.json().catch(() => ({ detail: 'Invalid credentials' }));
-      const error = new Error(err.detail || 'Invalid credentials');
-      error.status = res.status;
-      throw error;
+      throw new Error(err.detail || 'Invalid credentials');
     }
     return res.json();
   },
   getMe: () => request('/auth/me'),
+  forgotPassword: (email) => request('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }) }),
+  resetPasswordWithToken: (token, password) => request('/auth/reset-password', { method: 'POST', body: JSON.stringify({ token, password }) }),
   getAuthProviders: () => request('/auth/providers'),
   getDiscordLoginUrl: () => `${BASE}/auth/discord/login`,
 

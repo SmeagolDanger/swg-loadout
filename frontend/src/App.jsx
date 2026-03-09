@@ -11,6 +11,7 @@ import RECalculator from './components/RECalculator';
 import FCCalculator from './components/FCCalculator';
 import AuthPage from './components/AuthPage';
 import DiscordAuthCallback from './components/DiscordAuthCallback';
+import ResetPasswordPage from './components/ResetPasswordPage';
 import PublicLoadouts from './components/PublicLoadouts';
 import BuildoutExplorer from './components/BuildoutExplorer';
 import GCWCalculator from './components/GCWCalculator';
@@ -129,6 +130,7 @@ export default function App() {
           <Route path="/" element={<WelcomeScreen />} />
           <Route path="/auth" element={user ? <Navigate to="/tools" /> : <AuthPage />} />
           <Route path="/auth/discord/callback" element={<DiscordAuthCallback />} />
+          <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
 
           <Route path="/tools" element={<LoadoutBuilder />} />
           <Route path="/tools/loadouts" element={user ? <LoadoutManager /> : <Navigate to="/auth" />} />

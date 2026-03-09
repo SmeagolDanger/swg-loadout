@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogIn, MessageSquare, Shield, UserPlus } from 'lucide-react';
+import { KeyRound, LogIn, MessageSquare, Shield, UserPlus } from 'lucide-react';
 
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
@@ -9,9 +9,10 @@ export default function AuthPage() {
   const [mode, setMode] = useState('login');
   const [form, setForm] = useState({ username: '', email: '', password: '', display_name: '' });
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const [providers, setProviders] = useState({ discord: false });
-  const [discordRedirecting, setDiscordRedirecting] = useState(false);
+  const [discordBusy, setDiscordBusy] = useState(false);
   const { login, register } = useAuth();
   const navigate = useNavigate();
 
@@ -19,17 +20,28 @@ export default function AuthPage() {
     api.getAuthProviders().then(setProviders).catch(() => setProviders({ discord: false }));
   }, []);
 
+  const switchMode = (nextMode) => {
+    setMode(nextMode);
+    setError('');
+    setSuccess('');
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setSuccess('');
     setLoading(true);
     try {
       if (mode === 'login') {
         await login(form.username, form.password);
-      } else {
+        navigate('/');
+      } else if (mode === 'register') {
         await register(form);
+        navigate('/');
+      } else {
+        await api.forgotPassword(form.email);
+        setSuccess('If that account exists, a password reset email has been sent.');
       }
-      navigate('/');
     } catch (err) {
       setError(err.message);
     } finally {
@@ -38,8 +50,7 @@ export default function AuthPage() {
   };
 
   const startDiscordLogin = () => {
-    if (discordRedirecting) return;
-    setDiscordRedirecting(true);
+    setDiscordBusy(true);
     window.location.href = api.getDiscordLoginUrl();
   };
 
@@ -52,19 +63,20 @@ export default function AuthPage() {
               <Shield size={32} className="text-plasma-400" />
             </div>
             <h1 className="font-display font-bold text-2xl text-hull-100 tracking-wider">
-              {mode === 'login' ? 'WELCOME BACK' : 'CREATE ACCOUNT'}
+              {mode === 'login' ? 'WELCOME BACK' : mode === 'register' ? 'CREATE ACCOUNT' : 'RESET PASSWORD'}
             </h1>
             <p className="text-hull-200 text-sm mt-1">
-              {mode === 'login' ? 'Sign in to access your loadouts' : 'Join the fleet and start building'}
+              {mode === 'login'
+                ? 'Sign in to access your loadouts'
+                : mode === 'register'
+                  ? 'Join the fleet and start building'
+                  : 'We will email you a password reset link'}
             </p>
           </div>
 
           <div className="flex px-8">
             <button
-              onClick={() => {
-                setMode('login');
-                setError('');
-              }}
+              onClick={() => switchMode('login')}
               className={`flex-1 py-2 text-sm font-display font-semibold tracking-wider border-b-2 transition-all ${
                 mode === 'login'
                   ? 'border-plasma-500 text-plasma-400'
@@ -74,10 +86,7 @@ export default function AuthPage() {
               <LogIn size={14} className="inline mr-1.5" />SIGN IN
             </button>
             <button
-              onClick={() => {
-                setMode('register');
-                setError('');
-              }}
+              onClick={() => switchMode('register')}
               className={`flex-1 py-2 text-sm font-display font-semibold tracking-wider border-b-2 transition-all ${
                 mode === 'register'
                   ? 'border-plasma-500 text-plasma-400'
@@ -86,66 +95,81 @@ export default function AuthPage() {
             >
               <UserPlus size={14} className="inline mr-1.5" />REGISTER
             </button>
+            <button
+              onClick={() => switchMode('forgot')}
+              className={`flex-1 py-2 text-sm font-display font-semibold tracking-wider border-b-2 transition-all ${
+                mode === 'forgot'
+                  ? 'border-plasma-500 text-plasma-400'
+                  : 'border-transparent text-hull-200 hover:text-hull-100'
+              }`}
+            >
+              <KeyRound size={14} className="inline mr-1.5" />RESET
+            </button>
           </div>
 
           <form onSubmit={handleSubmit} className="px-8 py-6 space-y-4">
-            <div>
-              <label className="block text-xs font-display font-semibold text-hull-200 tracking-wider mb-1.5">
-                USERNAME
-              </label>
-              <input
-                type="text"
-                required
-                value={form.username}
-                onChange={(e) => setForm({ ...form, username: e.target.value })}
-                className="w-full"
-                placeholder="pilot_name"
-              />
-            </div>
-
-            {mode === 'register' && (
-              <>
-                <div>
-                  <label className="block text-xs font-display font-semibold text-hull-200 tracking-wider mb-1.5">
-                    EMAIL
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    value={form.email}
-                    onChange={(e) => setForm({ ...form, email: e.target.value })}
-                    className="w-full"
-                    placeholder="pilot@swg.com"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-display font-semibold text-hull-200 tracking-wider mb-1.5">
-                    DISPLAY NAME
-                  </label>
-                  <input
-                    type="text"
-                    value={form.display_name}
-                    onChange={(e) => setForm({ ...form, display_name: e.target.value })}
-                    className="w-full"
-                    placeholder="Your callsign"
-                  />
-                </div>
-              </>
+            {mode !== 'forgot' && (
+              <div>
+                <label className="block text-xs font-display font-semibold text-hull-200 tracking-wider mb-1.5">
+                  USERNAME
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={form.username}
+                  onChange={(e) => setForm({ ...form, username: e.target.value })}
+                  className="w-full"
+                  placeholder="pilot_name"
+                />
+              </div>
             )}
 
-            <div>
-              <label className="block text-xs font-display font-semibold text-hull-200 tracking-wider mb-1.5">
-                PASSWORD
-              </label>
-              <input
-                type="password"
-                required
-                value={form.password}
-                onChange={(e) => setForm({ ...form, password: e.target.value })}
-                className="w-full"
-                placeholder="••••••••"
-              />
-            </div>
+            {(mode === 'register' || mode === 'forgot') && (
+              <div>
+                <label className="block text-xs font-display font-semibold text-hull-200 tracking-wider mb-1.5">
+                  EMAIL
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  className="w-full"
+                  placeholder="pilot@swg.com"
+                />
+              </div>
+            )}
+
+            {mode === 'register' && (
+              <div>
+                <label className="block text-xs font-display font-semibold text-hull-200 tracking-wider mb-1.5">
+                  DISPLAY NAME
+                </label>
+                <input
+                  type="text"
+                  value={form.display_name}
+                  onChange={(e) => setForm({ ...form, display_name: e.target.value })}
+                  className="w-full"
+                  placeholder="Your callsign"
+                />
+              </div>
+            )}
+
+            {mode !== 'forgot' && (
+              <div>
+                <label className="block text-xs font-display font-semibold text-hull-200 tracking-wider mb-1.5">
+                  PASSWORD
+                </label>
+                <input
+                  type="password"
+                  required
+                  value={form.password}
+                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  className="w-full"
+                  placeholder="••••••••"
+                />
+              </div>
+            )}
 
             {error && (
               <div className="bg-laser-red/10 border border-laser-red/30 rounded-lg px-3 py-2 text-sm text-laser-red">
@@ -153,18 +177,27 @@ export default function AuthPage() {
               </div>
             )}
 
+            {success && (
+              <div className="bg-plasma-500/10 border border-plasma-500/30 rounded-lg px-3 py-2 text-sm text-plasma-300">
+                {success}
+              </div>
+            )}
+
             <button type="submit" disabled={loading} className="btn-primary w-full py-3">
-              {loading ? 'Processing...' : mode === 'login' ? 'Sign In' : 'Create Account'}
+              {loading ? 'Processing...' : mode === 'login' ? 'Sign In' : mode === 'register' ? 'Create Account' : 'Send Reset Link'}
             </button>
 
-            {providers.discord && (
-              <button
-                type="button"
-                onClick={startDiscordLogin}
-                disabled={discordRedirecting}
-                className="btn-ghost w-full py-3 justify-center disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                <MessageSquare size={16} /> {discordRedirecting ? 'Redirecting to Discord...' : 'Sign in with Discord'}
+            {mode === 'login' && (
+              <div className="text-center text-sm text-hull-200">
+                <button type="button" className="text-plasma-400 hover:text-plasma-300" onClick={() => switchMode('forgot')}>
+                  Forgot your password?
+                </button>
+              </div>
+            )}
+
+            {providers.discord && mode === 'login' && (
+              <button type="button" onClick={startDiscordLogin} disabled={discordBusy} className="btn-ghost w-full py-3 justify-center">
+                <MessageSquare size={16} /> {discordBusy ? 'Redirecting to Discord...' : 'Sign in with Discord'}
               </button>
             )}
           </form>
