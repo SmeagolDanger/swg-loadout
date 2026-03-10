@@ -18,6 +18,7 @@ import GCWCalculator from './components/GCWCalculator';
 import EntBuffBuilder from './components/EntBuffBuilder';
 import ModsBrowser from './components/ModsBrowser';
 import AdminPage from './components/AdminPage';
+import PrivacyPage from './components/PrivacyPage';
 import { CollectionsPage, CharacterDirectory, CollectionLeaderboard } from './components/collections';
 
 function resolveFooter(pathname) {
@@ -151,6 +152,7 @@ export default function App() {
           <Route path="/collections/leaderboard" element={<CollectionLeaderboard />} />
 
           <Route path="/admin" element={user?.role === 'admin' || user?.is_admin ? <AdminPage /> : <Navigate to="/" />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
 
           <Route path="/loadouts" element={<Navigate to="/tools/loadouts" replace />} />
           <Route path="/components" element={<Navigate to="/tools/components" replace />} />
@@ -169,11 +171,28 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
-      {footer && (
-        <footer className="text-center text-hull-200 text-xs font-display tracking-wide py-6 border-t border-hull-400/30 mt-12 bg-hull-900/60">
-          {footer.content}
-        </footer>
-      )}
+      <footer className="border-t border-hull-400/30 mt-10 bg-hull-900/70">
+        <div className="max-w-[90rem] mx-auto px-4 sm:px-6 py-5 text-center text-hull-200 text-xs sm:text-sm font-display tracking-wide space-y-3">
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
+            <Link
+              to="/privacy"
+              className="text-hull-100 hover:text-plasma-400 transition-colors"
+            >
+              Privacy
+            </Link>
+            <a
+              href="https://github.com/SmeagolDanger/swg-loadout"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-hull-100 hover:text-plasma-400 transition-colors"
+            >
+              GitHub
+            </a>
+          </div>
+
+          {footer && <div>{footer.content}</div>}
+        </div>
+      </footer>
     </div>
   );
 }
