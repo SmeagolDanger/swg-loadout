@@ -159,6 +159,16 @@ html[data-theme="coruscant-purple"] {
   --bg-bottom: 58 27 120;
 }
 
+
+html[data-theme] {
+  /* Keep text and muted UI copy neutral across themes for readability. */
+  --color-hull-400: 130 140 160;
+  --color-hull-300: 171 180 200;
+  --color-hull-200: 206 214 229;
+  --color-hull-100: 232 237 245;
+  --color-hull-50: 247 249 252;
+}
+
 @layer base {
   html {
     color-scheme: dark;
@@ -209,13 +219,13 @@ html[data-theme="coruscant-purple"] {
   }
 
   ::placeholder {
-    color: #9ca3bd;
+    color: rgb(var(--color-hull-300) / 0.95);
     opacity: 1;
   }
 
   ::selection {
-    background: rgba(0, 212, 255, 0.3);
-    color: #fff;
+    background: rgb(var(--color-plasma-500) / 0.28);
+    color: rgb(var(--color-hull-50));
   }
 
   ::-webkit-scrollbar {
@@ -286,7 +296,7 @@ html[data-theme="coruscant-purple"] {
 
   .card-header {
     @apply px-4 py-3 border-b border-hull-400/60 flex items-center gap-2
-           font-display font-semibold text-plasma-400 uppercase tracking-[0.18em] text-sm;
+           font-display font-semibold text-plasma-300 uppercase tracking-[0.18em] text-sm;
   }
 
   .panel {
@@ -302,7 +312,7 @@ html[data-theme="coruscant-purple"] {
   }
 
   .panel-subtitle {
-    @apply text-hull-200 text-sm mt-1;
+    @apply text-hull-100/90 text-sm mt-1;
   }
 
   .btn-primary {
@@ -447,11 +457,11 @@ html[data-theme="coruscant-purple"] {
   }
 
   .muted {
-    @apply text-hull-200;
+    @apply text-hull-100/90;
   }
 
   .subtle {
-    @apply text-hull-300;
+    @apply text-hull-200/90;
   }
 }
 
