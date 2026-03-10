@@ -24,15 +24,13 @@ async function request(path, options = {}) {
 
   let res;
   try {
-    res = await fetch(`${BASE}${path}`, { ...options, headers, credentials: 'same-origin' });
+    res = await fetch(`${BASE}${path}`, { ...options, headers, credentials: 'include' });
   } catch (error) {
     throw createApiError(error?.message || 'Network request failed', 0);
   }
 
   if (res.status === 401) {
-    localStorage.removeItem('slt_token');
-    localStorage.removeItem('slt_user');
-  }
+      }
 
   if (!res.ok) {
     const detail = await parseErrorResponse(res, 'Request failed');
@@ -51,13 +49,9 @@ export const api = {
     form.append('password', password);
     let res;
     try {
-      res = await fetch(`${BASE}/auth/login`, { method: 'POST', body: form, credentials: 'same-origin' });
+      res = await fetch(`${BASE}/auth/login`, { method: 'POST', body: form, credentials: 'include' });
     } catch (error) {
       throw createApiError(error?.message || 'Login request failed', 0);
-    }
-    if (res.status === 401) {
-      localStorage.removeItem('slt_token');
-      localStorage.removeItem('slt_user');
     }
     if (!res.ok) {
       const detail = await parseErrorResponse(res, 'Invalid credentials');
@@ -93,13 +87,9 @@ export const api = {
     const headers = {};
     let res;
     try {
-      res = await fetch(`${BASE}/buildouts/parse`, { method: 'POST', headers, body: form, credentials: 'same-origin' });
+      res = await fetch(`${BASE}/buildouts/parse`, { method: 'POST', headers, body: form, credentials: 'include' });
     } catch (error) {
       throw createApiError(error?.message || 'Buildout parse failed', 0);
-    }
-    if (res.status === 401) {
-      localStorage.removeItem('slt_token');
-      localStorage.removeItem('slt_user');
     }
     if (!res.ok) {
       const detail = await parseErrorResponse(res, 'Buildout parse failed');
@@ -129,7 +119,7 @@ export const api = {
     const headers = {};
     let res;
     try {
-      res = await fetch(`${BASE}/admin/mods/${id}/files`, { method: 'POST', headers, body: form, credentials: 'same-origin' });
+      res = await fetch(`${BASE}/admin/mods/${id}/files`, { method: 'POST', headers, body: form, credentials: 'include' });
     } catch (error) {
       throw createApiError(error?.message || 'Upload failed', 0);
     }
@@ -145,7 +135,7 @@ export const api = {
     const headers = {};
     let res;
     try {
-      res = await fetch(`${BASE}/admin/mods/${id}/screenshots`, { method: 'POST', headers, body: form, credentials: 'same-origin' });
+      res = await fetch(`${BASE}/admin/mods/${id}/screenshots`, { method: 'POST', headers, body: form, credentials: 'include' });
     } catch (error) {
       throw createApiError(error?.message || 'Upload failed', 0);
     }
@@ -182,13 +172,9 @@ export const api = {
     const headers = {};
     let res;
     try {
-      res = await fetch(`${BASE}/import/savedata`, { method: 'POST', headers, body: form, credentials: 'same-origin' });
+      res = await fetch(`${BASE}/import/savedata`, { method: 'POST', headers, body: form, credentials: 'include' });
     } catch (error) {
       throw createApiError(error?.message || 'Import failed', 0);
-    }
-    if (res.status === 401) {
-      localStorage.removeItem('slt_token');
-      localStorage.removeItem('slt_user');
     }
     if (!res.ok) {
       const detail = await parseErrorResponse(res, 'Import failed');

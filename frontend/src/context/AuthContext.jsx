@@ -29,8 +29,6 @@ export function AuthProvider({ children }) {
         // ignore logout transport failures
       }
     }
-    localStorage.removeItem('slt_token');
-    localStorage.removeItem('slt_user');
     setUser(null);
   }, []);
 
@@ -51,8 +49,6 @@ export function AuthProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    localStorage.removeItem('slt_token');
-
     fetchMeWithRetry()
       .then((nextUser) => {
         setUser(nextUser);

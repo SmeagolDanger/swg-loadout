@@ -10,7 +10,7 @@ from urllib.parse import urlencode
 from urllib.request import Request as URLRequest
 from urllib.request import urlopen
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from fastapi import Request as FastAPIRequest
 from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
@@ -192,6 +192,24 @@ def _with_state_cookie(
             samesite="lax",
             path="/",
         )
+    return response
+
+
+def _set_session_cookie_on_response(response: Response, token: str) -> Response:
+    response.set_cookie(
+        SESSION_COOKIE_NAME,
+        token,
+        httponly=True,
+        secure=_cookie_secure(),
+        samesite="lax",
+        path="/api",
+        max_age=60 * 60 * 24 * 7,
+    )
+    return response
+
+
+def _clear_session_cookie_on_response(response: Response) -> Response:
+    response.delete_cookie(SESSION_COOKIE_NAME, path="/api", samesite="lax")
     return response
 
 
@@ -479,7 +497,7 @@ def providers(request: FastAPIRequest):
 
 
 @router.post("/register", response_model=TokenResponse)
-def register(req: RegisterRequest, db: Session = Depends(get_db)):
+def register(req: RegisterRequest, response: Response, db: Session = Depends(get_db)):
     if len(req.password) < _password_min_length():
         raise HTTPException(status_code=400, detail=f"Password must be at least {_password_min_length()} characters")
     if db.query(User).filter(User.username == req.username).first():
@@ -499,11 +517,12 @@ def register(req: RegisterRequest, db: Session = Depends(get_db)):
     db.refresh(user)
 
     token = create_user_access_token(user)
+    _set_session_cookie_on_response(response, token)
     return TokenResponse(access_token=token, token_type="bearer", user=_coalesce_user(user))
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+def login(response: Response, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = db.query(User).filter(User.username == form_data.username).first()
     if not user:
         raise HTTPException(status_code=401, detail="Invalid credentials")
@@ -513,7 +532,15 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     token = create_user_access_token(user)
+    if response is not None:
+        _set_session_cookie_on_response(response, token)
     return TokenResponse(access_token=token, token_type="bearer", user=_coalesce_user(user))
+
+
+@router.post("/logout", response_model=MessageResponse)
+def logout(response: Response):
+    _clear_session_cookie_on_response(response)
+    return MessageResponse(message="Logged out")
 
 
 @router.get("/discord/login")
