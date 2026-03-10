@@ -1,4 +1,3 @@
-# pyright: reportArgumentType=false, reportAssignmentType=false, reportAttributeAccessIssue=false, reportOperatorIssue=false
 import datetime
 import hashlib
 import json
@@ -19,7 +18,13 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from auth import create_access_token, get_password_hash, require_user, verify_password
+from auth import (
+    SESSION_COOKIE_NAME,
+    create_user_access_token,
+    get_password_hash,
+    require_user,
+    verify_password,
+)
 from database import User, get_db
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -158,6 +163,15 @@ def _email_enabled() -> bool:
     return bool(_email_provider())
 
 
+def _password_min_length() -> int:
+    raw = os.getenv("PASSWORD_MIN_LENGTH", "8").strip()
+    try:
+        value = int(raw)
+    except ValueError:
+        return 8
+    return max(8, value)
+
+
 def _cookie_secure() -> bool:
     return _get_public_base_url().startswith("https://")
 
@@ -181,6 +195,19 @@ def _with_state_cookie(
     return response
 
 
+def _set_session_cookie(response: RedirectResponse, token: str) -> RedirectResponse:
+    response.set_cookie(
+        SESSION_COOKIE_NAME,
+        token,
+        httponly=True,
+        secure=_cookie_secure(),
+        samesite="lax",
+        path="/api",
+        max_age=60 * 60 * 24 * 7,
+    )
+    return response
+
+
 def _redirect_frontend(
     *, token: str | None = None, error: str | None = None, clear_state: bool = True
 ) -> RedirectResponse:
@@ -192,8 +219,6 @@ def _redirect_frontend(
 
 def _build_frontend_redirect(token: str | None = None, error: str | None = None) -> str:
     qs = {}
-    if token:
-        qs["token"] = token
     if error:
         qs["error"] = error
     suffix = f"?{urlencode(qs)}" if qs else ""
@@ -455,6 +480,8 @@ def providers(request: FastAPIRequest):
 
 @router.post("/register", response_model=TokenResponse)
 def register(req: RegisterRequest, db: Session = Depends(get_db)):
+    if len(req.password) < _password_min_length():
+        raise HTTPException(status_code=400, detail=f"Password must be at least {_password_min_length()} characters")
     if db.query(User).filter(User.username == req.username).first():
         raise HTTPException(status_code=400, detail="Username already taken")
     if db.query(User).filter(User.email == req.email).first():
@@ -471,19 +498,21 @@ def register(req: RegisterRequest, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(user)
 
-    token = create_access_token(data={"sub": user.username})
+    token = create_user_access_token(user)
     return TokenResponse(access_token=token, token_type="bearer", user=_coalesce_user(user))
 
 
 @router.post("/login", response_model=TokenResponse)
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = db.query(User).filter(User.username == form_data.username).first()
-    if not user or not verify_password(form_data.password, user.hashed_password):
+    if not user:
         raise HTTPException(status_code=401, detail="Invalid credentials")
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account is disabled")
+    if not verify_password(form_data.password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    token = create_access_token(data={"sub": user.username})
+    token = create_user_access_token(user)
     return TokenResponse(access_token=token, token_type="bearer", user=_coalesce_user(user))
 
 
@@ -600,9 +629,9 @@ def discord_callback(
             logger.exception("discord_account_conflict_update", extra=_request_extra(request, discord_id=discord_id))
             return _redirect_frontend(error="discord_account_conflict")
 
-    token = create_access_token(data={"sub": user.username})
+    token = create_user_access_token(user)
     logger.info("auth_session_created", extra=_request_extra(request, user_id=user.id, auth_provider="discord"))
-    return _redirect_frontend(token=token)
+    return _set_session_cookie(_redirect_frontend(), token)
 
 
 @router.post("/forgot-password", response_model=MessageResponse)
@@ -647,6 +676,9 @@ def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_db)):
 
 @router.post("/reset-password", response_model=MessageResponse)
 def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db)):
+    if len(req.password) < _password_min_length():
+        raise HTTPException(status_code=400, detail=f"Password must be at least {_password_min_length()} characters")
+
     token_hash = _hash_token(req.token)
     now = _utcnow()
 
