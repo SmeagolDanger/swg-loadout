@@ -40,7 +40,7 @@ DISCORD_STATE_MAX_AGE = 600
 
 PASSWORD_RESET_EXPIRY_MINUTES = 60
 
-PASSWORD_MIN_LENGTH = int(os.getenv("PASSWORD_MIN_LENGTH", "10"))
+PASSWORD_MIN_LENGTH = int(os.getenv("PASSWORD_MIN_LENGTH", "8"))
 SESSION_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
 
 
@@ -158,12 +158,6 @@ def _email_provider() -> str:
 
 def _email_enabled() -> bool:
     return bool(_email_provider())
-
-
-def _cookie_secure() -> bool:
-    public_base_url = _get_public_base_url()
-    env = os.getenv("ENV", "development").strip().lower()
-    return env in {"production", "staging"} or public_base_url.startswith("https://")
 
 
 def _session_cookie_domain() -> str | None:
@@ -512,6 +506,8 @@ def login(response: Response, form_data: OAuth2PasswordRequestForm = Depends(), 
     user = db.query(User).filter(User.username == form_data.username).first()
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
+    if not user.is_active:
+        raise HTTPException(status_code=403, detail="Account is disabled")
 
     token = create_user_access_token(user)
     _set_session_cookie(response, token)
