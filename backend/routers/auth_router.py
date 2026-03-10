@@ -10,7 +10,7 @@ from urllib.parse import urlencode
 from urllib.request import Request as URLRequest
 from urllib.request import urlopen
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi import Request as FastAPIRequest
 from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
@@ -18,7 +18,7 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from auth import SESSION_COOKIE_NAME, create_user_access_token, get_password_hash, require_user, verify_password
+from auth import create_access_token, get_password_hash, require_user, verify_password
 from database import User, get_db
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -39,9 +39,6 @@ DISCORD_STATE_COOKIE = "discord_oauth_state"
 DISCORD_STATE_MAX_AGE = 600
 
 PASSWORD_RESET_EXPIRY_MINUTES = 60
-
-PASSWORD_MIN_LENGTH = int(os.getenv("PASSWORD_MIN_LENGTH", "8"))
-SESSION_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
 
 
 class DiscordOAuthError(Exception):
@@ -160,30 +157,8 @@ def _email_enabled() -> bool:
     return bool(_email_provider())
 
 
-def _session_cookie_domain() -> str | None:
-    return os.getenv("SESSION_COOKIE_DOMAIN", "").strip() or None
-
-
-def _set_session_cookie(response: Response, token: str) -> None:
-    response.set_cookie(
-        SESSION_COOKIE_NAME,
-        token,
-        max_age=SESSION_COOKIE_MAX_AGE,
-        httponly=True,
-        secure=_cookie_secure(),
-        samesite="lax",
-        path="/api",
-        domain=_session_cookie_domain(),
-    )
-
-
-def _clear_session_cookie(response: Response) -> None:
-    response.delete_cookie(SESSION_COOKIE_NAME, path="/api", domain=_session_cookie_domain(), samesite="lax")
-
-
-def _validate_password_strength(password: str) -> None:
-    if len(password or "") < PASSWORD_MIN_LENGTH:
-        raise HTTPException(status_code=400, detail=f"Password must be at least {PASSWORD_MIN_LENGTH} characters")
+def _cookie_secure() -> bool:
+    return _get_public_base_url().startswith("https://")
 
 
 def _with_state_cookie(
@@ -206,18 +181,18 @@ def _with_state_cookie(
 
 
 def _redirect_frontend(
-    *, error: str | None = None, clear_state: bool = True, session_token: str | None = None
+    *, token: str | None = None, error: str | None = None, clear_state: bool = True
 ) -> RedirectResponse:
-    response = RedirectResponse(_build_frontend_redirect(error=error))
-    if session_token:
-        _set_session_cookie(response, session_token)
+    response = RedirectResponse(_build_frontend_redirect(token=token, error=error))
     if clear_state:
         return _with_state_cookie(response, clear=True)
     return response
 
 
-def _build_frontend_redirect(error: str | None = None) -> str:
+def _build_frontend_redirect(token: str | None = None, error: str | None = None) -> str:
     qs = {}
+    if token:
+        qs["token"] = token
     if error:
         qs["error"] = error
     suffix = f"?{urlencode(qs)}" if qs else ""
@@ -478,12 +453,11 @@ def providers(request: FastAPIRequest):
 
 
 @router.post("/register", response_model=TokenResponse)
-def register(req: RegisterRequest, response: Response, db: Session = Depends(get_db)):
+def register(req: RegisterRequest, db: Session = Depends(get_db)):
     if db.query(User).filter(User.username == req.username).first():
         raise HTTPException(status_code=400, detail="Username already taken")
     if db.query(User).filter(User.email == req.email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
-    _validate_password_strength(req.password)
 
     user = User(
         username=req.username,
@@ -496,21 +470,19 @@ def register(req: RegisterRequest, response: Response, db: Session = Depends(get
     db.commit()
     db.refresh(user)
 
-    token = create_user_access_token(user)
-    _set_session_cookie(response, token)
+    token = create_access_token(data={"sub": user.username})
     return TokenResponse(access_token=token, token_type="bearer", user=_coalesce_user(user))
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(response: Response, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = db.query(User).filter(User.username == form_data.username).first()
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account is disabled")
 
-    token = create_user_access_token(user)
-    _set_session_cookie(response, token)
+    token = create_access_token(data={"sub": user.username})
     return TokenResponse(access_token=token, token_type="bearer", user=_coalesce_user(user))
 
 
@@ -627,12 +599,9 @@ def discord_callback(
             logger.exception("discord_account_conflict_update", extra=_request_extra(request, discord_id=discord_id))
             return _redirect_frontend(error="discord_account_conflict")
 
-    if not user.is_active:
-        logger.warning("discord_user_inactive", extra=_request_extra(request, user_id=user.id))
-        return _redirect_frontend(error="account_disabled")
-    token = create_user_access_token(user)
+    token = create_access_token(data={"sub": user.username})
     logger.info("auth_session_created", extra=_request_extra(request, user_id=user.id, auth_provider="discord"))
-    return _redirect_frontend(session_token=token)
+    return _redirect_frontend(token=token)
 
 
 @router.post("/forgot-password", response_model=MessageResponse)
@@ -690,7 +659,6 @@ def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db)):
     if not user or not user.password_reset_expires_at or user.password_reset_expires_at < now:
         raise HTTPException(status_code=400, detail="Invalid or expired reset token")
 
-    _validate_password_strength(req.password)
     user.hashed_password = get_password_hash(req.password)
     user.password_reset_token_hash = None
     user.password_reset_expires_at = None
@@ -700,12 +668,6 @@ def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db)):
 
     db.commit()
     return MessageResponse(message="Password reset successful")
-
-
-@router.post("/logout", response_model=MessageResponse)
-def logout(response: Response):
-    _clear_session_cookie(response)
-    return MessageResponse(message="Logged out")
 
 
 @router.get("/me", response_model=UserResponse)
