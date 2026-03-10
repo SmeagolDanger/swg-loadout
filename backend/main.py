@@ -57,18 +57,22 @@ def _cors_allowed_origins() -> list[str]:
         origins.append(public_base_url)
 
     if os.getenv("ENV", "development").lower() not in {"production", "prod"}:
-        origins.extend([
-            "http://localhost:5173",
-            "http://127.0.0.1:5173",
-            "http://localhost:3000",
-            "http://127.0.0.1:3000",
-        ])
+        origins.extend(
+            [
+                "http://localhost:5173",
+                "http://127.0.0.1:5173",
+                "http://localhost:3000",
+                "http://127.0.0.1:3000",
+            ]
+        )
 
     deduped: list[str] = []
     for origin in origins:
         if origin and origin not in deduped:
             deduped.append(origin)
     return deduped
+
+
 _REQUEST_ID_CTX: contextvars.ContextVar[str] = contextvars.ContextVar("request_id", default="-")
 
 

@@ -14,7 +14,9 @@ class TestHealth:
 
 class TestAuthRegister:
     def test_register_requires_strong_password(self, client):
-        res = client.post("/api/auth/register", json={"username": "shorty", "email": "shorty@swg.com", "password": "short"})
+        res = client.post(
+            "/api/auth/register", json={"username": "shorty", "email": "shorty@swg.com", "password": "short"}
+        )
         assert res.status_code == 400
         assert "Password must be at least" in res.json()["detail"]
 
@@ -74,7 +76,6 @@ class TestAuthLogin:
     def test_login_nonexistent_user(self, client):
         res = client.post("/api/auth/login", data={"username": "ghost", "password": "doesntmatter"})
         assert res.status_code == 401
-
 
     def test_inactive_user_cannot_log_in(self, client):
         client.post(

@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-import os
 import io
 import mimetypes
+import os
 import re
 import zipfile
-from typing import Iterable
+from collections.abc import Iterable
 from pathlib import Path
 from uuid import uuid4
 
@@ -27,12 +27,23 @@ UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 SCREENSHOTS_DIR.mkdir(parents=True, exist_ok=True)
 
 
-
 MAX_MOD_FILE_SIZE = int(os.getenv("MAX_MOD_FILE_SIZE", str(10 * 1024 * 1024)))
 MAX_SCREENSHOT_SIZE = int(os.getenv("MAX_SCREENSHOT_SIZE", str(2 * 1024 * 1024)))
 MAX_UPLOAD_BATCH = int(os.getenv("MAX_MOD_UPLOAD_BATCH", "10"))
 ALLOWED_MOD_EXTENSIONS = {
-    ".zip", ".7z", ".rar", ".tre", ".dds", ".tga", ".cfg", ".ini", ".xml", ".lua", ".txt", ".md", ".pdf"
+    ".zip",
+    ".7z",
+    ".rar",
+    ".tre",
+    ".dds",
+    ".tga",
+    ".cfg",
+    ".ini",
+    ".xml",
+    ".lua",
+    ".txt",
+    ".md",
+    ".pdf",
 }
 ALLOWED_SCREENSHOT_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
 ALLOWED_SCREENSHOT_CONTENT_TYPES = {"image/png", "image/jpeg", "image/webp", "image/gif"}
@@ -392,7 +403,9 @@ async def admin_upload_files(
         payload = await upload.read()
         if not payload:
             continue
-        _ensure_payload_size(payload, MAX_MOD_FILE_SIZE, f"Mod files must be {MAX_MOD_FILE_SIZE // (1024 * 1024)} MB or smaller")
+        _ensure_payload_size(
+            payload, MAX_MOD_FILE_SIZE, f"Mod files must be {MAX_MOD_FILE_SIZE // (1024 * 1024)} MB or smaller"
+        )
         stored = _stored_name("mod", upload.filename)
         path = UPLOADS_DIR / stored
         path.write_bytes(payload)
@@ -436,9 +449,13 @@ async def admin_upload_screenshots(
         payload = await upload.read()
         if not payload:
             continue
-        _ensure_payload_size(payload, MAX_SCREENSHOT_SIZE, f"Screenshots must be {MAX_SCREENSHOT_SIZE // (1024 * 1024)} MB or smaller")
+        _ensure_payload_size(
+            payload, MAX_SCREENSHOT_SIZE, f"Screenshots must be {MAX_SCREENSHOT_SIZE // (1024 * 1024)} MB or smaller"
+        )
         if not _looks_like_image(payload, (upload.content_type or "").lower()):
-            raise HTTPException(status_code=400, detail="Uploaded screenshot content did not match the claimed image type")
+            raise HTTPException(
+                status_code=400, detail="Uploaded screenshot content did not match the claimed image type"
+            )
         stored = _stored_name("shot", upload.filename)
         path = SCREENSHOTS_DIR / stored
         path.write_bytes(payload)

@@ -23,7 +23,6 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
 
 
-
 SESSION_COOKIE_NAME = "slt_session"
 
 
