@@ -307,7 +307,8 @@ def get_next_best_vs_refire(val, stat: str, mean, stdev, weights, re_mult: float
     if stat in ["Vs. Shields", "Vs. Armor"]:
         next_best = max(round(val * (1 + re_mult), 2), round(round(val, 2) * (1 + re_mult), 2)) + 0.01
         next_best_raw = worst_case_vs_refire(next_best / (1 + re_mult), stat, re_mult)
-        return 1 - get_rarity(next_best_raw, mean, stdev, weights)
+        rarity = get_rarity(next_best_raw, mean, stdev, weights)
+        return 1 - rarity if isinstance(rarity, float) else rarity
     elif stat == "Refire Rate":
         next_best = min(round(val * (1 - re_mult), 2), round(round(val, 2) * (1 - re_mult), 2)) - 0.01
         next_best_raw = worst_case_vs_refire(next_best / (1 - re_mult), stat, re_mult)
@@ -798,7 +799,7 @@ def _build_result(
 # ── Brand rarity table ──────────────────────────────────────
 
 
-def brand_rarity_table(comp_type: str, level: int, raw_stats: list, rarity_list: list = None) -> dict:
+def brand_rarity_table(comp_type: str, level: int, raw_stats: list, rarity_list: list | None = None) -> dict:
     """Generate per-brand rarity breakdown for each stat."""
     re_level = comp_type[0] + str(level % 10)
     RE_MULTS[level - 1]

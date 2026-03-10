@@ -2,7 +2,7 @@ import datetime
 import hashlib
 import logging
 import os
-from typing import Any
+from typing import Any, cast
 
 import bcrypt
 from fastapi import Depends, HTTPException, Request, status
@@ -26,6 +26,14 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
 SESSION_COOKIE_NAME = "slt_session"
 
 
+def _user_hashed_password(user: User) -> str:
+    return cast(str, user.hashed_password)
+
+
+def _user_is_active(user: User) -> bool:
+    return bool(cast(object, user.is_active))
+
+
 def token_password_fingerprint(hashed_password: str) -> str:
     return hashlib.sha256(hashed_password.encode("utf-8")).hexdigest()[:16]
 
@@ -34,7 +42,7 @@ def create_user_access_token(user: User, expires_delta: datetime.timedelta | Non
     return create_access_token(
         data={
             "sub": user.username,
-            "pwh": token_password_fingerprint(user.hashed_password),
+            "pwh": token_password_fingerprint(_user_hashed_password(user)),
         },
         expires_delta=expires_delta,
     )
@@ -86,10 +94,10 @@ async def get_current_user(request: Request, db: Session = Depends(get_db)) -> U
     if user is None:
         logger.warning("auth_user_lookup_failed", extra={"username": username})
         return None
-    if not user.is_active:
+    if not _user_is_active(user):
         logger.warning("auth_user_inactive", extra={"username": username, "user_id": user.id})
         return None
-    if password_fingerprint != token_password_fingerprint(user.hashed_password):
+    if password_fingerprint != token_password_fingerprint(_user_hashed_password(user)):
         logger.warning("auth_token_password_fingerprint_mismatch", extra={"username": username, "user_id": user.id})
         return None
     return user
@@ -105,7 +113,9 @@ def has_role(user: User, *roles: str) -> bool:
     """Check if user has any of the given roles. 'admin' always passes."""
     if not user:
         return False
-    user_role = getattr(user, "role", None) or ("admin" if user.is_admin else "user")
+    user_role = cast(str | None, getattr(user, "role", None)) or (
+        "admin" if bool(cast(object, user.is_admin)) else "user"
+    )
     return user_role == "admin" or user_role in roles
 
 

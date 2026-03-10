@@ -225,6 +225,10 @@ class RemoteProviderConfigurationError(RuntimeError):
     pass
 
 
+_LOGGING_CONFIGURED = False
+_LOGGING_SETTINGS: LoggingSettings | None = None
+
+
 def load_logging_settings() -> LoggingSettings:
     env = os.getenv("ENV", "development")
     return LoggingSettings(
@@ -248,9 +252,11 @@ def load_logging_settings() -> LoggingSettings:
 
 
 def configure_logging() -> LoggingSettings:
+    global _LOGGING_CONFIGURED, _LOGGING_SETTINGS
+
     root = logging.getLogger()
-    if hasattr(root, "_slt_logging_configured") and root._slt_logging_configured:
-        return root._slt_logging_settings
+    if _LOGGING_CONFIGURED and _LOGGING_SETTINGS is not None:
+        return _LOGGING_SETTINGS
 
     settings = load_logging_settings()
     context_filter = RequestContextFilter(settings.env, settings.service_name)
@@ -280,8 +286,8 @@ def configure_logging() -> LoggingSettings:
     else:
         logging.getLogger("slt").info("remote_logging_disabled", extra={"provider": settings.provider})
 
-    root._slt_logging_configured = True  # type: ignore[attr-defined]
-    root._slt_logging_settings = settings  # type: ignore[attr-defined]
+    _LOGGING_CONFIGURED = True
+    _LOGGING_SETTINGS = settings
     return settings
 
 

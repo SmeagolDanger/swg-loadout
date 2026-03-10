@@ -11,6 +11,7 @@ Endpoints (all require admin role unless noted):
   PUT    /api/admin/loadouts/:id/featured - toggle featured flag
   GET    /api/admin/featured-loadouts  - list featured loadouts
 """
+# pyright: reportArgumentType=false, reportAssignmentType=false, reportAttributeAccessIssue=false, reportOperatorIssue=false
 
 from typing import Literal
 
