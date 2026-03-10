@@ -160,6 +160,12 @@ def _email_enabled() -> bool:
     return bool(_email_provider())
 
 
+def _cookie_secure() -> bool:
+    public_base_url = _get_public_base_url()
+    env = os.getenv("ENV", "development").strip().lower()
+    return env in {"production", "staging"} or public_base_url.startswith("https://")
+
+
 def _session_cookie_domain() -> str | None:
     return os.getenv("SESSION_COOKIE_DOMAIN", "").strip() or None
 
