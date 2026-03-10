@@ -13,6 +13,11 @@ class TestHealth:
 
 
 class TestAuthRegister:
+    def test_register_requires_strong_password(self, client):
+        res = client.post("/api/auth/register", json={"username": "shorty", "email": "shorty@swg.com", "password": "short"})
+        assert res.status_code == 400
+        assert "Password must be at least" in res.json()["detail"]
+
     def test_register_success(self, client):
         res = client.post(
             "/api/auth/register",
@@ -71,6 +76,25 @@ class TestAuthLogin:
         assert res.status_code == 401
 
 
+    def test_inactive_user_cannot_log_in(self, client):
+        client.post(
+            "/api/auth/register",
+            json={"username": "inactivepilot", "email": "inactive@swg.com", "password": "testpass1234"},
+        )
+        from database import SessionLocal, User
+
+        db = SessionLocal()
+        try:
+            user = db.query(User).filter(User.username == "inactivepilot").first()
+            user.is_active = False
+            db.commit()
+        finally:
+            db.close()
+
+        res = client.post("/api/auth/login", data={"username": "inactivepilot", "password": "testpass1234"})
+        assert res.status_code == 403
+
+
 class TestDiscordAuth:
     def test_providers_disabled_by_default(self, client):
         res = client.get("/api/auth/providers")
@@ -111,7 +135,8 @@ class TestDiscordAuth:
 
         assert res.status_code in (302, 307)
         location = res.headers["location"]
-        assert location.startswith("http://frontend.test/auth/discord/callback?token=")
+        assert location == "http://frontend.test/auth/discord/callback"
+        assert "slt_session=" in res.headers.get("set-cookie", "")
 
         providers = client.get("/api/auth/providers")
         assert providers.json() == {"discord": True}
@@ -153,7 +178,8 @@ class TestDiscordAuth:
             )
 
         assert res.status_code in (302, 307)
-        assert "token=" in res.headers["location"]
+        assert res.headers["location"] == "http://frontend.test/auth/discord/callback"
+        assert "slt_session=" in res.headers.get("set-cookie", "")
 
     def test_discord_callback_links_existing_email(self, client, monkeypatch):
         client.post(

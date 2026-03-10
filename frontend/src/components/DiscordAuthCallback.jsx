@@ -13,6 +13,7 @@ const ERROR_MESSAGES = {
   invalid_state: 'Discord sign-in expired or was interrupted. Please try again.',
   discord_identity_failed: 'Discord did not return a usable account identity.',
   discord_account_conflict: 'Discord sign-in could not be linked automatically. Sign in locally for now, then finish linking after the account rules are updated.',
+  account_disabled: 'This account has been disabled.',
 };
 
 export default function DiscordAuthCallback() {
@@ -22,7 +23,6 @@ export default function DiscordAuthCallback() {
   const { completeOAuthLogin } = useAuth();
 
   useEffect(() => {
-    const token = searchParams.get('token');
     const error = searchParams.get('error');
 
     if (error) {
@@ -31,13 +31,7 @@ export default function DiscordAuthCallback() {
       return () => clearTimeout(timer);
     }
 
-    if (!token) {
-      setMessage('Discord sign-in did not return a session token.');
-      const timer = setTimeout(() => navigate('/auth', { replace: true }), 1800);
-      return () => clearTimeout(timer);
-    }
-
-    completeOAuthLogin(token)
+    completeOAuthLogin()
       .then(() => navigate('/', { replace: true }))
       .catch((authError) => {
         if (authError?.status === 503 || authError?.status === 502 || authError?.status === 504 || authError?.status === 0) {

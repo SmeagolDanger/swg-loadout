@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import os
 import io
 import mimetypes
 import re
 import zipfile
+from typing import Iterable
 from pathlib import Path
 from uuid import uuid4
 
@@ -23,6 +25,45 @@ UPLOADS_DIR = DATA_DIR / "uploads"
 SCREENSHOTS_DIR = DATA_DIR / "screenshots"
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 SCREENSHOTS_DIR.mkdir(parents=True, exist_ok=True)
+
+
+
+MAX_MOD_FILE_SIZE = int(os.getenv("MAX_MOD_FILE_SIZE", str(10 * 1024 * 1024)))
+MAX_SCREENSHOT_SIZE = int(os.getenv("MAX_SCREENSHOT_SIZE", str(2 * 1024 * 1024)))
+MAX_UPLOAD_BATCH = int(os.getenv("MAX_MOD_UPLOAD_BATCH", "10"))
+ALLOWED_MOD_EXTENSIONS = {
+    ".zip", ".7z", ".rar", ".tre", ".dds", ".tga", ".cfg", ".ini", ".xml", ".lua", ".txt", ".md", ".pdf"
+}
+ALLOWED_SCREENSHOT_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
+ALLOWED_SCREENSHOT_CONTENT_TYPES = {"image/png", "image/jpeg", "image/webp", "image/gif"}
+
+
+def _ensure_upload_count(files: Iterable[UploadFile]) -> None:
+    if len(list(files)) > MAX_UPLOAD_BATCH:
+        raise HTTPException(status_code=400, detail=f"A maximum of {MAX_UPLOAD_BATCH} files can be uploaded at once")
+
+
+def _ensure_allowed_extension(filename: str, allowed_extensions: set[str], detail: str) -> None:
+    suffix = Path(filename).suffix.lower()
+    if suffix not in allowed_extensions:
+        raise HTTPException(status_code=400, detail=detail)
+
+
+def _ensure_payload_size(payload: bytes, max_size: int, detail: str) -> None:
+    if len(payload) > max_size:
+        raise HTTPException(status_code=400, detail=detail)
+
+
+def _looks_like_image(payload: bytes, content_type: str) -> bool:
+    if content_type == "image/png":
+        return payload.startswith(b"\x89PNG\r\n\x1a\n")
+    if content_type == "image/jpeg":
+        return payload.startswith(b"\xff\xd8\xff")
+    if content_type == "image/gif":
+        return payload.startswith((b"GIF87a", b"GIF89a"))
+    if content_type == "image/webp":
+        return len(payload) >= 12 and payload.startswith(b"RIFF") and payload[8:12] == b"WEBP"
+    return False
 
 
 class ModImageOut(BaseModel):
@@ -101,6 +142,10 @@ def _stored_name(prefix: str, filename: str) -> str:
 def _guess_type(path: Path) -> str:
     content_type, _ = mimetypes.guess_type(path.name)
     return content_type or "application/octet-stream"
+
+
+def _safe_download_name(filename: str) -> str:
+    return Path(filename).name.replace('"', "")
 
 
 def _image_url(image: ModScreenshot) -> str:
@@ -193,7 +238,10 @@ def get_mod_image(image_id: int, db: Session = Depends(get_db)):
     path = SCREENSHOTS_DIR / image.stored_filename
     if not path.exists():
         raise HTTPException(status_code=404, detail="Image file not found")
-    return FileResponse(path, media_type=_guess_type(path), filename=image.original_filename)
+    media_type = _guess_type(path)
+    if media_type not in ALLOWED_SCREENSHOT_CONTENT_TYPES:
+        raise HTTPException(status_code=404, detail="Image file not found")
+    return FileResponse(path, media_type=media_type, filename=_safe_download_name(image.original_filename))
 
 
 @router.get("/{slug}/download")
@@ -210,7 +258,7 @@ def download_mod_zip(slug: str, db: Session = Depends(get_db)):
         path = UPLOADS_DIR / file.stored_filename
         if not path.exists():
             raise HTTPException(status_code=404, detail="Mod file not found")
-        return FileResponse(path, media_type="application/zip", filename=file.original_filename)
+        return FileResponse(path, media_type="application/zip", filename=_safe_download_name(file.original_filename))
 
     buffer = io.BytesIO()
     zip_name = f"{mod.slug}-{mod.version or 'bundle'}.zip"
@@ -220,7 +268,7 @@ def download_mod_zip(slug: str, db: Session = Depends(get_db)):
             if path.exists():
                 archive.write(path, arcname=file.original_filename)
     buffer.seek(0)
-    headers = {"Content-Disposition": f'attachment; filename="{zip_name}"'}
+    headers = {"Content-Disposition": f'attachment; filename="{_safe_download_name(zip_name)}"'}
     return StreamingResponse(buffer, media_type="application/zip", headers=headers)
 
 
@@ -334,13 +382,17 @@ async def admin_upload_files(
     mod = _mod_query(db).filter(Mod.id == mod_id).first()
     if not mod:
         raise HTTPException(status_code=404, detail="Mod not found")
+    if len(files) > MAX_UPLOAD_BATCH:
+        raise HTTPException(status_code=400, detail=f"A maximum of {MAX_UPLOAD_BATCH} files can be uploaded at once")
     added = False
     for upload in files:
         if not upload.filename:
             continue
+        _ensure_allowed_extension(upload.filename, ALLOWED_MOD_EXTENSIONS, "Unsupported mod file type")
         payload = await upload.read()
         if not payload:
             continue
+        _ensure_payload_size(payload, MAX_MOD_FILE_SIZE, f"Mod files must be {MAX_MOD_FILE_SIZE // (1024 * 1024)} MB or smaller")
         stored = _stored_name("mod", upload.filename)
         path = UPLOADS_DIR / stored
         path.write_bytes(payload)
@@ -371,14 +423,22 @@ async def admin_upload_screenshots(
     mod = _mod_query(db).filter(Mod.id == mod_id).first()
     if not mod:
         raise HTTPException(status_code=404, detail="Mod not found")
+    if len(files) > MAX_UPLOAD_BATCH:
+        raise HTTPException(status_code=400, detail=f"A maximum of {MAX_UPLOAD_BATCH} files can be uploaded at once")
     next_order = len(mod.screenshots)
     added = False
     for upload in files:
         if not upload.filename:
             continue
+        _ensure_allowed_extension(upload.filename, ALLOWED_SCREENSHOT_EXTENSIONS, "Unsupported screenshot file type")
+        if (upload.content_type or "").lower() not in ALLOWED_SCREENSHOT_CONTENT_TYPES:
+            raise HTTPException(status_code=400, detail="Unsupported screenshot content type")
         payload = await upload.read()
         if not payload:
             continue
+        _ensure_payload_size(payload, MAX_SCREENSHOT_SIZE, f"Screenshots must be {MAX_SCREENSHOT_SIZE // (1024 * 1024)} MB or smaller")
+        if not _looks_like_image(payload, (upload.content_type or "").lower()):
+            raise HTTPException(status_code=400, detail="Uploaded screenshot content did not match the claimed image type")
         stored = _stored_name("shot", upload.filename)
         path = SCREENSHOTS_DIR / stored
         path.write_bytes(payload)

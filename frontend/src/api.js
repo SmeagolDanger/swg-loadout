@@ -1,9 +1,5 @@
 const BASE = '/api';
 
-function getToken() {
-  return localStorage.getItem('slt_token');
-}
-
 function createApiError(message, status = 0, detail = null) {
   const error = new Error(message || 'Request failed');
   error.status = status;
@@ -24,13 +20,11 @@ async function parseErrorResponse(res, fallbackMessage) {
 }
 
 async function request(path, options = {}) {
-  const token = getToken();
   const headers = { 'Content-Type': 'application/json', ...options.headers };
-  if (token) headers.Authorization = `Bearer ${token}`;
 
   let res;
   try {
-    res = await fetch(`${BASE}${path}`, { ...options, headers });
+    res = await fetch(`${BASE}${path}`, { ...options, headers, credentials: 'same-origin' });
   } catch (error) {
     throw createApiError(error?.message || 'Network request failed', 0);
   }
@@ -57,7 +51,7 @@ export const api = {
     form.append('password', password);
     let res;
     try {
-      res = await fetch(`${BASE}/auth/login`, { method: 'POST', body: form });
+      res = await fetch(`${BASE}/auth/login`, { method: 'POST', body: form, credentials: 'same-origin' });
     } catch (error) {
       throw createApiError(error?.message || 'Login request failed', 0);
     }
@@ -72,6 +66,7 @@ export const api = {
     return res.json();
   },
   getMe: () => request('/auth/me'),
+  logout: () => request('/auth/logout', { method: 'POST' }),
   forgotPassword: (email) => request('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }) }),
   resetPasswordWithToken: (token, password) => request('/auth/reset-password', { method: 'POST', body: JSON.stringify({ token, password }) }),
   getAuthProviders: () => request('/auth/providers'),
@@ -95,12 +90,10 @@ export const api = {
   parseBuildoutFile: async (file) => {
     const form = new FormData();
     form.append('file', file);
-    const token = getToken();
     const headers = {};
-    if (token) headers['Authorization'] = `Bearer ${token}`;
     let res;
     try {
-      res = await fetch(`${BASE}/buildouts/parse`, { method: 'POST', headers, body: form });
+      res = await fetch(`${BASE}/buildouts/parse`, { method: 'POST', headers, body: form, credentials: 'same-origin' });
     } catch (error) {
       throw createApiError(error?.message || 'Buildout parse failed', 0);
     }
@@ -133,12 +126,10 @@ export const api = {
   uploadModFiles: async (id, files) => {
     const form = new FormData();
     Array.from(files).forEach((file) => form.append('files', file));
-    const token = getToken();
     const headers = {};
-    if (token) headers['Authorization'] = `Bearer ${token}`;
     let res;
     try {
-      res = await fetch(`${BASE}/admin/mods/${id}/files`, { method: 'POST', headers, body: form });
+      res = await fetch(`${BASE}/admin/mods/${id}/files`, { method: 'POST', headers, body: form, credentials: 'same-origin' });
     } catch (error) {
       throw createApiError(error?.message || 'Upload failed', 0);
     }
@@ -151,12 +142,10 @@ export const api = {
   uploadModScreenshots: async (id, files) => {
     const form = new FormData();
     Array.from(files).forEach((file) => form.append('files', file));
-    const token = getToken();
     const headers = {};
-    if (token) headers['Authorization'] = `Bearer ${token}`;
     let res;
     try {
-      res = await fetch(`${BASE}/admin/mods/${id}/screenshots`, { method: 'POST', headers, body: form });
+      res = await fetch(`${BASE}/admin/mods/${id}/screenshots`, { method: 'POST', headers, body: form, credentials: 'same-origin' });
     } catch (error) {
       throw createApiError(error?.message || 'Upload failed', 0);
     }
@@ -190,12 +179,10 @@ export const api = {
   importSavedata: async (file) => {
     const form = new FormData();
     form.append('file', file);
-    const token = getToken();
     const headers = {};
-    if (token) headers['Authorization'] = `Bearer ${token}`;
     let res;
     try {
-      res = await fetch(`${BASE}/import/savedata`, { method: 'POST', headers, body: form });
+      res = await fetch(`${BASE}/import/savedata`, { method: 'POST', headers, body: form, credentials: 'same-origin' });
     } catch (error) {
       throw createApiError(error?.message || 'Import failed', 0);
     }

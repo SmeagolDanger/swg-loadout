@@ -372,3 +372,13 @@ For Postmark:
 If `EMAIL_PROVIDER` is left blank, the backend auto-selects Resend when its env vars are configured, otherwise Postmark when its env vars are configured.
 
 Reset links are sent to `${PUBLIC_BASE_URL}/auth/reset-password?token=...` and expire after 60 minutes.
+
+
+## Security hardening notes
+
+- Auth sessions now default to an HttpOnly cookie (`slt_session`) scoped to `/api`.
+- Set `PUBLIC_BASE_URL` to your real public origin so cookie security and CORS behave correctly.
+- In production, set `CORS_ALLOWED_ORIGINS` explicitly if you serve the frontend from more than one origin.
+- Passwords are enforced server-side using `PASSWORD_MIN_LENGTH`.
+- Curated mod uploads are restricted by file type, size, and batch count.
+- If you deploy behind Cloudflare or another TLS terminator, ensure it always serves HTTPS and forwards traffic securely to the app.

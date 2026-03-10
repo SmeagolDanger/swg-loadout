@@ -17,49 +17,21 @@ function isTransient(error) {
   return TRANSIENT_AUTH_STATUSES.has(error?.status);
 }
 
-function decodeTokenSubject(token) {
-  try {
-    const [, payload] = token.split('.');
-    if (!payload) return null;
-    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
-    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
-    const decoded = JSON.parse(atob(padded));
-    const username = typeof decoded?.sub === 'string' ? decoded.sub : null;
-    if (!username) return null;
-    return {
-      id: null,
-      username,
-      email: '',
-      display_name: username,
-      is_admin: false,
-      role: 'user',
-      auth_provider: 'discord',
-      discord_username: username,
-      discord_avatar: null,
-    };
-  } catch {
-    return null;
-  }
-}
-
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(() => {
-    const saved = localStorage.getItem('slt_user');
-    return saved ? JSON.parse(saved) : null;
-  });
+  const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const clearSession = useCallback(() => {
+  const clearSession = useCallback(async ({ remote = false } = {}) => {
+    if (remote) {
+      try {
+        await api.logout();
+      } catch {
+        // ignore logout transport failures
+      }
+    }
     localStorage.removeItem('slt_token');
     localStorage.removeItem('slt_user');
     setUser(null);
-  }, []);
-
-  const setSession = useCallback((token, nextUser) => {
-    localStorage.setItem('slt_token', token);
-    localStorage.setItem('slt_user', JSON.stringify(nextUser));
-    setUser(nextUser);
-    return nextUser;
   }, []);
 
   const fetchMeWithRetry = useCallback(async (attempts = 7) => {
@@ -79,15 +51,10 @@ export function AuthProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    const token = localStorage.getItem('slt_token');
-    if (!token) {
-      setLoading(false);
-      return;
-    }
+    localStorage.removeItem('slt_token');
 
     fetchMeWithRetry()
       .then((nextUser) => {
-        localStorage.setItem('slt_user', JSON.stringify(nextUser));
         setUser(nextUser);
       })
       .catch((error) => {
@@ -95,61 +62,31 @@ export function AuthProvider({ children }) {
           clearSession();
           return;
         }
-
-        const saved = localStorage.getItem('slt_user');
-        if (saved) {
-          try {
-            setUser(JSON.parse(saved));
-            return;
-          } catch {
-            // fall through to provisional decode
-          }
-        }
-
-        const provisional = decodeTokenSubject(token);
-        if (provisional) {
-          setUser(provisional);
-        }
+        setUser(null);
       })
       .finally(() => setLoading(false));
   }, [clearSession, fetchMeWithRetry]);
 
   const login = async (username, password) => {
     const data = await api.login(username, password);
-    return setSession(data.access_token, data.user);
+    setUser(data.user);
+    return data.user;
   };
 
   const register = async (formData) => {
     const data = await api.register(formData);
-    return setSession(data.access_token, data.user);
+    setUser(data.user);
+    return data.user;
   };
 
-  const completeOAuthLogin = useCallback(async (token) => {
-    localStorage.setItem('slt_token', token);
-    try {
-      const nextUser = await fetchMeWithRetry();
-      localStorage.setItem('slt_user', JSON.stringify(nextUser));
-      setUser(nextUser);
-      return nextUser;
-    } catch (error) {
-      if (isUnauthorized(error)) {
-        clearSession();
-        throw error;
-      }
+  const completeOAuthLogin = useCallback(async () => {
+    const nextUser = await fetchMeWithRetry();
+    setUser(nextUser);
+    return nextUser;
+  }, [fetchMeWithRetry]);
 
-      const provisional = decodeTokenSubject(token);
-      if (provisional) {
-        localStorage.setItem('slt_user', JSON.stringify(provisional));
-        setUser(provisional);
-        return provisional;
-      }
-
-      throw error;
-    }
-  }, [clearSession, fetchMeWithRetry]);
-
-  const logout = () => {
-    clearSession();
+  const logout = async () => {
+    await clearSession({ remote: true });
   };
 
   const value = useMemo(
