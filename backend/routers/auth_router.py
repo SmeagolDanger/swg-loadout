@@ -29,6 +29,7 @@ DISCORD_TOKEN_URL = "https://discord.com/api/oauth2/token"
 DISCORD_ME_URL = "https://discord.com/api/users/@me"
 
 POSTMARK_EMAIL_URL = "https://api.postmarkapp.com/email"
+RESEND_EMAIL_URL = "https://api.resend.com/emails"
 
 DISCORD_HTTP_HEADERS = {
     "Accept": "application/json",
@@ -131,6 +132,29 @@ def _postmark_enabled() -> bool:
         and os.getenv("POSTMARK_FROM_EMAIL", "").strip()
         and _get_public_base_url()
     )
+
+
+def _resend_enabled() -> bool:
+    return bool(
+        os.getenv("RESEND_API_KEY", "").strip()
+        and os.getenv("RESEND_FROM_EMAIL", "").strip()
+        and _get_public_base_url()
+    )
+
+
+def _email_provider() -> str:
+    configured = os.getenv("EMAIL_PROVIDER", "").strip().lower()
+    if configured in {"resend", "postmark"}:
+        return configured
+    if _resend_enabled():
+        return "resend"
+    if _postmark_enabled():
+        return "postmark"
+    return ""
+
+
+def _email_enabled() -> bool:
+    return bool(_email_provider())
 
 
 def _cookie_secure() -> bool:
@@ -367,6 +391,56 @@ def _send_postmark_email(to_email: str, subject: str, text_body: str, html_body:
         raise HTTPException(status_code=502, detail="Failed to send reset email") from exc
 
 
+def _send_resend_email(to_email: str, subject: str, text_body: str, html_body: str) -> None:
+    payload = {
+        "from": os.getenv("RESEND_FROM_EMAIL", "").strip(),
+        "to": [to_email],
+        "subject": subject,
+        "text": text_body,
+        "html": html_body,
+    }
+
+    reply_to = os.getenv("RESEND_REPLY_TO_EMAIL", "").strip()
+    if reply_to:
+        payload["reply_to"] = reply_to
+
+    req = URLRequest(
+        RESEND_EMAIL_URL,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {os.getenv('RESEND_API_KEY', '').strip()}",
+            "User-Agent": "SWGL-Tools/1.0 (+https://jawatracks.com)",
+        },
+    )
+
+    try:
+        with urlopen(req, timeout=15) as response:
+            body = response.read().decode("utf-8", errors="replace")
+            if response.status >= 400:
+                logger.warning("resend_send_failed", extra={"status_code": response.status, "body_preview": body[:500]})
+                raise HTTPException(status_code=502, detail="Failed to send reset email")
+    except HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")[:500]
+        logger.warning("resend_http_error", extra={"status_code": exc.code, "body_preview": body})
+        raise HTTPException(status_code=502, detail="Failed to send reset email") from exc
+    except (URLError, TimeoutError, OSError) as exc:
+        logger.exception("resend_network_error", extra={"error_type": type(exc).__name__})
+        raise HTTPException(status_code=502, detail="Failed to send reset email") from exc
+
+
+def _send_email(to_email: str, subject: str, text_body: str, html_body: str) -> None:
+    provider = _email_provider()
+    if provider == "resend":
+        _send_resend_email(to_email, subject, text_body, html_body)
+        return
+    if provider == "postmark":
+        _send_postmark_email(to_email, subject, text_body, html_body)
+        return
+    raise HTTPException(status_code=503, detail="Password reset email is not configured")
+
+
 def _build_reset_url(raw_token: str) -> str:
     return f"{_get_public_base_url()}/auth/reset-password?token={raw_token}"
 
@@ -530,7 +604,7 @@ def discord_callback(
 
 @router.post("/forgot-password", response_model=MessageResponse)
 def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_db)):
-    if not _postmark_enabled():
+    if not _email_enabled():
         raise HTTPException(status_code=503, detail="Password reset email is not configured")
 
     normalized_email = req.email.strip().lower()
@@ -564,7 +638,7 @@ def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_db)):
     <p>If you did not request this, you can ignore this email.</p>
     """
 
-    _send_postmark_email(user.email, subject, text_body, html_body)
+    _send_email(user.email, subject, text_body, html_body)
     return MessageResponse(message=generic_message)
 
 

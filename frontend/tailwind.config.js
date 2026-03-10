@@ -1,38 +1,40 @@
 /** @type {import('tailwindcss').Config} */
+const withOpacity = (cssVar) => `rgb(var(${cssVar}) / <alpha-value>)`;
+
 export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
       colors: {
         hull: {
-          950: '#070810',
-          900: '#0a0c10',
-          800: '#111318',
-          700: '#181b22',
-          600: '#1f232c',
-          500: '#272c38',
-          400: '#3d4455',
-          300: '#6b7494',
-          200: '#9ca3bd',
-          100: '#c8cdd8',
-          50:  '#e2e5ec',
+          950: withOpacity('--color-hull-950'),
+          900: withOpacity('--color-hull-900'),
+          800: withOpacity('--color-hull-800'),
+          700: withOpacity('--color-hull-700'),
+          600: withOpacity('--color-hull-600'),
+          500: withOpacity('--color-hull-500'),
+          400: withOpacity('--color-hull-400'),
+          300: withOpacity('--color-hull-300'),
+          200: withOpacity('--color-hull-200'),
+          100: withOpacity('--color-hull-100'),
+          50: withOpacity('--color-hull-50'),
         },
         plasma: {
-          500: '#00d4ff',
-          400: '#33ddff',
-          300: '#66e6ff',
-          glow: 'rgba(0, 212, 255, 0.15)',
+          500: withOpacity('--color-plasma-500'),
+          400: withOpacity('--color-plasma-400'),
+          300: withOpacity('--color-plasma-300'),
+          glow: withOpacity('--color-plasma-glow'),
         },
         laser: {
-          red: '#ff3344',
-          green: '#00cc66',
-          yellow: '#ffaa00',
-          orange: '#ff6b2b',
+          red: withOpacity('--color-laser-red'),
+          green: withOpacity('--color-laser-green'),
+          yellow: withOpacity('--color-laser-yellow'),
+          orange: withOpacity('--color-laser-orange'),
         },
         shield: {
-          blue: '#4488ff',
-          glow: 'rgba(68, 136, 255, 0.2)',
-        }
+          blue: withOpacity('--color-shield-blue'),
+          glow: withOpacity('--color-shield-glow'),
+        },
       },
       fontFamily: {
         display: ['"Rajdhani"', 'sans-serif'],
@@ -40,9 +42,9 @@ export default {
         body: ['"Exo 2"', 'sans-serif'],
       },
       boxShadow: {
-        'plasma': '0 0 20px rgba(0, 212, 255, 0.15), 0 0 40px rgba(0, 212, 255, 0.05)',
-        'glow': '0 0 10px rgba(0, 212, 255, 0.3)',
-        'card': '0 4px 24px rgba(0, 0, 0, 0.4)',
+        plasma: '0 0 20px rgb(var(--color-plasma-500) / 0.15), 0 0 40px rgb(var(--color-plasma-500) / 0.05)',
+        glow: '0 0 10px rgb(var(--color-plasma-500) / 0.3)',
+        card: '0 4px 24px rgba(0, 0, 0, 0.4)',
       },
       animation: {
         'pulse-glow': 'pulseGlow 3s ease-in-out infinite',
@@ -50,15 +52,15 @@ export default {
       },
       keyframes: {
         pulseGlow: {
-          '0%, 100%': { boxShadow: '0 0 10px rgba(0, 212, 255, 0.1)' },
-          '50%': { boxShadow: '0 0 20px rgba(0, 212, 255, 0.25)' },
+          '0%, 100%': { boxShadow: '0 0 10px rgb(var(--color-plasma-500) / 0.1)' },
+          '50%': { boxShadow: '0 0 20px rgb(var(--color-plasma-500) / 0.25)' },
         },
         slideUp: {
           '0%': { transform: 'translateY(10px)', opacity: 0 },
           '100%': { transform: 'translateY(0)', opacity: 1 },
-        }
-      }
+        },
+      },
     },
   },
   plugins: [],
-}
+};

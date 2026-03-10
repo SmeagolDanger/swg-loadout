@@ -351,11 +351,24 @@ All endpoints are prefixed with `/api`.
 
 ## Password reset email
 
-The app supports forgot-password emails through Postmark. Configure these environment variables in production:
+The app supports forgot-password emails through **Resend** and can still fall back to **Postmark**. Configure these environment variables in production.
 
+For Resend:
+
+- `EMAIL_PROVIDER=resend`
+- `RESEND_API_KEY`
+- `RESEND_FROM_EMAIL`
+- `RESEND_REPLY_TO_EMAIL` (optional)
+- `PUBLIC_BASE_URL`
+
+For Postmark:
+
+- `EMAIL_PROVIDER=postmark`
 - `POSTMARK_SERVER_TOKEN`
 - `POSTMARK_FROM_EMAIL`
 - `POSTMARK_MESSAGE_STREAM` (optional, defaults to `outbound`)
 - `PUBLIC_BASE_URL`
 
-Reset links are sent to `${PUBLIC_BASE_URL}/auth/reset-password?token=...` and expire after 60 minutes. Postmark uses the server token in the `X-Postmark-Server-Token` header for `/email` requests.
+If `EMAIL_PROVIDER` is left blank, the backend auto-selects Resend when its env vars are configured, otherwise Postmark when its env vars are configured.
+
+Reset links are sent to `${PUBLIC_BASE_URL}/auth/reset-password?token=...` and expire after 60 minutes.

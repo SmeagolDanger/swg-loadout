@@ -2,6 +2,163 @@
 @tailwind components;
 @tailwind utilities;
 
+:root,
+html[data-theme="deep-space"] {
+  --color-hull-950: 7 8 16;
+  --color-hull-900: 10 12 16;
+  --color-hull-800: 17 19 24;
+  --color-hull-700: 24 27 34;
+  --color-hull-600: 31 35 44;
+  --color-hull-500: 39 44 56;
+  --color-hull-400: 61 68 85;
+  --color-hull-300: 107 116 148;
+  --color-hull-200: 156 163 189;
+  --color-hull-100: 200 205 216;
+  --color-hull-50: 226 229 236;
+  --color-plasma-500: 0 212 255;
+  --color-plasma-400: 51 221 255;
+  --color-plasma-300: 102 230 255;
+  --color-plasma-glow: 0 212 255;
+  --color-laser-red: 255 51 68;
+  --color-laser-green: 0 204 102;
+  --color-laser-yellow: 255 170 0;
+  --color-laser-orange: 255 107 43;
+  --color-shield-blue: 68 136 255;
+  --color-shield-glow: 68 136 255;
+  --bg-top: 0 212 255;
+  --bg-bottom: 255 170 0;
+}
+
+html[data-theme="hoth-blizzard"] {
+  --color-hull-950: 13 18 28;
+  --color-hull-900: 18 24 36;
+  --color-hull-800: 28 35 49;
+  --color-hull-700: 39 47 64;
+  --color-hull-600: 50 61 82;
+  --color-hull-500: 72 85 108;
+  --color-hull-400: 130 144 170;
+  --color-hull-300: 176 189 214;
+  --color-hull-200: 205 216 232;
+  --color-hull-100: 232 239 248;
+  --color-hull-50: 245 249 255;
+  --color-plasma-500: 228 240 255;
+  --color-plasma-400: 236 245 255;
+  --color-plasma-300: 245 250 255;
+  --color-plasma-glow: 228 240 255;
+  --color-laser-red: 255 94 94;
+  --color-laser-green: 155 255 206;
+  --color-laser-yellow: 255 213 107;
+  --color-laser-orange: 255 169 99;
+  --color-shield-blue: 145 188 255;
+  --color-shield-glow: 190 220 255;
+  --bg-top: 210 231 255;
+  --bg-bottom: 238 244 255;
+}
+
+html[data-theme="imperial-red"] {
+  --color-hull-950: 16 4 6;
+  --color-hull-900: 24 6 9;
+  --color-hull-800: 36 10 13;
+  --color-hull-700: 51 14 18;
+  --color-hull-600: 74 21 26;
+  --color-hull-500: 110 33 39;
+  --color-hull-400: 153 57 64;
+  --color-hull-300: 201 95 101;
+  --color-hull-200: 228 147 151;
+  --color-hull-100: 243 208 210;
+  --color-hull-50: 252 235 236;
+  --color-plasma-500: 255 65 65;
+  --color-plasma-400: 255 94 94;
+  --color-plasma-300: 255 135 135;
+  --color-plasma-glow: 255 65 65;
+  --color-laser-red: 255 84 84;
+  --color-laser-green: 135 255 84;
+  --color-laser-yellow: 255 188 64;
+  --color-laser-orange: 255 126 84;
+  --color-shield-blue: 255 129 129;
+  --color-shield-glow: 255 129 129;
+  --bg-top: 255 65 65;
+  --bg-bottom: 82 10 15;
+}
+
+html[data-theme="rebel-gold"] {
+  --color-hull-950: 14 11 2;
+  --color-hull-900: 22 18 4;
+  --color-hull-800: 34 28 7;
+  --color-hull-700: 48 40 11;
+  --color-hull-600: 70 58 16;
+  --color-hull-500: 106 87 23;
+  --color-hull-400: 150 126 38;
+  --color-hull-300: 201 171 67;
+  --color-hull-200: 228 204 124;
+  --color-hull-100: 244 229 191;
+  --color-hull-50: 252 245 222;
+  --color-plasma-500: 255 187 0;
+  --color-plasma-400: 255 203 62;
+  --color-plasma-300: 255 221 128;
+  --color-plasma-glow: 255 187 0;
+  --color-laser-red: 255 116 85;
+  --color-laser-green: 176 255 117;
+  --color-laser-yellow: 255 200 0;
+  --color-laser-orange: 255 154 62;
+  --color-shield-blue: 255 214 117;
+  --color-shield-glow: 255 214 117;
+  --bg-top: 255 196 0;
+  --bg-bottom: 122 84 0;
+}
+
+html[data-theme="bounty-hunter"] {
+  --color-hull-950: 3 14 8;
+  --color-hull-900: 5 21 12;
+  --color-hull-800: 8 33 18;
+  --color-hull-700: 12 47 26;
+  --color-hull-600: 17 66 36;
+  --color-hull-500: 27 96 54;
+  --color-hull-400: 48 137 80;
+  --color-hull-300: 79 182 115;
+  --color-hull-200: 133 220 161;
+  --color-hull-100: 194 241 206;
+  --color-hull-50: 229 251 235;
+  --color-plasma-500: 0 214 110;
+  --color-plasma-400: 58 233 141;
+  --color-plasma-300: 114 244 172;
+  --color-plasma-glow: 0 214 110;
+  --color-laser-red: 255 99 71;
+  --color-laser-green: 0 214 110;
+  --color-laser-yellow: 197 255 70;
+  --color-laser-orange: 255 156 72;
+  --color-shield-blue: 80 216 144;
+  --color-shield-glow: 80 216 144;
+  --bg-top: 0 214 110;
+  --bg-bottom: 12 66 36;
+}
+
+html[data-theme="coruscant-purple"] {
+  --color-hull-950: 9 4 18;
+  --color-hull-900: 14 6 29;
+  --color-hull-800: 23 11 45;
+  --color-hull-700: 35 17 65;
+  --color-hull-600: 51 27 90;
+  --color-hull-500: 77 44 129;
+  --color-hull-400: 111 73 181;
+  --color-hull-300: 149 111 222;
+  --color-hull-200: 190 166 240;
+  --color-hull-100: 223 212 248;
+  --color-hull-50: 243 238 253;
+  --color-plasma-500: 128 79 255;
+  --color-plasma-400: 160 120 255;
+  --color-plasma-300: 194 166 255;
+  --color-plasma-glow: 128 79 255;
+  --color-laser-red: 255 98 160;
+  --color-laser-green: 128 255 188;
+  --color-laser-yellow: 255 210 85;
+  --color-laser-orange: 255 152 111;
+  --color-shield-blue: 168 133 255;
+  --color-shield-glow: 168 133 255;
+  --bg-top: 128 79 255;
+  --bg-bottom: 58 27 120;
+}
+
 @layer base {
   html {
     color-scheme: dark;
@@ -10,8 +167,8 @@
   body {
     @apply bg-hull-900 text-hull-50 font-body antialiased;
     background-image:
-      radial-gradient(circle at top, rgba(0, 212, 255, 0.08), transparent 32%),
-      radial-gradient(circle at bottom right, rgba(255, 170, 0, 0.06), transparent 28%);
+      radial-gradient(circle at top, rgb(var(--bg-top) / 0.08), transparent 32%),
+      radial-gradient(circle at bottom right, rgb(var(--bg-bottom) / 0.08), transparent 28%);
     background-attachment: fixed;
   }
 
@@ -295,5 +452,61 @@
 
   .subtle {
     @apply text-hull-300;
+  }
+}
+
+
+@layer utilities {
+  .section-divider {
+    @apply h-px bg-hull-500/40 my-2;
+  }
+
+  .nav-link {
+    @apply rounded-xl px-3 py-2 text-hull-200 hover:bg-hull-700/80 hover:text-hull-50 transition-colors;
+  }
+
+  .nav-link-active {
+    @apply bg-plasma-500/15 text-plasma-300;
+  }
+
+  .mobile-drawer {
+    @apply fixed inset-0 z-30 bg-hull-950/85 backdrop-blur-sm;
+  }
+}
+
+@media (max-width: 768px) {
+  body {
+    background-image:
+      radial-gradient(circle at top, rgb(var(--bg-top) / 0.12), transparent 34%),
+      radial-gradient(circle at bottom right, rgb(var(--bg-bottom) / 0.10), transparent 30%);
+  }
+
+  .card,
+  .card-strong,
+  .panel,
+  .toolbar,
+  .table-shell {
+    @apply rounded-xl;
+  }
+
+  .card-header,
+  .panel-header {
+    @apply px-3 py-2.5;
+  }
+
+  .toolbar {
+    @apply gap-2 p-3;
+  }
+
+  .table-dark th,
+  .table-dark td {
+    @apply px-2.5 py-2;
+  }
+
+  .btn-primary,
+  .btn-secondary,
+  .btn-danger,
+  .btn-ghost {
+    @apply px-3 py-2 text-xs;
   }
 }

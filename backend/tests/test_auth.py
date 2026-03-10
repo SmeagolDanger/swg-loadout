@@ -213,7 +213,7 @@ class TestAuthMe:
 
 
 class TestForgotPassword:
-    def test_forgot_password_requires_postmark_config(self, client):
+    def test_forgot_password_requires_email_config(self, client):
         res = client.post("/api/auth/forgot-password", json={"email": "nobody@swg.com"})
         assert res.status_code == 503
 
@@ -227,11 +227,12 @@ class TestForgotPassword:
                 "display_name": "Reset Pilot",
             },
         )
-        monkeypatch.setenv("POSTMARK_SERVER_TOKEN", "pm-token")
-        monkeypatch.setenv("POSTMARK_FROM_EMAIL", "noreply@jawatracks.com")
+        monkeypatch.setenv("EMAIL_PROVIDER", "resend")
+        monkeypatch.setenv("RESEND_API_KEY", "re_test_token")
+        monkeypatch.setenv("RESEND_FROM_EMAIL", "noreply@jawatracks.com")
         monkeypatch.setenv("PUBLIC_BASE_URL", "http://frontend.test")
 
-        with patch("routers.auth_router._send_postmark_email") as mocked_send:
+        with patch("routers.auth_router._send_email") as mocked_send:
             res = client.post("/api/auth/forgot-password", json={"email": "reset@swg.com"})
 
         assert res.status_code == 200
@@ -247,8 +248,9 @@ class TestForgotPassword:
                 "display_name": "Reset Pilot 2",
             },
         )
-        monkeypatch.setenv("POSTMARK_SERVER_TOKEN", "pm-token")
-        monkeypatch.setenv("POSTMARK_FROM_EMAIL", "noreply@jawatracks.com")
+        monkeypatch.setenv("EMAIL_PROVIDER", "resend")
+        monkeypatch.setenv("RESEND_API_KEY", "re_test_token")
+        monkeypatch.setenv("RESEND_FROM_EMAIL", "noreply@jawatracks.com")
         monkeypatch.setenv("PUBLIC_BASE_URL", "http://frontend.test")
 
         captured = {}
@@ -256,7 +258,7 @@ class TestForgotPassword:
         def fake_send(to_email, subject, text_body, html_body):
             captured["text_body"] = text_body
 
-        with patch("routers.auth_router._send_postmark_email", side_effect=fake_send):
+        with patch("routers.auth_router._send_email", side_effect=fake_send):
             res = client.post("/api/auth/forgot-password", json={"email": "reset2@swg.com"})
         assert res.status_code == 200
         link_line = [line for line in captured["text_body"].splitlines() if line.startswith("http")][0]

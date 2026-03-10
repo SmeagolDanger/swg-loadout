@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import {
   Box,
   ChevronDown,
@@ -11,9 +12,11 @@ import {
   Flag,
   FlaskConical,
   LogOut,
+  Medal,
   Menu,
   Music4,
   Orbit,
+  Palette,
   Search,
   Shield,
   Sparkles,
@@ -23,7 +26,6 @@ import {
   Users,
   Wrench,
   X,
-  Medal,
 } from 'lucide-react';
 
 const TOOL_NAV_ITEMS = [
@@ -71,9 +73,12 @@ function resolveSection(pathname) {
 
 export default function Navbar() {
   const { user, logout } = useAuth();
+  const { theme, setTheme, themes } = useTheme();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [modeOpen, setModeOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef(null);
 
   const section = useMemo(() => resolveSection(location.pathname), [location.pathname]);
   const currentMode = FEATURE_MODES.find((mode) => mode.key === section) || FEATURE_MODES.find((mode) => mode.key === 'tools') || FEATURE_MODES[0];
@@ -108,20 +113,34 @@ export default function Navbar() {
   useEffect(() => {
     setModeOpen(false);
     setMobileOpen(false);
+    setUserMenuOpen(false);
   }, [location.pathname]);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
+        setUserMenuOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const currentThemeLabel = themes.find((item) => item.key === theme)?.label ?? 'Theme';
 
   return (
     <>
       <nav className="fixed top-0 left-0 right-0 z-40 bg-hull-800/90 backdrop-blur-md border-b border-hull-500/40 overflow-visible">
-        <div className="max-w-[90rem] mx-auto px-4 h-16 flex items-center gap-4 overflow-visible">
+        <div className="max-w-[90rem] mx-auto px-3 sm:px-4 h-14 sm:h-16 flex items-center gap-2 sm:gap-4 overflow-visible">
           <Link to="/" className="flex items-center gap-2 group shrink-0 min-w-fit">
             <div className="w-8 h-8 rounded-lg bg-plasma-500/20 border border-plasma-500/40 flex items-center justify-center group-hover:shadow-glow transition-all">
               <Crosshair size={18} className="text-plasma-400" />
             </div>
-            <span className="font-display font-bold text-lg tracking-wider text-hull-100 hidden sm:block whitespace-nowrap">
+            <span className="font-display font-bold text-base sm:text-lg tracking-wider text-hull-100 hidden sm:block whitespace-nowrap">
               SWG:L <span className="text-plasma-400">TOOLS</span>
             </span>
-            <span className="font-display font-bold text-lg tracking-wider text-plasma-400 sm:hidden whitespace-nowrap">
+            <span className="font-display font-bold text-base tracking-wider text-plasma-400 sm:hidden whitespace-nowrap">
               SWG:L
             </span>
           </Link>
@@ -193,22 +212,64 @@ export default function Navbar() {
 
           <div className="flex items-center gap-1.5 shrink-0 ml-auto">
             {user ? (
-              <div className="hidden lg:flex items-center gap-1.5 shrink-0">
-                <span className="text-xs text-hull-200 font-display whitespace-nowrap max-w-[120px] truncate">
-                  {user.display_name || user.username}
-                </span>
-                {(user.role === 'admin' || user.is_admin) && (
-                  <Link to="/admin" className="btn-ghost p-2 text-laser-red" title="Admin Panel">
-                    <Shield size={15} />
-                  </Link>
-                )}
+              <div className="hidden lg:flex items-center gap-2 shrink-0 relative" ref={userMenuRef}>
                 <button
-                  onClick={logout}
-                  className="btn-ghost p-2 text-hull-300 hover:text-hull-100"
-                  title="Sign Out"
+                  type="button"
+                  onClick={() => setUserMenuOpen((open) => !open)}
+                  className="inline-flex items-center gap-2 rounded-xl border border-hull-400/50 bg-hull-800/80 px-3 py-2 text-sm text-hull-100 hover:border-plasma-400/50 hover:text-plasma-300 transition-colors max-w-[220px]"
                 >
-                  <LogOut size={15} />
+                  <UserCircle size={16} className="text-plasma-400 shrink-0" />
+                  <span className="truncate font-display tracking-wide">{user.display_name || user.username}</span>
+                  <ChevronDown size={15} className={`transition-transform shrink-0 ${userMenuOpen ? 'rotate-180' : ''}`} />
                 </button>
+
+                {userMenuOpen && (
+                  <div className="absolute right-0 top-12 w-80 rounded-2xl border border-hull-400/50 bg-hull-900/95 shadow-2xl p-3 space-y-3">
+                    <div className="rounded-xl border border-hull-400/40 bg-hull-800/80 px-3 py-3">
+                      <div className="text-[11px] uppercase tracking-[0.16em] text-hull-300 font-display">Signed in as</div>
+                      <div className="mt-1 text-sm text-hull-50 font-semibold truncate">{user.display_name || user.username}</div>
+                    </div>
+
+                    <div className="rounded-xl border border-hull-400/40 bg-hull-800/80 px-3 py-3">
+                      <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.16em] text-hull-300 font-display mb-2">
+                        <Palette size={14} className="text-plasma-400" />
+                        Theme
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        {themes.map((option) => (
+                          <button
+                            key={option.key}
+                            type="button"
+                            onClick={() => setTheme(option.key)}
+                            className={`rounded-xl border px-3 py-2 text-left text-sm transition-colors ${
+                              theme === option.key
+                                ? 'border-plasma-400/60 bg-plasma-500/15 text-plasma-300'
+                                : 'border-hull-400/40 bg-hull-700/80 text-hull-100 hover:border-hull-300/60 hover:bg-hull-700'
+                            }`}
+                          >
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="mt-2 text-xs text-hull-300">Current: {currentThemeLabel}</div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {(user.role === 'admin' || user.is_admin) && (
+                        <Link to="/admin" className="btn-ghost flex-1 text-laser-red">
+                          <Shield size={15} /> Admin
+                        </Link>
+                      )}
+                      <button
+                        onClick={logout}
+                        className="btn-ghost flex-1 text-hull-300 hover:text-hull-100"
+                        title="Sign Out"
+                      >
+                        <LogOut size={15} /> Sign Out
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <Link to="/auth" className="hidden lg:block btn-primary text-xs">
@@ -228,17 +289,20 @@ export default function Navbar() {
 
       {mobileOpen && (
         <div className="mobile-drawer lg:hidden" onClick={() => setMobileOpen(false)}>
-          <div className="pt-20 px-6 space-y-2" onClick={(e) => e.stopPropagation()}>
+          <div className="pt-16 px-3 pb-4 space-y-2 max-h-[100dvh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             {FEATURE_MODES.map((mode) => (
               <Link
                 key={mode.key}
                 to={mode.to}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-lg font-display tracking-wide transition-all ${
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-base font-display tracking-wide transition-all ${
                   section === mode.key ? 'bg-hull-700 text-plasma-400 shadow-glow' : 'text-hull-200 hover:bg-hull-700'
                 }`}
               >
-                <mode.icon size={20} />
-                {mode.label}
+                <mode.icon size={18} />
+                <div className="min-w-0">
+                  <div>{mode.label}</div>
+                  <div className="text-xs text-hull-300 truncate">{mode.sublabel}</div>
+                </div>
               </Link>
             ))}
 
@@ -248,51 +312,77 @@ export default function Navbar() {
               <Link
                 key={item.to}
                 to={item.to}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-lg font-display tracking-wide transition-all ${
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-base font-display tracking-wide transition-all ${
                   isActive(location.pathname, item.to)
                     ? 'bg-hull-700 text-plasma-400 shadow-glow'
                     : 'text-hull-200 hover:bg-hull-700'
                 }`}
               >
-                <item.icon size={20} />
+                <item.icon size={18} />
                 {item.label}
               </Link>
             ))}
 
             {!visibleItems.length && sectionLabel && section !== 'home' && (
-              <div className="px-4 py-2 text-hull-200 font-display">{sectionLabel}</div>
+              <div className="px-3 py-2 text-sm text-hull-200 font-display">{sectionLabel}</div>
             )}
+
+            <div className="section-divider" />
+
+            <div className="rounded-xl border border-hull-400/40 bg-hull-800/80 px-3 py-3 space-y-3">
+              <div className="flex items-center gap-2 text-sm font-display text-hull-100">
+                <Palette size={16} className="text-plasma-400 shrink-0" />
+                <span>Theme</span>
+                <span className="ml-auto text-xs text-hull-300">{currentThemeLabel}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {themes.map((option) => (
+                  <button
+                    key={option.key}
+                    type="button"
+                    onClick={() => setTheme(option.key)}
+                    className={`rounded-xl border px-3 py-2 text-left text-sm transition-colors ${
+                      theme === option.key
+                        ? 'border-plasma-400/60 bg-plasma-500/15 text-plasma-300'
+                        : 'border-hull-400/40 bg-hull-700/80 text-hull-100 hover:border-hull-300/60 hover:bg-hull-700'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
 
             <div className="section-divider" />
 
             {user ? (
               <>
-                <div className="px-4 py-2 text-hull-200 font-display">
-                  Signed in as <span className="text-hull-100">{user.display_name || user.username}</span>
+                <div className="px-3 py-2 text-sm text-hull-200 font-display">
+                  Signed in as <span className="text-hull-100 font-semibold">{user.display_name || user.username}</span>
                 </div>
 
                 {(user.role === 'admin' || user.is_admin) && (
                   <Link
                     to="/admin"
-                    className="flex items-center gap-3 px-4 py-3 rounded-xl text-lg font-display text-laser-red hover:bg-hull-700"
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-base font-display text-laser-red hover:bg-hull-700"
                   >
-                    <Shield size={20} /> Admin Panel
+                    <Shield size={18} /> Admin Panel
                   </Link>
                 )}
 
                 <button
                   onClick={logout}
-                  className="flex items-center gap-3 px-4 py-3 rounded-xl text-lg font-display text-laser-red hover:bg-hull-700 w-full"
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-base font-display text-laser-red hover:bg-hull-700 w-full"
                 >
-                  <LogOut size={20} /> Sign Out
+                  <LogOut size={18} /> Sign Out
                 </button>
               </>
             ) : (
               <Link
                 to="/auth"
-                className="flex items-center gap-3 px-4 py-3 rounded-xl text-lg font-display text-plasma-400 hover:bg-hull-700"
+                className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-base font-display text-plasma-400 hover:bg-hull-700"
               >
-                <User size={20} /> Sign In / Register
+                <User size={18} /> Sign In / Register
               </Link>
             )}
           </div>
