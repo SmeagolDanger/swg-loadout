@@ -745,7 +745,9 @@ def analyze_component(
                 idx = clean_stats.index(stats_temp[i])
                 if stats_temp[i] in ["Vs. Shields", "Vs. Armor", "Refire Rate"]:
                     input_stat = raw_stats[idx]
-                    next_best_rarity = get_next_best_vs_refire(input_stat, stats_temp[i], means[idx], stdevs[idx], weights, re_mult)
+                    next_best_rarity = get_next_best_vs_refire(
+                        input_stat, stats_temp[i], means[idx], stdevs[idx], weights, re_mult
+                    )
                     if average2 <= next_best_rarity:
                         exclude5.append(next_best_rarity)
                     elif average2 >= exclude3[i]:
@@ -811,13 +813,13 @@ def analyze_component(
             matches_raw.append(worst_case_raw)
             post_re.append(f"{optimal:.3f}")
         elif stat_name == "Recharge" and comp_type == "Shield":
-            matches.append(f"{float(round(value,2)):.2f}")
+            matches.append(f"{float(round(value, 2)):.2f}")
             matches_raw.append(value)
-            post_re.append(f"{float(round((1 + re_mult * _tf(tails[i])) * value,2)):.2f}")
+            post_re.append(f"{float(round((1 + re_mult * _tf(tails[i])) * value, 2)):.2f}")
         else:
-            matches.append(f"{float(round(value,1)):.1f}")
+            matches.append(f"{float(round(value, 1)):.1f}")
             matches_raw.append(value)
-            post_re.append(f"{float(round((1 + re_mult * _tf(tails[i])) * value,1)):.1f}")
+            post_re.append(f"{float(round((1 + re_mult * _tf(tails[i])) * value, 1)):.1f}")
 
     # Native rarity floor / clamp logic from desktop tool.
     stat_scaling = len(clean_stats) / 9
@@ -831,58 +833,59 @@ def analyze_component(
     else:
         match_rarity = rarity
 
-    log_deltas = []
+
+log_deltas = []
 matching_deltas = []
 
-	for i in range(len(rarity_list)):
-	    if rarity_list[i] not in [0, ""] and rarity_1inx[i] != "Reward" and clean_stats[i] in next_best_stats:
-		range_low = rarity_list[i]
-		range_high = next_bests[next_best_stats.index(clean_stats[i])]
-		if range_low > rarity and range_high < rarity:
-		    log_deltas.append(0)
-		elif range_low < rarity:
-		    log_deltas.append(round(math.log10(rarity) - math.log10(range_low), 2))
-		elif range_high > rarity:
-		    log_deltas.append(round(math.log10(rarity) - math.log10(range_high), 2))
-		else:
-		    log_deltas.append(0)
-	    elif rarity_list[i] not in [0, ""] and rarity_1inx[i] != "Reward":
-		log_deltas.append(round(math.log10(rarity) - math.log10(rarity_list[i]), 2))
-	    elif rarity_1inx[i] == "Reward":
-		if rarity < cutoff_rarities_high[i]:
-		    log_deltas.append(round(math.log10(rarity) - math.log10(cutoff_rarities_high[i]), 2))
-		else:
-		    log_deltas.append(0)
-	    else:
-		log_deltas.append("")
+for i in range(len(rarity_list)):
+    if rarity_list[i] not in [0, ""] and rarity_1inx[i] != "Reward" and clean_stats[i] in next_best_stats:
+        range_low = rarity_list[i]
+        range_high = next_bests[next_best_stats.index(clean_stats[i])]
+        if range_low > rarity and range_high < rarity:
+            log_deltas.append(0)
+        elif range_low < rarity:
+            log_deltas.append(round(math.log10(rarity) - math.log10(range_low), 2))
+        elif range_high > rarity:
+            log_deltas.append(round(math.log10(rarity) - math.log10(range_high), 2))
+        else:
+            log_deltas.append(0)
+    elif rarity_list[i] not in [0, ""] and rarity_1inx[i] != "Reward":
+        log_deltas.append(round(math.log10(rarity) - math.log10(rarity_list[i]), 2))
+    elif rarity_1inx[i] == "Reward":
+        if rarity < cutoff_rarities_high[i]:
+            log_deltas.append(round(math.log10(rarity) - math.log10(cutoff_rarities_high[i]), 2))
+        else:
+            log_deltas.append(0)
+    else:
+        log_deltas.append("")
 
-	    if rarity_list[i] not in [0, ""] and rarity_1inx[i] != "Reward" and clean_stats[i] in next_best_stats:
-		range_low = rarity_list[i]
-		range_high = next_bests[next_best_stats.index(clean_stats[i])]
-		if range_low < stat_clamp:
-		    range_low = stat_clamp
-		if range_high < stat_clamp:
-		    range_high = stat_clamp
-		if range_low > match_rarity and range_high < match_rarity:
-		    matching_deltas.append(0)
-		elif range_low < match_rarity:
-		    matching_deltas.append(round(math.log10(match_rarity) - math.log10(range_low), 2))
-		elif range_high > match_rarity:
-		    matching_deltas.append(round(math.log10(match_rarity) - math.log10(range_high), 2))
-		else:
-		    matching_deltas.append(0)
-	    elif rarity_list[i] not in [0, ""] and rarity_1inx[i] != "Reward":
-		if rarity_list[i] < stat_clamp:
-		    matching_deltas.append(round(math.log10(match_rarity) - math.log10(stat_clamp), 2))
-		else:
-		    matching_deltas.append(round(math.log10(match_rarity) - math.log10(rarity_list[i]), 2))
-	    elif rarity_1inx[i] == "Reward":
-		if rarity < cutoff_rarities_high[i]:
-		    matching_deltas.append(round(math.log10(match_rarity) - math.log10(cutoff_rarities_high[i]), 2))
-		else:
-		    matching_deltas.append(0)
-	    else:
-		matching_deltas.append("")
+    if rarity_list[i] not in [0, ""] and rarity_1inx[i] != "Reward" and clean_stats[i] in next_best_stats:
+        range_low = rarity_list[i]
+        range_high = next_bests[next_best_stats.index(clean_stats[i])]
+        if range_low < stat_clamp:
+            range_low = stat_clamp
+        if range_high < stat_clamp:
+            range_high = stat_clamp
+        if range_low > match_rarity and range_high < match_rarity:
+            matching_deltas.append(0)
+        elif range_low < match_rarity:
+            matching_deltas.append(round(math.log10(match_rarity) - math.log10(range_low), 2))
+        elif range_high > match_rarity:
+            matching_deltas.append(round(math.log10(match_rarity) - math.log10(range_high), 2))
+        else:
+            matching_deltas.append(0)
+    elif rarity_list[i] not in [0, ""] and rarity_1inx[i] != "Reward":
+        if rarity_list[i] < stat_clamp:
+            matching_deltas.append(round(math.log10(match_rarity) - math.log10(stat_clamp), 2))
+        else:
+            matching_deltas.append(round(math.log10(match_rarity) - math.log10(rarity_list[i]), 2))
+    elif rarity_1inx[i] == "Reward":
+        if rarity < cutoff_rarities_high[i]:
+            matching_deltas.append(round(math.log10(match_rarity) - math.log10(cutoff_rarities_high[i]), 2))
+        else:
+            matching_deltas.append(0)
+    else:
+        matching_deltas.append("")
 
     return _build_result(
         comp_stats,
