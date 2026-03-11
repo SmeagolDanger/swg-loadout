@@ -862,4 +862,3 @@ def brand_rarity_table(comp_type: str, level: int, raw_stats: list, rarity_list:
         table.append({"stat": comp_stats[i], "brands": brands})
 
     return {"brand_names": brand_names, "table": table}
-
