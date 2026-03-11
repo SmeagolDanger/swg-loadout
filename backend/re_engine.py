@@ -1,10 +1,3 @@
-"""Reverse Engineering calculator engine.
-
-Ported from Seraph's Loadout Tool reCalcUtility.py.
-Implements the Gaussian mixture model rarity calculations,
-unicorn detection, stat matching, and RE outcome analysis.
-"""
-
 from __future__ import annotations
 
 import math
