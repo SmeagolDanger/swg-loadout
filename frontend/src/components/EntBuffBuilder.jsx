@@ -157,7 +157,7 @@ export default function EntBuffBuilder() {
   }
 
   return (
-    <div className="max-w-[95rem] mx-auto px-4 py-6 space-y-4 animate-slide-up">
+    <div className="max-w-[95rem] mx-auto px-3 sm:px-4 py-5 md:py-6 space-y-4 animate-slide-up">
       <div className="card p-4 lg:p-5">
         <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
           <div className="min-w-0">
@@ -180,15 +180,15 @@ export default function EntBuffBuilder() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 xl:min-w-[34rem]">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 xl:min-w-[34rem] w-full xl:w-auto">
             <SummaryPill label="Assigned" value={pointsAssigned} tone="good" />
             <SummaryPill label="Remaining" value={pointsRemaining} tone={pointsRemaining === 0 ? 'warn' : 'neutral'} />
             <SummaryPill label="Selected" value={selectedBuffTexts.length} />
-            <div className="flex items-center justify-end gap-2">
-              <button type="button" className="btn-secondary text-xs px-3 py-2" onClick={handleCopyRequest} disabled={!requestText}>
+            <div className="col-span-2 lg:col-span-1 flex flex-wrap items-center justify-stretch sm:justify-end gap-2">
+              <button type="button" className="btn-secondary text-xs px-3 py-2 flex-1 sm:flex-none" onClick={handleCopyRequest} disabled={!requestText}>
                 <Copy size={15} /> Request
               </button>
-              <button type="button" className="btn-ghost text-xs px-3 py-2" onClick={handleCopyShareLink}>
+              <button type="button" className="btn-ghost text-xs px-3 py-2 flex-1 sm:flex-none" onClick={handleCopyShareLink}>
                 <Link2 size={15} /> Share
               </button>
             </div>
@@ -203,10 +203,10 @@ export default function EntBuffBuilder() {
       </div>
 
       <div className="grid xl:grid-cols-[minmax(0,1fr)_24rem] gap-4 items-start">
-        <section className="space-y-4 min-w-0">
-          <div className="grid 2xl:grid-cols-3 xl:grid-cols-2 gap-3">
+        <section className="space-y-4 min-w-0 order-2 xl:order-1">
+          <div className="grid md:grid-cols-2 2xl:grid-cols-3 gap-3">
             {categories.map((category) => (
-              <div key={category.name} className="card p-3">
+              <div key={category.name} className="card p-3 md:p-4">
                 <div className="flex items-center justify-between gap-3 mb-3">
                   <h2 className="font-display font-semibold tracking-[0.16em] uppercase text-xs text-plasma-400">
                     {category.name}
@@ -227,7 +227,7 @@ export default function EntBuffBuilder() {
                             : 'border-hull-400/40 bg-hull-800/60'
                         }`}
                       >
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-2">
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2 min-w-0">
                               <span className="truncate text-sm font-medium text-hull-50">{buff.name}</span>
@@ -247,10 +247,10 @@ export default function EntBuffBuilder() {
                             {buff.assignments}/{buff.maxAssignments}
                           </span>
 
-                          <div className="flex items-center gap-1 shrink-0">
+                          <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto">
                             <button
                               type="button"
-                              className="btn-ghost h-8 w-8 p-0 justify-center"
+                              className="btn-ghost h-9 w-9 md:h-8 md:w-8 p-0 justify-center"
                               onClick={() => changeBuff(buff.name, -1)}
                               disabled={buff.assignments <= 0}
                               aria-label={`Decrease ${buff.name}`}
@@ -259,7 +259,7 @@ export default function EntBuffBuilder() {
                             </button>
                             <button
                               type="button"
-                              className="btn-secondary h-8 w-8 p-0 justify-center"
+                              className="btn-secondary h-9 w-9 md:h-8 md:w-8 p-0 justify-center"
                               onClick={() => changeBuff(buff.name, 1)}
                               disabled={!increaseAllowed}
                               aria-label={`Increase ${buff.name}`}
@@ -277,13 +277,13 @@ export default function EntBuffBuilder() {
           </div>
         </section>
 
-        <aside className="space-y-3 xl:sticky xl:top-20">
+        <aside className="space-y-3 order-1 xl:order-2 xl:sticky xl:top-20">
           <div className="card p-4 space-y-3">
             <div className="flex items-center justify-between gap-3">
               <h2 className="font-display font-semibold tracking-[0.16em] uppercase text-xs text-plasma-400">
                 Request Message
               </h2>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <button type="button" className="btn-ghost text-xs px-2.5 py-1.5" onClick={handleApplyTemplate}>
                   <Save size={14} /> Save
                 </button>
@@ -319,7 +319,7 @@ export default function EntBuffBuilder() {
             </div>
 
             {selectedBuffTexts.length ? (
-              <div className="grid sm:grid-cols-2 xl:grid-cols-1 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-2">
                 {selectedBuffTexts.map((buffText) => (
                   <div key={buffText} className="rounded-lg border border-hull-400/40 bg-hull-800/60 px-3 py-2 text-xs text-hull-100">
                     {buffText}

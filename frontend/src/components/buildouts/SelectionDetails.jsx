@@ -16,7 +16,7 @@ export default function SelectionDetails({ activeSpawn, selectedSpawns, setToast
     <div className="space-y-4">
       <div>
         <h3 className="text-xl font-display text-hull-50 mb-1">{activeSpawn.name || `Spawner ${activeSpawn.id}`}</h3>
-        <div className="flex flex-wrap gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <span className="badge badge-neutral">{activeSpawn.spawner_type}</span>
           <span className="badge badge-neutral">{activeSpawn.spawn_count} spawn</span>
           <span className="badge badge-neutral">{activeSpawn.respawn}</span>
@@ -24,21 +24,21 @@ export default function SelectionDetails({ activeSpawn, selectedSpawns, setToast
       </div>
 
       <div className="rounded-xl border border-hull-400/50 bg-hull-700/50 p-4 space-y-3 text-sm">
-        <div className="stat-row px-0 py-0">
+        <div className="stat-row flex-col items-start gap-1 px-0 py-1.5 sm:flex-row sm:items-center">
           <span className="stat-label">Coordinates</span>
           <span className="stat-value">
             {formatCoord(activeSpawn.coordinates[0])}, {formatCoord(activeSpawn.coordinates[1])}, {formatCoord(activeSpawn.coordinates[2])}
           </span>
         </div>
-        <div className="stat-row px-0 py-0">
+        <div className="stat-row flex-col items-start gap-1 px-0 py-1.5 sm:flex-row sm:items-center">
           <span className="stat-label">Behavior</span>
           <span className="stat-value">{activeSpawn.behavior || 'N/A'}</span>
         </div>
-        <div className="stat-row px-0 py-0">
+        <div className="stat-row flex-col items-start gap-1 px-0 py-1.5 sm:flex-row sm:items-center">
           <span className="stat-label">Spawn Shell</span>
           <span className="stat-value">{activeSpawn.spawn_shell[0]}m - {activeSpawn.spawn_shell[1]}m</span>
         </div>
-        <div className="stat-row px-0 py-0">
+        <div className="stat-row flex-col items-start gap-1 px-0 py-1.5 sm:flex-row sm:items-center">
           <span className="stat-label">Circle Shell</span>
           <span className="stat-value">{activeSpawn.circle_shell[0]}m - {activeSpawn.circle_shell[1]}m</span>
         </div>
@@ -86,12 +86,12 @@ export default function SelectionDetails({ activeSpawn, selectedSpawns, setToast
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        <button className="btn-primary" onClick={() => copyText(activeSpawn.waypoint, 'Waypoint', setToast)}>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <button className="btn-primary w-full justify-center" onClick={() => copyText(activeSpawn.waypoint, 'Waypoint', setToast)}>
           <Copy size={16} /> Copy Waypoint
         </button>
         <button
-          className="btn-secondary"
+          className="btn-secondary w-full justify-center"
           onClick={() => copyText(selectedSpawns.map((spawn) => spawn.waypoint).join('\n'), 'Selected waypoints', setToast)}
           disabled={!selectedSpawns.length}
         >

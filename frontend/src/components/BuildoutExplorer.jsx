@@ -150,7 +150,7 @@ export default function BuildoutExplorer() {
   }
 
   return (
-    <div className="max-w-[95rem] mx-auto px-4 py-8 space-y-6 animate-slide-up">
+    <div className="max-w-[95rem] mx-auto px-3 sm:px-4 py-5 md:py-8 space-y-4 md:space-y-6 animate-slide-up">
       <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
         <div>
           <div className="inline-flex items-center gap-2 rounded-full border border-hull-500/50 bg-hull-800/70 px-4 py-2 text-xs font-display tracking-[0.25em] text-hull-200 uppercase mb-4">
@@ -165,16 +165,16 @@ export default function BuildoutExplorer() {
           </p>
         </div>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-col sm:flex-row flex-wrap gap-2 w-full lg:w-auto">
           <button
-            className="btn-secondary"
+            className="btn-secondary w-full sm:w-auto justify-center"
             onClick={() => data && copyText(data.waypoints_all, 'All waypoints', setToast)}
             disabled={!data}
           >
             <Copy size={16} /> Copy All Waypoints
           </button>
           <button
-            className="btn-secondary"
+            className="btn-secondary w-full sm:w-auto justify-center"
             onClick={() => data?.best_static_path && copyText(data.best_static_path.waypoints, 'Static path', setToast)}
             disabled={!data?.best_static_path}
           >
@@ -196,8 +196,8 @@ export default function BuildoutExplorer() {
         </div>
       )}
 
-      <div className="grid xl:grid-cols-[320px_minmax(0,1fr)_370px] gap-6 items-start">
-        <aside className="space-y-4">
+      <div className="grid xl:grid-cols-[320px_minmax(0,1fr)_370px] gap-4 md:gap-6 items-start">
+        <aside className="space-y-4 order-2 xl:order-1">
           <div className="card p-4 space-y-4">
             <div>
               <h2 className="font-display font-semibold tracking-[0.16em] uppercase text-sm text-plasma-400 mb-2">
@@ -240,7 +240,7 @@ export default function BuildoutExplorer() {
             <h2 className="font-display font-semibold tracking-[0.16em] uppercase text-sm text-plasma-400 mb-3">
               Map Layers
             </h2>
-            <div className="space-y-2 text-sm text-hull-100">
+            <div className="grid sm:grid-cols-2 xl:grid-cols-1 gap-2 text-sm text-hull-100">
               {LAYER_OPTIONS.map(([key, label]) => (
                 <label
                   key={key}
@@ -279,7 +279,7 @@ export default function BuildoutExplorer() {
               <span className="badge badge-neutral">{filteredSpawns.length}</span>
             </div>
 
-            <div className="max-h-[34rem] overflow-auto space-y-2 pr-1">
+            <div className="max-h-[26rem] md:max-h-[34rem] overflow-auto space-y-2 pr-1">
               {loading ? (
                 <div className="rounded-xl border border-hull-400/50 bg-hull-700/50 px-4 py-10 text-center text-hull-200">
                   <RefreshCcw size={18} className="mx-auto mb-3 animate-spin text-plasma-400" />
@@ -312,7 +312,7 @@ export default function BuildoutExplorer() {
                         <span className="badge badge-neutral shrink-0">{spawn.spawn_count ?? 0}</span>
                       </div>
 
-                      <div className="mt-2 text-xs text-hull-300 truncate">
+                      <div className="mt-2 text-xs text-hull-300 leading-relaxed break-words">
                         X {Number(spawn.coordinates?.[0] || 0).toFixed(0)} · Y {Number(spawn.coordinates?.[1] || 0).toFixed(0)} · Z {Number(spawn.coordinates?.[2] || 0).toFixed(0)}
                       </div>
                     </button>
@@ -323,7 +323,7 @@ export default function BuildoutExplorer() {
           </div>
         </aside>
 
-        <section className="space-y-4">
+        <section className="space-y-4 order-1 xl:order-2 min-w-0">
           <BuildoutMap3D
             data={data}
             visible={visible}
@@ -370,7 +370,7 @@ export default function BuildoutExplorer() {
           </div>
         </section>
 
-        <aside className="space-y-4">
+        <aside className="space-y-4 order-3">
           <SelectionDetails activeSpawn={activeSpawn} selectedSpawns={selectedSpawns} setToast={setToast} />
 
           <div className="card p-4 space-y-3 text-sm text-hull-200">

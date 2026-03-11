@@ -89,9 +89,11 @@ export default function BuildoutMap3D({
     const observer = new ResizeObserver((entries) => {
       const entry = entries[0];
       if (!entry) return;
+      const width = entry.contentRect.width;
+      const minFrame = width < 640 ? 300 : 420;
       setFrameSize({
-        width: Math.max(420, entry.contentRect.width),
-        height: Math.max(420, entry.contentRect.height),
+        width: Math.max(minFrame, width),
+        height: Math.max(minFrame, entry.contentRect.height),
       });
     });
 
