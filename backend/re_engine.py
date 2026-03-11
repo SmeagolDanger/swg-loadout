@@ -463,20 +463,25 @@ def analyze_component(
 ) -> dict[str, Any]:
     """Full RE analysis for a component.
 
-    This version follows Seraph's original reCalcUtility flow closely for:
-    - per-stat rarity
-    - reward cutoff handling
-    - average rarity target selection
-    - next-best band handling for Vs/Refire
-    - log delta computation
+    Args:
+        comp_type: e.g. 'Armor', 'Weapon'
+        level: RE level 1-10
+        raw_stats: list of up to 9 stat values (empty string for blanks)
+        matching_target: 'Average Rarity', 'Best Stat', 'Worst Stat', or a stat name
+        direction: 1 for raw input, -1 for post-RE input
+
+    Returns:
+        Dict with rarities, matches, post-RE values, log deltas, unicorns, etc.
     """
     re_level = comp_type[0] + str(level % 10)
     re_mult = RE_MULTS[level - 1]
 
+    # Get component stat metadata
     info = get_comp_info(comp_type)
     disp_names = list(info["display_names"])
     tails_raw = list(info["re_tails"])
 
+    # Add A/HP if not armor
     if "A/HP:" not in disp_names:
         disp_names.insert(0, "A/HP:")
         tails_raw.insert(0, "1")
@@ -486,14 +491,16 @@ def analyze_component(
 
     comp_stats = [s for s in disp_names if s]
     tails = [_tf(t) for t in tails_raw if t != ""]
-    clean_stats = [s.rstrip(":") for s in comp_stats]
 
+    # Pad input stats
     while len(raw_stats) < len(comp_stats):
         raw_stats.append("")
 
+    # Pull brand data
     means, mods, stdevs, weights = pull_stats_data(re_level)
-    _brand_names = get_brand_names(re_level)
+    get_brand_names(re_level)
 
+    # Compute weighted stat means
     stat_means = []
     for i in range(len(comp_stats)):
         if i < len(means):
@@ -502,7 +509,8 @@ def analyze_component(
         else:
             stat_means.append(0)
 
-    outputs: list[str] = []
+    # Compute post-RE or reverse outputs
+    outputs = []
     for i in range(len(comp_stats)):
         input_val = _tf(raw_stats[i]) if raw_stats[i] != "" else 0
         if input_val == 0 or raw_stats[i] == "" or i >= len(tails):
@@ -511,10 +519,12 @@ def analyze_component(
 
         tail = tails[i]
         multiplier = float(tail) * re_mult + 1
+
         stat_name = comp_stats[i]
+        d = direction
 
         if stat_name in ["Vs. Shields:", "Vs. Armor:"]:
-            if direction != 1:
+            if d != 1:
                 iv = round(input_val, 2) - 0.005
                 outputs.append(
                     f"{min(round(iv / multiplier, 3) + 0.001, round(iv / multiplier + 0.005, 2) - 0.004):.3f}"
@@ -524,7 +534,7 @@ def analyze_component(
                     f"{max(round(round(input_val, 2) * multiplier, 2), round(input_val * multiplier, 2)):.3f}"
                 )
         elif stat_name == "Refire Rate:":
-            if direction != 1:
+            if d != 1:
                 iv = round(input_val, 2) + 0.00499999
                 outputs.append(
                     f"{max(round(iv / multiplier, 3) - 0.001, round(iv / multiplier - 0.00499999, 2) + 0.004):.3f}"
@@ -534,25 +544,26 @@ def analyze_component(
                     f"{min(round(round(input_val, 2) * multiplier, 2), round(input_val * multiplier, 2)):.3f}"
                 )
         elif stat_name == "Recharge:" and comp_type == "Shield":
-            if direction != 1:
+            if d != 1:
                 outputs.append(f"{round(input_val / multiplier, 2):.2f}")
             else:
                 outputs.append(f"{round(input_val * multiplier, 2):.2f}")
         else:
-            if direction != 1:
+            if d != 1:
                 outputs.append(f"{round(input_val / multiplier, 1):.1f}")
             else:
                 outputs.append(f"{round(input_val * multiplier, 1):.1f}")
 
-    effective_stats: list[float | str] = []
-    rewards: list[bool] = []
-    cutoffs_high: list[float] = []
-    cutoffs_low: list[float] = []
+    # Determine effective raw stats for rarity calculation
+    effective_stats = []
+    rewards = []
+    cutoffs_high = []
+    cutoffs_low = []
 
     for i in range(len(comp_stats)):
         val = raw_stats[i]
         if direction != 1 and i < len(outputs) and outputs[i]:
-            val = outputs[i]
+            val = outputs[i]  # Use the converted raw value for rarity
 
         reward, low_high = is_reward(val, comp_type, level, comp_stats[i])
         rewards.append(reward)
@@ -568,8 +579,9 @@ def analyze_component(
         else:
             effective_stats.append("")
 
-    rarity_list: list[float | str] = []
-    rarity_1inx: list[str] = []
+    # Calculate per-stat rarities
+    rarity_list = []
+    rarity_1inx = []
 
     for i in range(len(comp_stats)):
         if i >= len(means) or effective_stats[i] == "":
@@ -592,10 +604,9 @@ def analyze_component(
             rarity_list.append(rarity)
             rarity_1inx.append(format_rarity(int(1 / rarity)) if rarity > 0 else "Improbable")
 
-    unicorns, unicorn_threshold = detect_unicorns(rarity_list, comp_type, level, raw_stats, effective_stats)
-
-    cutoff_rarities_high: list[float] = []
-    cutoff_rarities_low: list[float] = []
+    # Desktop app also computes reward cutoff rarities for average matching and log deltas.
+    cutoff_rarities_high = []
+    cutoff_rarities_low = []
     for i in range(len(cutoffs_high)):
         cutoff_rarity_high = get_rarity(cutoffs_high[i], means[i], stdevs[i], weights)
         cutoff_rarity_low = get_rarity(cutoffs_low[i], means[i], stdevs[i], weights)
@@ -606,21 +617,21 @@ def analyze_component(
             cutoff_rarities_high.append(_tf(cutoff_rarity_high))
             cutoff_rarities_low.append(_tf(cutoff_rarity_low))
 
-    blank_stats = 0
-    reward_stats = 0
-    for i in range(len(rarity_list)):
-        if rarity_list[i] == "":
-            blank_stats += 1
-        elif rewards[i]:
-            reward_stats += 1
+    # Detect unicorns
+    unicorns, unicorn_threshold = detect_unicorns(rarity_list, comp_type, level, raw_stats, effective_stats)
 
+    # Mark rewards and unicorns in display
     for i in range(len(rarity_1inx)):
         if rewards[i]:
             rarity_1inx[i] = "Reward"
         elif i < len(comp_stats) and comp_stats[i].rstrip(":") in unicorns and unicorns[i]:
             rarity_1inx[i] = f"⋆{rarity_1inx[i]}⋆"
 
+    # ── Matching ────────────────────────────────────────────
+
+    # Determine target rarity / matching mode using the original desktop flow.
     target = matching_target
+    clean_stats = [s.rstrip(":") for s in comp_stats]
     display_targets = list(info.get("clean_display", []))
     if "A/HP" not in clean_stats:
         display_targets.insert(0, "Armor/Hitpoints")
@@ -632,44 +643,24 @@ def analyze_component(
     elif "Shield Hitpoints" in str(target):
         target = str(target).replace("Shield Hitpoints", "HP")
 
-    empty_matches = [""] * len(comp_stats)
-
+    # All inputs reward or targeting a reward stat returns empty matching output.
+    blank_stats = sum(1 for r in rarity_list if r == "")
+    reward_stats = sum(1 for r in rewards if r)
     if blank_stats + reward_stats == len(comp_stats):
         return _build_result(
-            comp_stats,
-            tails,
-            raw_stats,
-            outputs,
-            rarity_list,
-            rarity_1inx,
-            unicorns,
-            unicorn_threshold,
-            empty_matches,
-            empty_matches,
-            0,
-            empty_matches,
-            [0] * len(comp_stats),
+            comp_stats, tails, raw_stats, outputs, rarity_list, rarity_1inx, unicorns, unicorn_threshold, [], [], 0
         )
-    if target not in ["Average Rarity", "Best Stat", "Worst Stat"] and target in clean_stats:
-        if rewards[clean_stats.index(target)]:
-            return _build_result(
-                comp_stats,
-                tails,
-                raw_stats,
-                outputs,
-                rarity_list,
-                rarity_1inx,
-                unicorns,
-                unicorn_threshold,
-                empty_matches,
-                empty_matches,
-                0,
-                empty_matches,
-                [0] * len(comp_stats),
-            )
+    if (
+        target not in ["Average Rarity", "Best Stat", "Worst Stat"]
+        and target in clean_stats
+        and rewards[clean_stats.index(target)]
+    ):
+        return _build_result(
+            comp_stats, tails, raw_stats, outputs, rarity_list, rarity_1inx, unicorns, unicorn_threshold, [], [], 0
+        )
 
-    next_best_stats: list[str] = []
-    next_bests: list[float] = []
+    next_best_stats = []
+    next_bests = []
     for i, stat_name in enumerate(clean_stats):
         if stat_name in ["Vs. Shields", "Vs. Armor", "Refire Rate"]:
             next_best_rarity = get_next_best_vs_refire(raw_stats[i], stat_name, means[i], stdevs[i], weights, re_mult)
@@ -677,45 +668,46 @@ def analyze_component(
             next_bests.append(next_best_rarity)
 
     rarity = 0
+
     if target in clean_stats:
-        rarity = rarity_list[clean_stats.index(target)]
+        idx = clean_stats.index(target)
+        rarity = rarity_list[idx]
         if rarity == "":
             target = "Average Rarity"
 
     if target == "Best Stat":
-        rarity_temp = [x for idx, x in enumerate(rarity_list) if rewards[idx] is False and x != ""]
+        rarity_temp = [x for idx, x in enumerate(rarity_list) if not rewards[idx] and x != ""]
         if rarity_temp == []:
             target = "Average Rarity"
         else:
             rarity = min(rarity_temp)
 
     if target == "Worst Stat":
-        rarity_temp = [x for idx, x in enumerate(rarity_list) if rewards[idx] is False and x != ""]
+        rarity_temp = [x for idx, x in enumerate(rarity_list) if not rewards[idx] and x != ""]
         if rarity_temp == []:
             target = "Average Rarity"
         else:
             rarity = max(rarity_temp)
 
     if target == "Average Rarity":
-        exclude0: list[float] = []
-        remaining_stats: list[str] = []
-        reward_cutoff: list[float] = []
+        exclude0 = []
+        remaining_stats = []
+        reward_cutoff = []
+
+        # 0. Remove blank stats
         for i in range(len(rarity_list)):
             if rarity_list[i] != "":
                 exclude0.append(rarity_list[i])
                 remaining_stats.append(clean_stats[i])
                 reward_cutoff.append(cutoff_rarities_high[i])
 
+        # 1. Remove A/HP if not armor, unless it's the only stat
         if comp_type != "Armor":
-            if "A/HP" in remaining_stats:
-                if len(remaining_stats) > 1:
-                    exclude1 = exclude0[1:]
-                    remaining_stats = remaining_stats[1:]
-                    reward_cutoff = reward_cutoff[1:]
-                    rewards_check = rewards[1:]
-                else:
-                    exclude1 = exclude0
-                    rewards_check = rewards
+            if "A/HP" in remaining_stats and len(remaining_stats) > 1:
+                exclude1 = exclude0[1:]
+                remaining_stats = remaining_stats[1:]
+                reward_cutoff = reward_cutoff[1:]
+                rewards_check = rewards[1:]
             else:
                 exclude1 = exclude0
                 rewards_check = rewards
@@ -723,18 +715,21 @@ def analyze_component(
             exclude1 = exclude0
             rewards_check = rewards
 
-        exclude2: list[float] = []
+        # 2. Remove suspected rewards
+        exclude2 = []
         for i in range(len(exclude1)):
             if not rewards_check[i]:
                 exclude2.append(exclude1[i])
 
         average1 = log_mean(exclude2)
 
-        exclude3: list[float] = []
+        # 4. If average is below reward cutoff rarity, exclude rewards using cutoffs
+        exclude3 = []
         stats_temp = remaining_stats
         remaining_stats = []
         for i in range(len(reward_cutoff)):
-            if rewards[clean_stats.index(stats_temp[i])]:
+            orig_idx = clean_stats.index(stats_temp[i]) if stats_temp[i] in clean_stats else i
+            if rewards[orig_idx]:
                 if average1 < reward_cutoff[i]:
                     exclude3.append(reward_cutoff[i])
                     remaining_stats.append(stats_temp[i])
@@ -742,25 +737,26 @@ def analyze_component(
                 exclude3.append(exclude1[i])
                 remaining_stats.append(stats_temp[i])
 
-        exclude4: list[float] = []
+        # Exclude vs/refire for second average if they are not the only stats involved
+        exclude4 = []
         for i in range(len(remaining_stats)):
             if remaining_stats[i] not in ["Vs. Shields", "Vs. Armor", "Refire Rate"]:
                 exclude4.append(exclude3[i])
-            if stats_temp == []:
-                exclude4 = exclude3
+        if stats_temp == []:
+            exclude4 = exclude3
 
         stats_temp = remaining_stats
         remaining_stats = []
         average2 = log_mean(exclude4)
 
         if comp_type == "Weapon":
-            exclude5: list[float] = []
+            exclude5 = []
             for i in range(len(stats_temp)):
-                index = clean_stats.index(stats_temp[i])
+                idx = clean_stats.index(stats_temp[i])
                 if stats_temp[i] in ["Vs. Shields", "Vs. Armor", "Refire Rate"]:
-                    input_stat = raw_stats[index]
+                    input_stat = raw_stats[idx]
                     next_best_rarity = get_next_best_vs_refire(
-                        input_stat, stats_temp[i], means[index], stdevs[index], weights, re_mult
+                        input_stat, stats_temp[i], means[idx], stdevs[idx], weights, re_mult
                     )
                     if average2 <= next_best_rarity:
                         exclude5.append(next_best_rarity)
@@ -774,31 +770,21 @@ def analyze_component(
             exclude5 = exclude3
             remaining_stats = stats_temp
 
-        rarity = log_mean(exclude5)
+        average3 = log_mean(exclude5)
+        rarity = average3
 
     if rarity == 0:
         return _build_result(
-            comp_stats,
-            tails,
-            raw_stats,
-            outputs,
-            rarity_list,
-            rarity_1inx,
-            unicorns,
-            unicorn_threshold,
-            empty_matches,
-            empty_matches,
-            0,
-            empty_matches,
-            [0] * len(comp_stats),
+            comp_stats, tails, raw_stats, outputs, rarity_list, rarity_1inx, unicorns, unicorn_threshold, [], [], 0
         )
 
+    # Account for weird rounding behavior on vs/refire matching
     if target in ["Vs. Shields", "Vs. Armor", "Refire Rate"]:
         rarity = round(rarity - 0.0000000000005, 12)
 
-    matches: list[str] = []
-    matches_raw: list[float] = []
-    post_re: list[str] = []
+    matches = []
+    matches_raw = []
+    post_re = []
 
     for i in range(len(clean_stats)):
         if i >= len(means):
@@ -809,8 +795,8 @@ def analyze_component(
 
         target_rarity = rarity if tails[i] < 0 else 1 - rarity
         value = match_stat(means[i], stdevs[i], weights, stat_means[i], target_rarity)
-        stat_name = clean_stats[i]
 
+        stat_name = clean_stats[i]
         if stat_name in ["Vs. Shields", "Vs. Armor", "Refire Rate"]:
             multiplier = 1 + re_mult * _tf(tails[i])
             post_not_rounded = float(round(value * multiplier, 2))
@@ -833,7 +819,7 @@ def analyze_component(
                     worst_case_raw = round(opt_wc_raw, 3) + 0.001
                 else:
                     worst_case_raw = round(opt_wc_raw, 2) - 0.004
-            matches.append(sign + f"{worst_case_raw:.3f}")
+            matches.append(f"{sign}{worst_case_raw:.3f}")
             matches_raw.append(worst_case_raw)
             post_re.append(f"{optimal:.3f}")
         elif stat_name == "Recharge" and comp_type == "Shield":
@@ -845,6 +831,7 @@ def analyze_component(
             matches_raw.append(value)
             post_re.append(f"{float(round((1 + re_mult * _tf(tails[i])) * value, 1)):.1f}")
 
+    # Native rarity floor / clamp logic from desktop tool.
     stat_scaling = len(clean_stats) / 9
     average_clamp = unicorn_threshold / pow(10, 1 / (3 * stat_scaling))
     stat_clamp = unicorn_threshold / pow(10, 1 / (2 * stat_scaling))
@@ -856,8 +843,8 @@ def analyze_component(
     else:
         match_rarity = rarity
 
-    log_deltas: list[float | str] = []
-    matching_deltas: list[float | str] = []
+    log_deltas = []
+    matching_deltas = []
 
     for i in range(len(rarity_list)):
         if rarity_list[i] not in [0, ""] and rarity_1inx[i] != "Reward":
