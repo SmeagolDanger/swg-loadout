@@ -265,27 +265,34 @@ export default function EntBuffBuilder() {
                               <span className="badge badge-neutral min-w-[4rem] shrink-0 justify-center text-center sm:min-w-[4.25rem]">
                                 {buff.assignments}/{buff.maxAssignments}
                               </span>
-
-                              <div className="flex shrink-0 items-center gap-1">
-                                <button
-                                  type="button"
-                                  className="btn-ghost h-8 w-8 shrink-0 justify-center p-0"
-                                  onClick={() => changeBuff(buff.name, -1)}
-                                  disabled={buff.assignments <= 0}
-                                  aria-label={`Decrease ${buff.name}`}
-                                >
-                                  <Minus size={14} />
-                                </button>
-                                <button
-                                  type="button"
-                                  className="btn-secondary h-8 w-8 shrink-0 justify-center p-0"
-                                  onClick={() => changeBuff(buff.name, 1)}
-                                  disabled={!increaseAllowed}
-                                  aria-label={`Increase ${buff.name}`}
-                                >
-                                  <Plus size={14} />
-                                </button>
-                              </div>
+                            <div className="flex shrink-0 items-center gap-1">
+                              <button
+                                type="button"
+                                className={`h-8 w-8 shrink-0 justify-center rounded-xl border p-0 transition-colors ${
+                                  buff.assignments > 0
+                                    ? 'inline-flex border-hull-400/70 bg-hull-800/80 text-hull-100 hover:border-plasma-400/50 hover:text-plasma-300'
+                                    : 'inline-flex border-hull-500/30 bg-transparent text-hull-500/60 cursor-not-allowed opacity-60'
+                                }`}
+                                onClick={() => changeBuff(buff.name, -1)}
+                                disabled={buff.assignments <= 0}
+                                aria-label={`Decrease ${buff.name}`}
+                              >
+                                <Minus size={14} />
+                              </button>
+                              <button
+                                type="button"
+                                className={`h-8 w-8 shrink-0 justify-center rounded-xl border p-0 transition-colors ${
+                                  increaseAllowed
+                                    ? 'inline-flex border-hull-400/70 bg-hull-800/80 text-hull-100 hover:border-plasma-400/50 hover:text-plasma-300'
+                                    : 'inline-flex border-hull-500/30 bg-transparent text-hull-500/60 cursor-not-allowed opacity-60'
+                                }`}
+                                onClick={() => changeBuff(buff.name, 1)}
+                                disabled={!increaseAllowed}
+                                aria-label={`Increase ${buff.name}`}
+                              >
+                                <Plus size={14} />
+                              </button>
+                            </div>
                             </div>
                           </div>
                         </div>
