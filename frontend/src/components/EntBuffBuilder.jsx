@@ -157,7 +157,7 @@ export default function EntBuffBuilder() {
   }
 
   return (
-    <div className="max-w-[95rem] mx-auto w-full overflow-x-hidden px-3 sm:px-4 py-6 space-y-4 animate-slide-up">
+    <div className="max-w-[95rem] mx-auto px-4 py-6 space-y-4 animate-slide-up">
       <div className="card p-4 lg:p-5">
         <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
           <div className="min-w-0">
@@ -180,15 +180,15 @@ export default function EntBuffBuilder() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 xl:min-w-0 xl:max-w-[34rem] w-full">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 xl:min-w-[34rem]">
             <SummaryPill label="Assigned" value={pointsAssigned} tone="good" />
             <SummaryPill label="Remaining" value={pointsRemaining} tone={pointsRemaining === 0 ? 'warn' : 'neutral'} />
             <SummaryPill label="Selected" value={selectedBuffTexts.length} />
-            <div className="sm:col-span-2 lg:col-span-2 flex flex-wrap sm:flex-nowrap items-stretch sm:items-center justify-stretch sm:justify-end gap-2 min-w-0">
-              <button type="button" className="btn-secondary text-xs px-3 py-2 flex-1 sm:flex-none min-w-0 justify-center" onClick={handleCopyRequest} disabled={!requestText}>
+            <div className="flex items-center justify-end gap-2">
+              <button type="button" className="btn-secondary text-xs px-3 py-2" onClick={handleCopyRequest} disabled={!requestText}>
                 <Copy size={15} /> Request
               </button>
-              <button type="button" className="btn-ghost text-xs px-3 py-2 flex-1 sm:flex-none min-w-0 justify-center" onClick={handleCopyShareLink}>
+              <button type="button" className="btn-ghost text-xs px-3 py-2" onClick={handleCopyShareLink}>
                 <Link2 size={15} /> Share
               </button>
             </div>
@@ -204,7 +204,7 @@ export default function EntBuffBuilder() {
 
       <div className="grid xl:grid-cols-[minmax(0,1fr)_24rem] gap-4 items-start">
         <section className="space-y-4 min-w-0">
-          <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-3">
+          <div className="grid 2xl:grid-cols-3 xl:grid-cols-2 gap-3">
             {categories.map((category) => (
               <div key={category.name} className="card p-3">
                 <div className="flex items-center justify-between gap-3 mb-3">
@@ -227,28 +227,26 @@ export default function EntBuffBuilder() {
                             : 'border-hull-400/40 bg-hull-800/60'
                         }`}
                       >
-                        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
-                          <div className="min-w-0 flex-1 basis-full sm:basis-auto">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <span className="truncate text-sm font-medium text-hull-50">{buff.name}</span>
-                              <InfoTip
-                                title={buff.name}
-                                lines={[
-                                  `Cost: ${buff.cost} point${buff.cost === 1 ? '' : 's'} per package`,
-                                  `Max packages: ${buff.maxAssignments}`,
-                                  `Effect: ${formatBuffEffect(buff)}`,
-                                  buff.description,
-                                ]}
-                              />
-                            </div>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="min-w-0 flex-1 flex items-center gap-2">
+                            <span className="truncate text-sm font-medium text-hull-50">{buff.name}</span>
+                            <InfoTip
+                              title={buff.name}
+                              lines={[
+                                `Cost: ${buff.cost} point${buff.cost === 1 ? '' : 's'} per package`,
+                                `Max packages: ${buff.maxAssignments}`,
+                                `Effect: ${formatBuffEffect(buff)}`,
+                                buff.description,
+                              ]}
+                            />
                           </div>
 
-                          <div className="flex w-full sm:w-auto items-center justify-between sm:justify-end gap-2 sm:gap-3 min-w-0">
-                            <span className="badge badge-neutral shrink-0">
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="badge badge-neutral shrink-0 min-w-[4.5rem] justify-center text-center">
                               {buff.assignments}/{buff.maxAssignments}
                             </span>
 
-                            <div className="flex items-center gap-1 shrink-0 ml-auto sm:ml-0">
+                            <div className="flex items-center gap-1 shrink-0">
                               <button
                                 type="button"
                                 className="btn-ghost h-8 w-8 p-0 justify-center"
@@ -285,11 +283,11 @@ export default function EntBuffBuilder() {
               <h2 className="font-display font-semibold tracking-[0.16em] uppercase text-xs text-plasma-400">
                 Request Message
               </h2>
-              <div className="flex flex-wrap items-center justify-end gap-2">
-                <button type="button" className="btn-ghost text-xs px-2.5 py-1.5 flex-1 sm:flex-none justify-center" onClick={handleApplyTemplate}>
+              <div className="flex items-center gap-2">
+                <button type="button" className="btn-ghost text-xs px-2.5 py-1.5" onClick={handleApplyTemplate}>
                   <Save size={14} /> Save
                 </button>
-                <button type="button" className="btn-ghost text-xs px-2.5 py-1.5 flex-1 sm:flex-none justify-center" onClick={handleResetTemplate}>
+                <button type="button" className="btn-ghost text-xs px-2.5 py-1.5" onClick={handleResetTemplate}>
                   <RefreshCcw size={14} /> Reset
                 </button>
               </div>
@@ -310,10 +308,10 @@ export default function EntBuffBuilder() {
               <h2 className="font-display font-semibold tracking-[0.16em] uppercase text-xs text-plasma-400">
                 Selected Buffs
               </h2>
-              <div className="flex flex-wrap items-center justify-end gap-2">
+              <div className="flex items-center gap-2">
                 <span className="badge badge-neutral">{selectedBuffTexts.length}</span>
                 {!!selectedBuffTexts.length && (
-                  <button type="button" className="btn-ghost text-xs px-2.5 py-1.5 flex-1 sm:flex-none justify-center" onClick={handleClearAll}>
+                  <button type="button" className="btn-ghost text-xs px-2.5 py-1.5" onClick={handleClearAll}>
                     <RefreshCcw size={14} /> Clear
                   </button>
                 )}
