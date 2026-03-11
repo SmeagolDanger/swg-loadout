@@ -57,7 +57,7 @@ function InfoTip({ title, lines = [] }) {
       >
         <Info size={14} />
       </button>
-      <div className="pointer-events-none absolute right-0 top-9 z-30 hidden w-72 rounded-xl border border-hull-400/60 bg-hull-900/95 p-3 text-left shadow-2xl group-hover:block group-focus-within:block">
+      <div className="pointer-events-none absolute right-0 top-9 z-30 hidden w-72 max-w-[calc(100vw-2rem)] rounded-xl border border-hull-400/60 bg-hull-900/95 p-3 text-left shadow-2xl group-hover:block group-focus-within:block">
         <div className="text-sm font-medium text-hull-50">{title}</div>
         <div className="mt-2 space-y-1.5 text-xs leading-relaxed text-hull-200">
           {lines.map((line) => (
@@ -78,7 +78,7 @@ function SummaryPill({ label, value, tone = 'neutral' }) {
         : 'border-hull-400/40 bg-hull-800/70 text-hull-100';
 
   return (
-    <div className={`rounded-xl border px-3 py-2 ${toneClass}`}>
+    <div className={`min-w-0 rounded-xl border px-3 py-2 ${toneClass}`}>
       <div className="text-[10px] uppercase tracking-[0.18em] opacity-80">{label}</div>
       <div className="mt-1 font-display text-lg leading-none">{value}</div>
     </div>
@@ -157,219 +157,221 @@ export default function EntBuffBuilder() {
   }
 
   return (
-    <div className="mx-auto max-w-[95rem] animate-slide-up space-y-4 px-4 py-6">
-      <div className="card p-4 lg:p-5">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-          <div className="min-w-0">
-            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-hull-500/50 bg-hull-800/70 px-3 py-1.5 text-[11px] font-display uppercase tracking-[0.22em] text-hull-200">
-              <Music4 size={13} className="text-plasma-400" />
-              Social Tools
+    <div className="mx-auto w-full max-w-[95rem] overflow-x-clip px-4 py-6 animate-slide-up">
+      <div className="w-full max-w-full space-y-4">
+        <div className="card w-full max-w-full overflow-hidden p-4 lg:p-5">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <div className="min-w-0">
+              <div className="mb-3 inline-flex max-w-full items-center gap-2 rounded-full border border-hull-500/50 bg-hull-800/70 px-3 py-1.5 text-[11px] font-display uppercase tracking-[0.22em] text-hull-200">
+                <Music4 size={13} className="shrink-0 text-plasma-400" />
+                <span className="truncate">Social Tools</span>
+              </div>
+              <div className="flex min-w-0 items-center gap-2">
+                <h1 className="min-w-0 truncate font-display text-2xl font-bold tracking-wider text-hull-50">
+                  Entertainer Buff Builder
+                </h1>
+                <InfoTip
+                  title="How this works"
+                  lines={[
+                    'Pick buff packages until you reach the 20-point entertainer cap.',
+                    'Use the request template tokens %Buffs% or %buffs% to insert your current selection.',
+                    'Selections are stored in the q= URL parameter so you can bookmark or share the build.',
+                  ]}
+                />
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <h1 className="font-display text-2xl font-bold tracking-wider text-hull-50">
-                Entertainer Buff Builder
-              </h1>
-              <InfoTip
-                title="How this works"
-                lines={[
-                  'Pick buff packages until you reach the 20-point entertainer cap.',
-                  'Use the request template tokens %Buffs% or %buffs% to insert your current selection.',
-                  'Selections are stored in the q= URL parameter so you can bookmark or share the build.',
-                ]}
+
+            <div className="grid w-full min-w-0 max-w-full grid-cols-2 gap-2 xl:min-w-[34rem] xl:max-w-[34rem] lg:grid-cols-4">
+              <SummaryPill label="Assigned" value={pointsAssigned} tone="good" />
+              <SummaryPill
+                label="Remaining"
+                value={pointsRemaining}
+                tone={pointsRemaining === 0 ? 'warn' : 'neutral'}
               />
+              <SummaryPill label="Selected" value={selectedBuffTexts.length} />
+              <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+                <button
+                  type="button"
+                  className="btn-secondary min-w-0 flex-1 px-3 py-2 text-xs sm:flex-none"
+                  onClick={handleCopyRequest}
+                  disabled={!requestText}
+                >
+                  <Copy size={15} className="shrink-0" /> <span className="truncate">Request</span>
+                </button>
+                <button
+                  type="button"
+                  className="btn-ghost min-w-0 flex-1 px-3 py-2 text-xs sm:flex-none"
+                  onClick={handleCopyShareLink}
+                >
+                  <Link2 size={15} className="shrink-0" /> <span className="truncate">Share</span>
+                </button>
+              </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 lg:grid-cols-4 xl:min-w-[34rem]">
-            <SummaryPill label="Assigned" value={pointsAssigned} tone="good" />
-            <SummaryPill
-              label="Remaining"
-              value={pointsRemaining}
-              tone={pointsRemaining === 0 ? 'warn' : 'neutral'}
-            />
-            <SummaryPill label="Selected" value={selectedBuffTexts.length} />
-            <div className="flex items-center justify-end gap-2">
-              <button
-                type="button"
-                className="btn-secondary px-3 py-2 text-xs"
-                onClick={handleCopyRequest}
-                disabled={!requestText}
-              >
-                <Copy size={15} /> Request
-              </button>
-              <button
-                type="button"
-                className="btn-ghost px-3 py-2 text-xs"
-                onClick={handleCopyShareLink}
-              >
-                <Link2 size={15} /> Share
-              </button>
+          {toast ? (
+            <div className="mt-3 rounded-xl border border-plasma-400/40 bg-plasma-500/10 px-3 py-2 text-sm text-plasma-200">
+              {toast}
             </div>
-          </div>
+          ) : null}
         </div>
 
-        {toast ? (
-          <div className="mt-3 rounded-xl border border-plasma-400/40 bg-plasma-500/10 px-3 py-2 text-sm text-plasma-200">
-            {toast}
-          </div>
-        ) : null}
-      </div>
+        <div className="grid w-full min-w-0 max-w-full items-start gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
+          <section className="min-w-0 max-w-full space-y-4">
+            <div className="grid w-full min-w-0 max-w-full gap-3 xl:grid-cols-2 2xl:grid-cols-3">
+              {categories.map((category) => (
+                <div key={category.name} className="card min-w-0 max-w-full overflow-hidden p-3">
+                  <div className="mb-3 flex min-w-0 items-center justify-between gap-3">
+                    <h2 className="min-w-0 truncate font-display text-xs font-semibold uppercase tracking-[0.16em] text-plasma-400">
+                      {category.name}
+                    </h2>
+                    <span className="badge badge-neutral shrink-0">{category.buffs.length}</span>
+                  </div>
 
-      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
-        <section className="min-w-0 space-y-4">
-          <div className="grid gap-3 xl:grid-cols-2 2xl:grid-cols-3">
-            {categories.map((category) => (
-              <div key={category.name} className="card p-3">
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <h2 className="font-display text-xs font-semibold uppercase tracking-[0.16em] text-plasma-400">
-                    {category.name}
-                  </h2>
-                  <span className="badge badge-neutral">{category.buffs.length}</span>
-                </div>
+                  <div className="w-full min-w-0 max-w-full space-y-2">
+                    {category.buffs.map((buff) => {
+                      const increaseAllowed = canIncreaseBuff(categories, buff);
+                      const isSelected = buff.assignments > 0;
 
-                <div className="space-y-2">
-                  {category.buffs.map((buff) => {
-                    const increaseAllowed = canIncreaseBuff(categories, buff);
-                    const isSelected = buff.assignments > 0;
-
-                    return (
-                      <div
-                        key={buff.name}
-                        className={`rounded-xl border px-3 py-2.5 transition-all ${
-                          isSelected
-                            ? 'border-plasma-400/50 bg-plasma-500/10'
-                            : 'border-hull-400/40 bg-hull-800/60'
-                        }`}
-                      >
-                        <div className="flex min-w-0 items-center gap-2">
-                          <div className="flex min-w-0 flex-1 items-center gap-2">
-                            <span
-                              className="block min-w-0 truncate text-sm font-medium text-hull-50 sm:overflow-visible sm:whitespace-normal"
-                              title={buff.name}
-                            >
-                              {buff.name}
-                            </span>
-                            <InfoTip
-                              title={buff.name}
-                              lines={[
-                                `Cost: ${buff.cost} point${buff.cost === 1 ? '' : 's'} per package`,
-                                `Max packages: ${buff.maxAssignments}`,
-                                `Effect: ${formatBuffEffect(buff)}`,
-                                buff.description,
-                              ]}
-                            />
-                          </div>
-
-                          <div className="flex shrink-0 items-center gap-2">
-                            <span className="badge badge-neutral min-w-[4.25rem] shrink-0 justify-center text-center">
-                              {buff.assignments}/{buff.maxAssignments}
-                            </span>
-
-                            <div className="flex shrink-0 items-center gap-1">
-                              <button
-                                type="button"
-                                className="btn-ghost h-8 w-8 justify-center p-0"
-                                onClick={() => changeBuff(buff.name, -1)}
-                                disabled={buff.assignments <= 0}
-                                aria-label={`Decrease ${buff.name}`}
+                      return (
+                        <div
+                          key={buff.name}
+                          className={`w-full min-w-0 max-w-full overflow-hidden rounded-xl border px-3 py-2.5 transition-all ${
+                            isSelected
+                              ? 'border-plasma-400/50 bg-plasma-500/10'
+                              : 'border-hull-400/40 bg-hull-800/60'
+                          }`}
+                        >
+                          <div className="grid w-full min-w-0 max-w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+                            <div className="flex min-w-0 items-center gap-2">
+                              <span
+                                className="block min-w-0 truncate text-sm font-medium text-hull-50 sm:whitespace-normal sm:overflow-visible"
+                                title={buff.name}
                               >
-                                <Minus size={14} />
-                              </button>
-                              <button
-                                type="button"
-                                className="btn-secondary h-8 w-8 justify-center p-0"
-                                onClick={() => changeBuff(buff.name, 1)}
-                                disabled={!increaseAllowed}
-                                aria-label={`Increase ${buff.name}`}
-                              >
-                                <Plus size={14} />
-                              </button>
+                                {buff.name}
+                              </span>
+                              <InfoTip
+                                title={buff.name}
+                                lines={[
+                                  `Cost: ${buff.cost} point${buff.cost === 1 ? '' : 's'} per package`,
+                                  `Max packages: ${buff.maxAssignments}`,
+                                  `Effect: ${formatBuffEffect(buff)}`,
+                                  buff.description,
+                                ]}
+                              />
+                            </div>
+
+                            <div className="flex shrink-0 items-center gap-2">
+                              <span className="badge badge-neutral min-w-[4rem] shrink-0 justify-center text-center sm:min-w-[4.25rem]">
+                                {buff.assignments}/{buff.maxAssignments}
+                              </span>
+
+                              <div className="flex shrink-0 items-center gap-1">
+                                <button
+                                  type="button"
+                                  className="btn-ghost h-8 w-8 shrink-0 justify-center p-0"
+                                  onClick={() => changeBuff(buff.name, -1)}
+                                  disabled={buff.assignments <= 0}
+                                  aria-label={`Decrease ${buff.name}`}
+                                >
+                                  <Minus size={14} />
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn-secondary h-8 w-8 shrink-0 justify-center p-0"
+                                  onClick={() => changeBuff(buff.name, 1)}
+                                  disabled={!increaseAllowed}
+                                  aria-label={`Increase ${buff.name}`}
+                                >
+                                  <Plus size={14} />
+                                </button>
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <aside className="space-y-3 xl:sticky xl:top-20">
-          <div className="card space-y-3 p-4">
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="font-display text-xs font-semibold uppercase tracking-[0.16em] text-plasma-400">
-                Request Message
-              </h2>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  className="btn-ghost px-2.5 py-1.5 text-xs"
-                  onClick={handleApplyTemplate}
-                >
-                  <Save size={14} /> Save
-                </button>
-                <button
-                  type="button"
-                  className="btn-ghost px-2.5 py-1.5 text-xs"
-                  onClick={handleResetTemplate}
-                >
-                  <RefreshCcw size={14} /> Reset
-                </button>
-              </div>
+              ))}
             </div>
+          </section>
 
-            <input
-              value={requestTemplate}
-              onChange={(event) => setRequestTemplate(event.target.value)}
-            />
-            <textarea
-              value={requestText}
-              readOnly
-              rows={4}
-              placeholder="Select buffs to generate a request message."
-              className="resize-none text-sm"
-            />
-          </div>
-
-          <div className="card p-4">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <h2 className="font-display text-xs font-semibold uppercase tracking-[0.16em] text-plasma-400">
-                Selected Buffs
-              </h2>
-              <div className="flex items-center gap-2">
-                <span className="badge badge-neutral">{selectedBuffTexts.length}</span>
-                {!!selectedBuffTexts.length && (
+          <aside className="min-w-0 max-w-full space-y-3 xl:sticky xl:top-20">
+            <div className="card w-full min-w-0 max-w-full overflow-hidden space-y-3 p-4">
+              <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
+                <h2 className="min-w-0 truncate font-display text-xs font-semibold uppercase tracking-[0.16em] text-plasma-400">
+                  Request Message
+                </h2>
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
                   <button
                     type="button"
-                    className="btn-ghost px-2.5 py-1.5 text-xs"
-                    onClick={handleClearAll}
+                    className="btn-ghost min-w-0 px-2.5 py-1.5 text-xs"
+                    onClick={handleApplyTemplate}
                   >
-                    <RefreshCcw size={14} /> Clear
+                    <Save size={14} className="shrink-0" /> <span className="truncate">Save</span>
                   </button>
-                )}
+                  <button
+                    type="button"
+                    className="btn-ghost min-w-0 px-2.5 py-1.5 text-xs"
+                    onClick={handleResetTemplate}
+                  >
+                    <RefreshCcw size={14} className="shrink-0" /> <span className="truncate">Reset</span>
+                  </button>
+                </div>
               </div>
+
+              <input
+                value={requestTemplate}
+                onChange={(event) => setRequestTemplate(event.target.value)}
+              />
+              <textarea
+                value={requestText}
+                readOnly
+                rows={4}
+                placeholder="Select buffs to generate a request message."
+                className="resize-none text-sm"
+              />
             </div>
 
-            {selectedBuffTexts.length ? (
-              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
-                {selectedBuffTexts.map((buffText) => (
-                  <div
-                    key={buffText}
-                    className="rounded-lg border border-hull-400/40 bg-hull-800/60 px-3 py-2 text-xs text-hull-100"
-                  >
-                    {buffText}
-                  </div>
-                ))}
+            <div className="card w-full min-w-0 max-w-full overflow-hidden p-4">
+              <div className="mb-3 flex min-w-0 flex-wrap items-center justify-between gap-3">
+                <h2 className="min-w-0 truncate font-display text-xs font-semibold uppercase tracking-[0.16em] text-plasma-400">
+                  Selected Buffs
+                </h2>
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <span className="badge badge-neutral shrink-0">{selectedBuffTexts.length}</span>
+                  {!!selectedBuffTexts.length && (
+                    <button
+                      type="button"
+                      className="btn-ghost min-w-0 px-2.5 py-1.5 text-xs"
+                      onClick={handleClearAll}
+                    >
+                      <RefreshCcw size={14} className="shrink-0" /> <span className="truncate">Clear</span>
+                    </button>
+                  )}
+                </div>
               </div>
-            ) : (
-              <div className="rounded-lg border border-hull-400/40 bg-hull-800/60 px-3 py-3 text-sm text-hull-300">
-                Select one or more buffs to build a request.
-              </div>
-            )}
-          </div>
-        </aside>
+
+              {selectedBuffTexts.length ? (
+                <div className="grid w-full min-w-0 max-w-full gap-2 sm:grid-cols-2 xl:grid-cols-1">
+                  {selectedBuffTexts.map((buffText) => (
+                    <div
+                      key={buffText}
+                      className="min-w-0 rounded-lg border border-hull-400/40 bg-hull-800/60 px-3 py-2 text-xs text-hull-100"
+                    >
+                      <span className="block min-w-0 break-words">{buffText}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-lg border border-hull-400/40 bg-hull-800/60 px-3 py-3 text-sm text-hull-300">
+                  Select one or more buffs to build a request.
+                </div>
+              )}
+            </div>
+          </aside>
+        </div>
       </div>
     </div>
   );
