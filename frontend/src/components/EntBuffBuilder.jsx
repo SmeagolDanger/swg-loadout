@@ -80,7 +80,7 @@ function SummaryPill({ label, value, tone = 'neutral' }) {
   return (
     <div className={`rounded-xl border px-3 py-2 ${toneClass}`}>
       <div className="text-[10px] uppercase tracking-[0.18em] opacity-80">{label}</div>
-      <div className="font-display text-lg leading-none mt-1">{value}</div>
+      <div className="mt-1 font-display text-lg leading-none">{value}</div>
     </div>
   );
 }
@@ -157,16 +157,16 @@ export default function EntBuffBuilder() {
   }
 
   return (
-    <div className="max-w-[95rem] mx-auto px-4 py-6 space-y-4 animate-slide-up">
+    <div className="mx-auto max-w-[95rem] animate-slide-up space-y-4 px-4 py-6">
       <div className="card p-4 lg:p-5">
-        <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div className="min-w-0">
-            <div className="inline-flex items-center gap-2 rounded-full border border-hull-500/50 bg-hull-800/70 px-3 py-1.5 text-[11px] font-display tracking-[0.22em] text-hull-200 uppercase mb-3">
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-hull-500/50 bg-hull-800/70 px-3 py-1.5 text-[11px] font-display uppercase tracking-[0.22em] text-hull-200">
               <Music4 size={13} className="text-plasma-400" />
               Social Tools
             </div>
             <div className="flex items-center gap-2">
-              <h1 className="font-display font-bold text-2xl tracking-wider text-hull-50">
+              <h1 className="font-display text-2xl font-bold tracking-wider text-hull-50">
                 Entertainer Buff Builder
               </h1>
               <InfoTip
@@ -180,15 +180,28 @@ export default function EntBuffBuilder() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 xl:min-w-[34rem]">
+          <div className="grid grid-cols-2 gap-2 lg:grid-cols-4 xl:min-w-[34rem]">
             <SummaryPill label="Assigned" value={pointsAssigned} tone="good" />
-            <SummaryPill label="Remaining" value={pointsRemaining} tone={pointsRemaining === 0 ? 'warn' : 'neutral'} />
+            <SummaryPill
+              label="Remaining"
+              value={pointsRemaining}
+              tone={pointsRemaining === 0 ? 'warn' : 'neutral'}
+            />
             <SummaryPill label="Selected" value={selectedBuffTexts.length} />
             <div className="flex items-center justify-end gap-2">
-              <button type="button" className="btn-secondary text-xs px-3 py-2" onClick={handleCopyRequest} disabled={!requestText}>
+              <button
+                type="button"
+                className="btn-secondary px-3 py-2 text-xs"
+                onClick={handleCopyRequest}
+                disabled={!requestText}
+              >
                 <Copy size={15} /> Request
               </button>
-              <button type="button" className="btn-ghost text-xs px-3 py-2" onClick={handleCopyShareLink}>
+              <button
+                type="button"
+                className="btn-ghost px-3 py-2 text-xs"
+                onClick={handleCopyShareLink}
+              >
                 <Link2 size={15} /> Share
               </button>
             </div>
@@ -202,13 +215,13 @@ export default function EntBuffBuilder() {
         ) : null}
       </div>
 
-      <div className="grid xl:grid-cols-[minmax(0,1fr)_24rem] gap-4 items-start">
-        <section className="space-y-4 min-w-0">
-          <div className="grid 2xl:grid-cols-3 xl:grid-cols-2 gap-3">
+      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
+        <section className="min-w-0 space-y-4">
+          <div className="grid gap-3 xl:grid-cols-2 2xl:grid-cols-3">
             {categories.map((category) => (
               <div key={category.name} className="card p-3">
-                <div className="flex items-center justify-between gap-3 mb-3">
-                  <h2 className="font-display font-semibold tracking-[0.16em] uppercase text-xs text-plasma-400">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <h2 className="font-display text-xs font-semibold uppercase tracking-[0.16em] text-plasma-400">
                     {category.name}
                   </h2>
                   <span className="badge badge-neutral">{category.buffs.length}</span>
@@ -218,6 +231,7 @@ export default function EntBuffBuilder() {
                   {category.buffs.map((buff) => {
                     const increaseAllowed = canIncreaseBuff(categories, buff);
                     const isSelected = buff.assignments > 0;
+
                     return (
                       <div
                         key={buff.name}
@@ -227,9 +241,14 @@ export default function EntBuffBuilder() {
                             : 'border-hull-400/40 bg-hull-800/60'
                         }`}
                       >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <div className="min-w-0 flex-1 flex items-center gap-2">
-                            <span className="truncate text-sm font-medium text-hull-50">{buff.name}</span>
+                        <div className="flex min-w-0 items-center gap-2">
+                          <div className="flex min-w-0 flex-1 items-center gap-2">
+                            <span
+                              className="block min-w-0 truncate text-sm font-medium text-hull-50 sm:overflow-visible sm:whitespace-normal"
+                              title={buff.name}
+                            >
+                              {buff.name}
+                            </span>
                             <InfoTip
                               title={buff.name}
                               lines={[
@@ -241,15 +260,15 @@ export default function EntBuffBuilder() {
                             />
                           </div>
 
-                          <div className="flex items-center gap-2 shrink-0">
-                            <span className="badge badge-neutral shrink-0 min-w-[4.5rem] justify-center text-center">
+                          <div className="flex shrink-0 items-center gap-2">
+                            <span className="badge badge-neutral min-w-[4.25rem] shrink-0 justify-center text-center">
                               {buff.assignments}/{buff.maxAssignments}
                             </span>
 
-                            <div className="flex items-center gap-1 shrink-0">
+                            <div className="flex shrink-0 items-center gap-1">
                               <button
                                 type="button"
-                                className="btn-ghost h-8 w-8 p-0 justify-center"
+                                className="btn-ghost h-8 w-8 justify-center p-0"
                                 onClick={() => changeBuff(buff.name, -1)}
                                 disabled={buff.assignments <= 0}
                                 aria-label={`Decrease ${buff.name}`}
@@ -258,7 +277,7 @@ export default function EntBuffBuilder() {
                               </button>
                               <button
                                 type="button"
-                                className="btn-secondary h-8 w-8 p-0 justify-center"
+                                className="btn-secondary h-8 w-8 justify-center p-0"
                                 onClick={() => changeBuff(buff.name, 1)}
                                 disabled={!increaseAllowed}
                                 aria-label={`Increase ${buff.name}`}
@@ -278,22 +297,33 @@ export default function EntBuffBuilder() {
         </section>
 
         <aside className="space-y-3 xl:sticky xl:top-20">
-          <div className="card p-4 space-y-3">
+          <div className="card space-y-3 p-4">
             <div className="flex items-center justify-between gap-3">
-              <h2 className="font-display font-semibold tracking-[0.16em] uppercase text-xs text-plasma-400">
+              <h2 className="font-display text-xs font-semibold uppercase tracking-[0.16em] text-plasma-400">
                 Request Message
               </h2>
               <div className="flex items-center gap-2">
-                <button type="button" className="btn-ghost text-xs px-2.5 py-1.5" onClick={handleApplyTemplate}>
+                <button
+                  type="button"
+                  className="btn-ghost px-2.5 py-1.5 text-xs"
+                  onClick={handleApplyTemplate}
+                >
                   <Save size={14} /> Save
                 </button>
-                <button type="button" className="btn-ghost text-xs px-2.5 py-1.5" onClick={handleResetTemplate}>
+                <button
+                  type="button"
+                  className="btn-ghost px-2.5 py-1.5 text-xs"
+                  onClick={handleResetTemplate}
+                >
                   <RefreshCcw size={14} /> Reset
                 </button>
               </div>
             </div>
 
-            <input value={requestTemplate} onChange={(event) => setRequestTemplate(event.target.value)} />
+            <input
+              value={requestTemplate}
+              onChange={(event) => setRequestTemplate(event.target.value)}
+            />
             <textarea
               value={requestText}
               readOnly
@@ -304,14 +334,18 @@ export default function EntBuffBuilder() {
           </div>
 
           <div className="card p-4">
-            <div className="flex items-center justify-between gap-3 mb-3">
-              <h2 className="font-display font-semibold tracking-[0.16em] uppercase text-xs text-plasma-400">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h2 className="font-display text-xs font-semibold uppercase tracking-[0.16em] text-plasma-400">
                 Selected Buffs
               </h2>
               <div className="flex items-center gap-2">
                 <span className="badge badge-neutral">{selectedBuffTexts.length}</span>
                 {!!selectedBuffTexts.length && (
-                  <button type="button" className="btn-ghost text-xs px-2.5 py-1.5" onClick={handleClearAll}>
+                  <button
+                    type="button"
+                    className="btn-ghost px-2.5 py-1.5 text-xs"
+                    onClick={handleClearAll}
+                  >
                     <RefreshCcw size={14} /> Clear
                   </button>
                 )}
@@ -319,9 +353,12 @@ export default function EntBuffBuilder() {
             </div>
 
             {selectedBuffTexts.length ? (
-              <div className="grid sm:grid-cols-2 xl:grid-cols-1 gap-2">
+              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
                 {selectedBuffTexts.map((buffText) => (
-                  <div key={buffText} className="rounded-lg border border-hull-400/40 bg-hull-800/60 px-3 py-2 text-xs text-hull-100">
+                  <div
+                    key={buffText}
+                    className="rounded-lg border border-hull-400/40 bg-hull-800/60 px-3 py-2 text-xs text-hull-100"
+                  >
                     {buffText}
                   </div>
                 ))}
