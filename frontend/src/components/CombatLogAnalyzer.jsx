@@ -2,24 +2,17 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Activity,
   Axe,
-  ChevronDown,
-  ChevronUp,
+  BarChart3,
   Coins,
   Download,
   FileUp,
   Filter,
   HeartPulse,
-  Plus,
   ScrollText,
   Search,
-  ShieldQuestion,
-  Sparkles,
   Swords,
   Upload,
-  UserCheck,
-  UserPlus,
   Users,
-  X,
 } from 'lucide-react';
 
 function StatCard({ icon: Icon, label, value, hint }) {
@@ -89,193 +82,83 @@ function downloadCsv(filename, headers, rows) {
   URL.revokeObjectURL(url);
 }
 
-function GroupChip({ name, removable = false, onRemove }) {
-  return (
-    <span className="inline-flex items-center gap-1 rounded-full border border-green-400/30 bg-green-500/10 px-3 py-1 text-xs text-green-200">
-      <UserCheck size={12} />
-      {name}
-      {removable ? (
-        <button type="button" onClick={() => onRemove(name)} className="ml-1 text-green-200/80 hover:text-green-100">
-          <X size={12} />
-        </button>
-      ) : null}
-    </span>
-  );
+function professionColor(profession) {
+  return {
+    Jedi: 'bg-sky-400',
+    'Bounty Hunter': 'bg-rose-500',
+    Commando: 'bg-amber-200',
+    Officer: 'bg-lime-400',
+    Spy: 'bg-yellow-300',
+    Medic: 'bg-violet-400',
+    Smuggler: 'bg-pink-400',
+    Entertainer: 'bg-orange-400',
+    Trader: 'bg-slate-400',
+    Unknown: 'bg-hull-400',
+  }[profession] || 'bg-hull-400';
 }
 
-function InsightRow({ entry, inGroup, onToggle }) {
-  return (
-    <button
-      type="button"
-      onClick={() => onToggle(entry.name)}
-      className={`flex w-full items-center justify-between gap-3 rounded-xl border px-3 py-2 text-left transition-colors ${
-        inGroup
-          ? 'border-green-400/30 bg-green-500/10 text-green-100'
-          : 'border-hull-400/30 bg-hull-900/60 text-hull-100 hover:border-plasma-400/40'
-      }`}
-    >
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <div className="truncate font-medium">{entry.name}</div>
-          {entry.suggestedPlayer ? (
-            <span className="rounded-full border border-plasma-400/30 bg-plasma-500/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] text-plasma-200">
-              suggested
-            </span>
-          ) : null}
-        </div>
-        <div className="mt-1 text-xs opacity-80">
-          score {entry.score} · atk {entry.attacks} · heals {entry.heals} · perf {entry.performs} · util {entry.utilities}
-        </div>
-      </div>
-      <span className="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-[10px] uppercase tracking-[0.14em]">
-        {inGroup ? 'In group' : 'Add'}
-      </span>
-    </button>
-  );
+function inferProfession(actor) {
+  const names = (actor?.abilities || []).map((entry) => String(entry.name || '').toLowerCase());
+  const joined = names.join(' | ');
+  const has = (...terms) => terms.some((term) => joined.includes(term));
+
+  if (has('force', 'lightsaber', 'force lightning', 'force choke', 'saber')) return 'Jedi';
+  if (has('carbine', 'rifle', 'pistol whip', 'vital shot', 'headshot', 'sniper')) return 'Bounty Hunter';
+  if (has('grenade', 'flame thrower', 'acid launcher', 'rocket', 'full auto')) return 'Commando';
+  if (has('called shot', 'cover', 'aim', 'quick shot', 'suppressing')) return 'Officer';
+  if (has('conceal', 'sneak', 'poison', 'shiv', 'surprise shot')) return 'Spy';
+  if (has('heal', 'bacta', 'cure', 'revive', 'stim')) return 'Medic';
+  if (has('quickdraw', 'feint', 'cheap shot', 'panic shot')) return 'Smuggler';
+  if (has('inspire', 'flourish', 'dance', 'music', 'perform')) return 'Entertainer';
+  if (has('assembly', 'experimentation', 'sampling', 'crafting')) return 'Trader';
+  return 'Unknown';
 }
 
-function RosterManager({
-  actorInsights,
-  groupMembers,
-  onToggle,
-  manualName,
-  setManualName,
-  onManualAdd,
-}) {
-  const [query, setQuery] = useState('');
-  const [showAll, setShowAll] = useState(false);
-  const groupSet = useMemo(() => new Set(groupMembers), [groupMembers]);
-
-  const suggestions = useMemo(() => actorInsights.filter((entry) => entry.suggestedPlayer), [actorInsights]);
-  const others = useMemo(() => actorInsights.filter((entry) => !entry.suggestedPlayer), [actorInsights]);
-  const normalizedQuery = query.trim().toLowerCase();
-
-  const filteredSuggestions = suggestions.filter((entry) => !normalizedQuery || entry.name.toLowerCase().includes(normalizedQuery));
-  const filteredOthers = others.filter((entry) => !normalizedQuery || entry.name.toLowerCase().includes(normalizedQuery));
-  const visibleOthers = showAll ? filteredOthers : filteredOthers.slice(0, 12);
-
+function ChartPanel({ title, subtitle, items }) {
+  const maxValue = Math.max(...items.map((item) => item.value), 1);
   return (
     <div className="card p-4">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+      <div className="mb-4 flex items-center justify-between gap-3">
         <div>
-          <div className="flex items-center gap-2 text-[11px] font-display uppercase tracking-[0.16em] text-hull-300">
-            <Users size={14} className="text-plasma-400" />
-            Group Roster
-          </div>
-          <h2 className="mt-1 text-xl font-display text-hull-50">Review suggested group members</h2>
-          <p className="mt-1 max-w-3xl text-sm text-hull-300">
-            Suggestions favor combat-source names that look like actual player short names in SWG combat logs. Confirm the real group from the shortlist instead of trusting broad actor guesses.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            className="btn-ghost"
-            onClick={() => filteredSuggestions.forEach((entry) => !groupSet.has(entry.name) && onToggle(entry.name))}
-          >
-            <UserPlus size={15} /> Add suggested
-          </button>
-          <button
-            type="button"
-            className="btn-ghost"
-            onClick={() => groupMembers.forEach((name) => onToggle(name))}
-            disabled={!groupMembers.length}
-          >
-            <X size={15} /> Clear group
-          </button>
+          <div className="text-[11px] font-display uppercase tracking-[0.16em] text-hull-300">{title}</div>
+          {subtitle ? <div className="mt-1 text-xs text-hull-400">{subtitle}</div> : null}
         </div>
       </div>
-
-      <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
-        <section className="space-y-4">
-          <div className="rounded-2xl border border-hull-400/30 bg-hull-800/50 p-4">
-            <div className="mb-3 flex items-center gap-2 text-[11px] font-display uppercase tracking-[0.16em] text-hull-300">
-              <Search size={14} className="text-plasma-400" /> Search names
+      <div className="space-y-2">
+        {items.length ? items.map((item) => (
+          <div key={item.name} className="grid grid-cols-[minmax(0,12rem)_minmax(0,1fr)_4.75rem] items-center gap-3">
+            <div className="truncate text-sm text-hull-100">{item.name}</div>
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-hull-800/80">
+                <div className={`h-full rounded-full ${professionColor(item.profession)}`} style={{ width: `${Math.max(3, (item.value / maxValue) * 100)}%` }} />
+              </div>
             </div>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Filter detected names"
-                className="flex-1 rounded-xl border border-hull-400/40 bg-hull-900/80 px-3 py-2 text-hull-50 placeholder:text-hull-400 focus:border-plasma-400/50 focus:outline-none"
-              />
-              <div className="text-xs text-hull-300 self-center">{actorInsights.length} names seen</div>
-            </div>
+            <div className="text-right text-xs text-hull-200">{item.label}</div>
           </div>
+        )) : <div className="rounded-2xl border border-hull-400/30 bg-hull-800/50 p-4 text-sm text-hull-300">No data yet.</div>}
+      </div>
+    </div>
+  );
+}
 
-          <div className="rounded-2xl border border-hull-400/30 bg-hull-800/50 p-4">
-            <div className="mb-3 flex items-center gap-2 text-[11px] font-display uppercase tracking-[0.16em] text-hull-300">
-              <Sparkles size={14} className="text-plasma-400" /> Suggested players
-            </div>
-            <div className="space-y-2">
-              {filteredSuggestions.length ? (
-                filteredSuggestions.map((entry) => (
-                  <InsightRow key={entry.name} entry={entry} inGroup={groupSet.has(entry.name)} onToggle={onToggle} />
-                ))
-              ) : (
-                <div className="rounded-xl border border-hull-400/30 bg-hull-900/50 px-3 py-3 text-sm text-hull-300">
-                  No suggested players matched your filter.
-                </div>
-              )}
-            </div>
+function CompactRoster({ groupMembers = [], suggested = [] }) {
+  return (
+    <div className="card p-4">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div>
+          <div className="flex items-center gap-2 text-[11px] font-display uppercase tracking-[0.16em] text-hull-300">
+            <Users size={14} className="text-plasma-400" /> Suggested group names
           </div>
-        </section>
-
-        <section className="space-y-4">
-          <div className="rounded-2xl border border-hull-400/30 bg-hull-800/50 p-4">
-            <div className="mb-3 flex items-center gap-2 text-[11px] font-display uppercase tracking-[0.16em] text-hull-300">
-              <UserCheck size={14} className="text-plasma-400" /> Current group
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {groupMembers.length ? (
-                groupMembers.slice().sort((a, b) => a.localeCompare(b)).map((name) => (
-                  <GroupChip key={name} name={name} removable onRemove={onToggle} />
-                ))
-              ) : (
-                <div className="text-sm text-hull-300">No confirmed group members yet.</div>
-              )}
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-hull-400/30 bg-hull-800/50 p-4">
-            <div className="mb-3 flex items-center gap-2 text-[11px] font-display uppercase tracking-[0.16em] text-hull-300">
-              <Plus size={14} className="text-plasma-400" /> Add manually
-            </div>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <input
-                value={manualName}
-                onChange={(event) => setManualName(event.target.value)}
-                placeholder="Enter player name"
-                className="flex-1 rounded-xl border border-hull-400/40 bg-hull-900/80 px-3 py-2 text-hull-50 placeholder:text-hull-400 focus:border-plasma-400/50 focus:outline-none"
-              />
-              <button type="button" onClick={onManualAdd} className="btn-secondary whitespace-nowrap">
-                <UserCheck size={15} /> Add to group
-              </button>
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-hull-400/30 bg-hull-800/50 p-4">
-            <div className="mb-3 flex items-center justify-between gap-2 text-[11px] font-display uppercase tracking-[0.16em] text-hull-300">
-              <span className="inline-flex items-center gap-2"><ShieldQuestion size={14} className="text-plasma-400" /> Other seen names</span>
-              {filteredOthers.length > 12 ? (
-                <button type="button" className="text-xs text-plasma-300 hover:text-plasma-200" onClick={() => setShowAll((value) => !value)}>
-                  {showAll ? (<span className="inline-flex items-center gap-1">Show less <ChevronUp size={14} /></span>) : (<span className="inline-flex items-center gap-1">Show all <ChevronDown size={14} /></span>)}
-                </button>
-              ) : null}
-            </div>
-            <div className="space-y-2 max-h-[22rem] overflow-y-auto pr-1">
-              {visibleOthers.length ? (
-                visibleOthers.map((entry) => (
-                  <InsightRow key={entry.name} entry={entry} inGroup={groupSet.has(entry.name)} onToggle={onToggle} />
-                ))
-              ) : (
-                <div className="rounded-xl border border-hull-400/30 bg-hull-900/50 px-3 py-3 text-sm text-hull-300">
-                  No other names matched your filter.
-                </div>
-              )}
-            </div>
-          </div>
-        </section>
+          <div className="mt-1 text-sm text-hull-200">Using the short-name combat parser now. Roster editing is optional instead of the whole show.</div>
+        </div>
+        <div className="text-xs text-hull-400">{groupMembers.length || suggested.length} names shown</div>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {(groupMembers.length ? groupMembers : suggested).slice().sort((a, b) => a.localeCompare(b)).map((name) => (
+          <span key={name} className="inline-flex items-center gap-1 rounded-full border border-green-400/30 bg-green-500/10 px-3 py-1 text-xs text-green-200">
+            {name}
+          </span>
+        ))}
       </div>
     </div>
   );
@@ -291,7 +174,6 @@ export default function CombatLogAnalyzer() {
   const [actorTypeFilter, setActorTypeFilter] = useState('all');
   const [nameFilter, setNameFilter] = useState('');
   const [groupMembers, setGroupMembers] = useState([]);
-  const [manualName, setManualName] = useState('');
 
   useEffect(() => {
     workerRef.current = new Worker(new URL('../workers/swgCombatLog.worker.js', import.meta.url), { type: 'module' });
@@ -315,7 +197,8 @@ export default function CombatLogAnalyzer() {
     return () => worker.terminate();
   }, []);
 
-  const groupSet = useMemo(() => new Set(groupMembers), [groupMembers]);
+  const activeGroupMembers = useMemo(() => (groupMembers.length ? groupMembers : (result?.suggestedPlayers || [])), [groupMembers, result]);
+  const groupSet = useMemo(() => new Set(activeGroupMembers), [activeGroupMembers]);
 
   const derivedRoleMap = useMemo(() => {
     const map = new Map();
@@ -388,6 +271,41 @@ export default function CombatLogAnalyzer() {
     });
   }, [selectedEncounter, actorTypeFilter, normalizedFilter]);
 
+  const dashboardActors = useMemo(() => {
+    return (result?.summary?.actors || []).map((actor) => ({
+      ...actor,
+      profession: inferProfession(actor),
+      totalActions: actor.actionCount || actor.abilities?.reduce((sum, ability) => sum + (ability.uses || 0), 0) || 0,
+    }));
+  }, [result]);
+
+  const dashboardDurationMinutes = useMemo(() => {
+    const seconds = result?.summary?.totalDurationSec || 0;
+    return Math.max(seconds / 60, 1 / 60);
+  }, [result]);
+
+  const chartData = useMemo(() => {
+    const top = (items) => items.sort((a, b) => b.value - a.value || a.name.localeCompare(b.name)).slice(0, 10);
+    return {
+      damageDone: top(dashboardActors.filter((actor) => actor.totalDamage > 0).map((actor) => ({ name: actor.name, profession: actor.profession, value: actor.totalDamage, label: formatNumber(actor.totalDamage) }))),
+      healingDone: top(dashboardActors.filter((actor) => actor.healing > 0).map((actor) => ({ name: actor.name, profession: actor.profession, value: actor.healing, label: formatNumber(actor.healing) }))),
+      damageTaken: top(dashboardActors.filter((actor) => (actor.takenDamage || 0) > 0).map((actor) => ({ name: actor.name, profession: actor.profession, value: actor.takenDamage || 0, label: formatNumber(actor.takenDamage || 0) }))),
+      apm: top(dashboardActors.filter((actor) => actor.totalActions > 0).map((actor) => {
+        const apm = actor.totalActions / dashboardDurationMinutes;
+        return { name: actor.name, profession: actor.profession, value: apm, label: formatRate(apm) };
+      })),
+    };
+  }, [dashboardActors, dashboardDurationMinutes]);
+
+  const professionLegend = useMemo(() => {
+    const seen = new Map();
+    dashboardActors.forEach((actor) => {
+      if (!seen.has(actor.profession)) seen.set(actor.profession, professionColor(actor.profession));
+    });
+    return Array.from(seen.entries());
+  }, [dashboardActors]);
+
+
   async function handleFilesChange(event) {
     const selected = Array.from(event.target.files || []);
     setFiles(selected);
@@ -400,17 +318,6 @@ export default function CombatLogAnalyzer() {
     setParsing(true);
     const texts = await Promise.all(selected.map(async (file) => ({ name: file.name, text: await file.text() })));
     workerRef.current.postMessage({ type: 'parseLogs', payload: { files: texts } });
-  }
-
-  function toggleGroupMember(name) {
-    setGroupMembers((current) => (current.includes(name) ? current.filter((value) => value !== name) : [...current, name]));
-  }
-
-  function addManualGroupMember() {
-    const value = manualName.trim();
-    if (!value) return;
-    setGroupMembers((current) => (current.includes(value) ? current : [...current, value]));
-    setManualName('');
   }
 
   function exportActorsCsv() {
@@ -450,7 +357,7 @@ export default function CombatLogAnalyzer() {
           </div>
           <h1 className="mb-2 font-display text-3xl font-bold tracking-wider text-hull-50">Combat Log Analyzer</h1>
           <p className="max-w-3xl text-hull-200">
-            Original parser built for this site from your uploaded SWG chat logs. Review the detected roster, confirm the real group, and then slice encounters with something less embarrassing than blind heuristics.
+            Original parser built for this site from your uploaded SWG chat logs. Start with the combat overview, then drill into encounters and actors. Roster hints are kept secondary now, where they belong.
           </p>
         </div>
 
@@ -499,14 +406,33 @@ export default function CombatLogAnalyzer() {
             <StatCard icon={Swords} label="Encounters" value={result.summary.encounterCount} hint={`${result.summary.actorCount} actors seen`} />
           </div>
 
-          <RosterManager
-            actorInsights={result.actorInsights || []}
-            groupMembers={groupMembers}
-            onToggle={toggleGroupMember}
-            manualName={manualName}
-            setManualName={setManualName}
-            onManualAdd={addManualGroupMember}
-          />
+          <div className="grid gap-4 xl:grid-cols-2">
+            <ChartPanel title="Damage Done by Source" subtitle="Top overall combat output" items={chartData.damageDone} />
+            <ChartPanel title="Healing Done by Source" subtitle="Top overall healing output" items={chartData.healingDone} />
+            <ChartPanel title="Damage Taken by Source" subtitle="Incoming damage sustained" items={chartData.damageTaken} />
+            <ChartPanel title="Actions per Minute" subtitle="All counted attacks, heals, performs, and utility actions" items={chartData.apm} />
+          </div>
+
+          <div className="card p-4">
+            <div className="mb-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <div className="flex items-center gap-2 text-[11px] font-display uppercase tracking-[0.16em] text-hull-300">
+                  <BarChart3 size={14} className="text-plasma-400" /> Profession Color Legend
+                </div>
+                <div className="mt-1 text-sm text-hull-200">Colors are inferred from observed abilities and used for the overview bars.</div>
+              </div>
+              <div className="flex flex-wrap gap-3 text-xs text-hull-200">
+                {professionLegend.map(([profession, color]) => (
+                  <span key={profession} className="inline-flex items-center gap-2 rounded-full border border-hull-400/30 bg-hull-800/50 px-3 py-1">
+                    <span className={`h-2.5 w-2.5 rounded-full ${color}`} />
+                    {profession}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <CompactRoster groupMembers={groupMembers} suggested={result.suggestedPlayers || []} />
 
           <div className="grid gap-4 xl:grid-cols-[18rem_minmax(0,1fr)]">
             <aside className="space-y-4">

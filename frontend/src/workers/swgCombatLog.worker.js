@@ -11,35 +11,6 @@ const GROUP_LOOT_RE = /^\[GROUP] (?<actor>.+?) looted (?<amount>\d+) credits fro
 
 const ENCOUNTER_GAP_SECONDS = 15;
 
-
-const NAME_PLACEHOLDER_RE = /^(unknown|environment|raid|group|all)$/i;
-const ARTICLE_LED_RE = /^(a|an|the)\s+/i;
-const CORPSE_RE = /^corpse of\s+/i;
-const HARD_NPC_TOKEN_RE = /^(AT-ST|AT-AT)$/i;
-const HARD_NPC_WORD_RE = /(?:wampa|stormtrooper|snowtrooper|commando|commander|officer|trooper|assassin|boarder|guardian|cultist|berserker|brute|defender|crew|droid|droideka|grenadier|caretaker|tusken|terentatek|blacksun|blackguard|imperial|rebel)/i;
-
-function isHardNpcName(rawName) {
-  const name = (rawName || '').trim();
-  if (!name) return true;
-  if (NAME_PLACEHOLDER_RE.test(name)) return true;
-  if (CORPSE_RE.test(name)) return true;
-  if (ARTICLE_LED_RE.test(name)) return true;
-  if (HARD_NPC_TOKEN_RE.test(name)) return true;
-  if (HARD_NPC_WORD_RE.test(name)) return true;
-  return false;
-}
-
-function isRosterCandidateName(rawName) {
-  const name = (rawName || '').trim();
-  if (!name) return false;
-  if (name === 'You') return true;
-  if (isHardNpcName(name)) return false;
-  if (name.includes(' ')) return false;
-  if (/^[A-Za-z]$/.test(name)) return false;
-  return true;
-}
-
-
 function timeToSeconds(value) {
   const [hours, minutes, seconds] = value.split(':').map(Number);
   return hours * 3600 + minutes * 60 + seconds;
@@ -91,6 +62,7 @@ function createActorBucket(name, role = 'unknown') {
     role,
     directDamage: 0,
     dotDamage: 0,
+    takenDamage: 0,
     healing: 0,
     hits: 0,
     crits: 0,
@@ -98,6 +70,7 @@ function createActorBucket(name, role = 'unknown') {
     misses: 0,
     performs: 0,
     utility: 0,
+    actionCount: 0,
     abilities: new Map(),
   };
 }
@@ -291,19 +264,15 @@ function buildActorInsights(events) {
         incomingHits: 0,
         incomingDots: 0,
         credits: 0,
-        roleSignal: 'unknown',
         score: 0,
-        reason: '',
       });
     }
     return map.get(name);
   };
 
   for (const event of events) {
-    const actorName = isRosterCandidateName(event.actor) ? event.actor.trim() : '';
-    const targetName = isRosterCandidateName(event.target) ? event.target.trim() : '';
-    const actor = ensure(actorName);
-    const target = ensure(targetName);
+    const actor = ensure(event.actor);
+    const target = ensure(event.target);
 
     if (event.type === 'heal') {
       if (actor) actor.heals += 1;
@@ -327,48 +296,22 @@ function buildActorInsights(events) {
 
   const insights = Array.from(map.values()).map((entry) => {
     let score = 0;
-    const reasons = [];
-    if (entry.name === 'You') {
-      score += 100;
-      reasons.push('local player');
-    }
-    if (entry.heals > 0) {
-      score += entry.heals * 4;
-      reasons.push('healing');
-    }
-    if (entry.performs > 0) {
-      score += entry.performs * 4;
-      reasons.push('perform support');
-    }
-    if (entry.utilities > 0) {
-      score += entry.utilities * 3;
-      reasons.push('utility actions');
-    }
-    if (entry.supportiveTargets > 0) {
-      score += Math.min(6, entry.supportiveTargets * 2);
-      reasons.push('was buffed/healed');
-    }
-    if (entry.attacks > 0) {
-      score += Math.min(8, Math.ceil(entry.attacks / 25));
-      reasons.push('active combat source');
-    }
-    if (entry.dots > 0) {
-      score += Math.min(4, entry.dots);
-    }
-    if (entry.credits > 0) {
-      score += 2;
-      reasons.push('group loot/credits');
-    }
-    score -= Math.min(6, Math.floor(entry.incomingHits / 50));
-    score -= Math.min(4, Math.floor(entry.incomingDots / 25));
-
-    const suggestedPlayer = entry.name === 'You' || entry.heals > 0 || entry.performs > 0 || entry.utilities > 0 || score >= 5;
+    if (entry.name === 'You') score += 10;
+    score += entry.heals * 3;
+    score += entry.performs * 3;
+    score += entry.utilities * 2;
+    score += entry.supportiveTargets * 2;
+    score += entry.credits > 0 ? 2 : 0;
+    score += entry.attacks > 0 ? 1 : 0;
+    score += entry.dots > 0 ? 1 : 0;
+    score -= entry.incomingHits > 0 && entry.attacks === 0 && entry.heals === 0 && entry.performs === 0 && entry.utilities === 0 ? 2 : 0;
+    score -= entry.incomingDots > 0 && entry.dots === 0 && entry.heals === 0 && entry.performs === 0 && entry.utilities === 0 ? 1 : 0;
 
     return {
       ...entry,
       score,
-      suggestedPlayer,
-      reason: reasons.length ? reasons.join(' · ') : 'combat source activity',
+      suggestedPlayer:
+        entry.name === 'You' || score >= 4 || entry.heals > 0 || entry.performs > 0 || entry.utilities > 0,
     };
   });
 
@@ -377,32 +320,50 @@ function buildActorInsights(events) {
 }
 
 function classifyActors(events) {
-  const roleMap = new Map();
-  const actorCounts = new Map();
-  const targetCounts = new Map();
+  const playerNames = new Set(['You']);
+  const npcNames = new Set();
 
   for (const event of events) {
-    if (event.actor) actorCounts.set(event.actor, (actorCounts.get(event.actor) || 0) + 1);
-    if (event.target) targetCounts.set(event.target, (targetCounts.get(event.target) || 0) + 1);
+    if (event.type === 'heal' || event.type === 'perform' || event.type === 'utility' || event.type === 'groupCredits') {
+      if (event.actor) playerNames.add(event.actor);
+      if (event.target) playerNames.add(event.target);
+    }
   }
 
-  const allNames = new Set([...actorCounts.keys(), ...targetCounts.keys()]);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const event of events) {
+      if (event.type !== 'attack' && event.type !== 'dot') continue;
+
+      if (playerNames.has(event.actor) && event.target && !playerNames.has(event.target) && !npcNames.has(event.target)) {
+        npcNames.add(event.target);
+        changed = true;
+      }
+
+      if (playerNames.has(event.target) && event.actor && !playerNames.has(event.actor) && !npcNames.has(event.actor)) {
+        npcNames.add(event.actor);
+        changed = true;
+      }
+
+      if (event.type === 'heal' && event.target && playerNames.has(event.target) && event.actor && !playerNames.has(event.actor)) {
+        playerNames.add(event.actor);
+        changed = true;
+      }
+    }
+  }
+
+  const roleMap = new Map();
+  const allNames = new Set();
+  for (const event of events) {
+    if (event.actor) allNames.add(event.actor);
+    if (event.target) allNames.add(event.target);
+  }
 
   for (const name of allNames) {
-    if (!name) continue;
-    if (name === 'You') {
-      roleMap.set(name, 'player');
-      continue;
-    }
-    if (isHardNpcName(name)) {
-      roleMap.set(name, 'npc');
-      continue;
-    }
-    if (isRosterCandidateName(name)) {
-      roleMap.set(name, 'player');
-      continue;
-    }
-    roleMap.set(name, 'unknown');
+    if (playerNames.has(name)) roleMap.set(name, 'player');
+    else if (npcNames.has(name)) roleMap.set(name, 'npc');
+    else roleMap.set(name, 'unknown');
   }
 
   return roleMap;
@@ -453,6 +414,7 @@ function summarizeEncounter(encounter, number, roleMap) {
     const bucket = getActorBucket(actorMap, event.actor, roleMap.get(event.actor) || 'unknown');
 
     if (event.type === 'attack') {
+      bucket.actionCount += 1;
       if (event.outcome === 'hits') bucket.hits += 1;
       if (event.outcome === 'crits') bucket.crits += 1;
       if (event.outcome === 'glances') bucket.glances += 1;
@@ -460,7 +422,11 @@ function summarizeEncounter(encounter, number, roleMap) {
       if (event.outcome === 'strikes through') bucket.hits += 1;
       bucket.directDamage += event.amount;
       directDamage += event.amount;
-      if (event.target) targetDamage.set(event.target, (targetDamage.get(event.target) || 0) + event.amount);
+      if (event.target) {
+        targetDamage.set(event.target, (targetDamage.get(event.target) || 0) + event.amount);
+        const targetBucket = getActorBucket(actorMap, event.target, roleMap.get(event.target) || 'unknown');
+        if (targetBucket) targetBucket.takenDamage += event.amount;
+      }
       bumpAbility(bucket, event.ability || 'Basic Attack', {
         uses: 1,
         directDamage: event.amount,
@@ -470,18 +436,26 @@ function summarizeEncounter(encounter, number, roleMap) {
         misses: event.outcome === 'misses' ? 1 : 0,
       });
     } else if (event.type === 'dot') {
+      bucket.actionCount += 1;
       bucket.dotDamage += event.amount;
       dotDamage += event.amount;
-      if (event.target) targetDamage.set(event.target, (targetDamage.get(event.target) || 0) + event.amount);
+      if (event.target) {
+        targetDamage.set(event.target, (targetDamage.get(event.target) || 0) + event.amount);
+        const targetBucket = getActorBucket(actorMap, event.target, roleMap.get(event.target) || 'unknown');
+        if (targetBucket) targetBucket.takenDamage += event.amount;
+      }
       bumpAbility(bucket, event.ability, { uses: 1, dotDamage: event.amount });
     } else if (event.type === 'heal') {
+      bucket.actionCount += 1;
       bucket.healing += event.amount;
       healing += event.amount;
       bumpAbility(bucket, event.ability, { uses: 1, healing: event.amount });
     } else if (event.type === 'perform') {
+      bucket.actionCount += 1;
       bucket.performs += 1;
       bumpAbility(bucket, event.ability, { uses: 1 });
     } else if (event.type === 'utility') {
+      bucket.actionCount += 1;
       bucket.utility += 1;
       bumpAbility(bucket, event.ability, { uses: 1 });
     } else if (event.type === 'groupCredits' || event.type === 'lootCredits') {
@@ -569,8 +543,13 @@ function summarizeAll(events, encounters, roleMap) {
   for (const event of events) {
     const bucket = getActorBucket(actorMap, event.actor, roleMap.get(event.actor) || 'unknown');
     if (event.type === 'attack') {
+      bucket.actionCount += 1;
       bucket.directDamage += event.amount;
       directDamage += event.amount;
+      if (event.target) {
+        const targetBucket = getActorBucket(actorMap, event.target, roleMap.get(event.target) || 'unknown');
+        if (targetBucket) targetBucket.takenDamage += event.amount;
+      }
       if (event.outcome === 'hits' || event.outcome === 'strikes through') bucket.hits += 1;
       if (event.outcome === 'crits') bucket.crits += 1;
       if (event.outcome === 'glances') bucket.glances += 1;
@@ -584,17 +563,25 @@ function summarizeAll(events, encounters, roleMap) {
         misses: event.outcome === 'misses' ? 1 : 0,
       });
     } else if (event.type === 'dot') {
+      bucket.actionCount += 1;
       bucket.dotDamage += event.amount;
       dotDamage += event.amount;
+      if (event.target) {
+        const targetBucket = getActorBucket(actorMap, event.target, roleMap.get(event.target) || 'unknown');
+        if (targetBucket) targetBucket.takenDamage += event.amount;
+      }
       bumpAbility(bucket, event.ability, { uses: 1, dotDamage: event.amount });
     } else if (event.type === 'heal') {
+      bucket.actionCount += 1;
       bucket.healing += event.amount;
       healing += event.amount;
       bumpAbility(bucket, event.ability, { uses: 1, healing: event.amount });
     } else if (event.type === 'perform') {
+      bucket.actionCount += 1;
       bucket.performs += 1;
       bumpAbility(bucket, event.ability, { uses: 1 });
     } else if (event.type === 'utility') {
+      bucket.actionCount += 1;
       bucket.utility += 1;
       bumpAbility(bucket, event.ability, { uses: 1 });
     } else if (event.type === 'groupCredits') {
@@ -611,6 +598,8 @@ function summarizeAll(events, encounters, roleMap) {
   }));
   actors.sort((a, b) => b.totalDamage - a.totalDamage || b.healing - a.healing || a.name.localeCompare(b.name));
 
+  const totalDurationSec = encounters.reduce((sum, encounter) => sum + encounter.durationSec, 0);
+
   return {
     totalEvents: events.length,
     totalDamage: directDamage + dotDamage,
@@ -621,6 +610,7 @@ function summarizeAll(events, encounters, roleMap) {
     totalLootedCredits: lootedCredits,
     encounterCount: encounters.length,
     actorCount: actors.length,
+    totalDurationSec,
     actors,
   };
 }
