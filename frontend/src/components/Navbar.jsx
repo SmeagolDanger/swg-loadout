@@ -16,7 +16,6 @@ import {
   Menu,
   Music4,
   Orbit,
-  ScrollText,
   Palette,
   Search,
   Shield,
@@ -36,7 +35,7 @@ const TOOL_NAV_ITEMS = [
   { to: '/tools/re', label: 'RE Calc', icon: FlaskConical },
   { to: '/tools/fc', label: 'FC Calc', icon: Cpu },
   { to: '/tools/loot', label: 'Loot', icon: Search },
-  { to: '/tools/logs', label: 'Logs', icon: ScrollText },
+  { to: '/tools/logs', label: 'Log Analyzer', icon: ScrollText },
   { to: '/tools/starters', label: 'Starter Builds', icon: Sparkles },
   { to: '/tools/community', label: 'Community', icon: Users },
 ];
@@ -52,7 +51,7 @@ const FEATURE_MODES = [
   { key: 'buildouts', to: '/tools/buildouts', label: 'Buildout Maps', icon: Orbit, sublabel: 'Zone parser and map tools' },
   { key: 'gcw', to: '/tools/gcw', label: 'GCW Calculator', icon: Flag, sublabel: 'Rank and decay projection' },
   { key: 'ent', to: '/tools/ent-buffs', label: 'Ent Buffs', icon: Music4, sublabel: 'Buff planning and requests' },
-  { key: 'logs', to: '/tools/logs', label: 'Combat Logs', icon: ScrollText, sublabel: 'Parse fights and group activity' },
+  { key: 'logs', to: '/tools/logs', label: 'Log Analyzer', icon: ScrollText, sublabel: 'Combat parsing and encounter summaries' },
   { key: 'mods', to: '/mods', label: 'Game Mods', icon: Download, sublabel: 'Curated downloads and screenshots' },
   { key: 'collections', to: '/collections', label: 'Collections', icon: Trophy, sublabel: 'Tracker and leaderboard' },
 ];
@@ -102,7 +101,7 @@ export default function Navbar() {
       case 'ent':
         return 'Entertainer buff planning and request generator';
       case 'logs':
-        return 'Combat log parsing, encounter summaries, and group analysis';
+        return 'Combat parsing, encounter summaries, and roster review';
       case 'mods':
         return 'Curated mod downloads, screenshots, and install notes';
       case 'collections':

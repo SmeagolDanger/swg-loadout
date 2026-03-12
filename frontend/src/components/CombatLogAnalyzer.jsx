@@ -2,12 +2,13 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Activity,
   Axe,
+  ChevronDown,
+  ChevronUp,
   Coins,
   Download,
   FileUp,
   Filter,
   HeartPulse,
-  Pencil,
   Plus,
   ScrollText,
   Search,
@@ -16,7 +17,7 @@ import {
   Swords,
   Upload,
   UserCheck,
-  UserMinus,
+  UserPlus,
   Users,
   X,
 } from 'lucide-react';
@@ -102,133 +103,179 @@ function GroupChip({ name, removable = false, onRemove }) {
   );
 }
 
-function GroupModal({
-  open,
-  onClose,
+function InsightRow({ entry, inGroup, onToggle }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onToggle(entry.name)}
+      className={`flex w-full items-center justify-between gap-3 rounded-xl border px-3 py-2 text-left transition-colors ${
+        inGroup
+          ? 'border-green-400/30 bg-green-500/10 text-green-100'
+          : 'border-hull-400/30 bg-hull-900/60 text-hull-100 hover:border-plasma-400/40'
+      }`}
+    >
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <div className="truncate font-medium">{entry.name}</div>
+          {entry.suggestedPlayer ? (
+            <span className="rounded-full border border-plasma-400/30 bg-plasma-500/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] text-plasma-200">
+              suggested
+            </span>
+          ) : null}
+        </div>
+        <div className="mt-1 text-xs opacity-80">
+          score {entry.score} · atk {entry.attacks} · heals {entry.heals} · perf {entry.performs} · util {entry.utilities}
+        </div>
+      </div>
+      <span className="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-[10px] uppercase tracking-[0.14em]">
+        {inGroup ? 'In group' : 'Add'}
+      </span>
+    </button>
+  );
+}
+
+function RosterManager({
   actorInsights,
-  groupSet,
+  groupMembers,
   onToggle,
   manualName,
   setManualName,
   onManualAdd,
 }) {
-  const suggested = actorInsights.filter((entry) => entry.suggestedPlayer);
-  const everyoneElse = actorInsights.filter((entry) => !entry.suggestedPlayer);
+  const [query, setQuery] = useState('');
+  const [showAll, setShowAll] = useState(false);
+  const groupSet = useMemo(() => new Set(groupMembers), [groupMembers]);
 
-  if (!open) return null;
+  const suggestions = useMemo(() => actorInsights.filter((entry) => entry.suggestedPlayer), [actorInsights]);
+  const others = useMemo(() => actorInsights.filter((entry) => !entry.suggestedPlayer), [actorInsights]);
+  const normalizedQuery = query.trim().toLowerCase();
+
+  const filteredSuggestions = suggestions.filter((entry) => !normalizedQuery || entry.name.toLowerCase().includes(normalizedQuery));
+  const filteredOthers = others.filter((entry) => !normalizedQuery || entry.name.toLowerCase().includes(normalizedQuery));
+  const visibleOthers = showAll ? filteredOthers : filteredOthers.slice(0, 12);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-      <div className="max-h-[90vh] w-full max-w-4xl overflow-hidden rounded-3xl border border-hull-400/40 bg-hull-900 shadow-2xl">
-        <div className="flex items-center justify-between border-b border-hull-400/30 px-5 py-4">
-          <div>
-            <div className="text-[11px] font-display uppercase tracking-[0.18em] text-hull-300">Combat Log Analyzer</div>
-            <h2 className="mt-1 text-xl font-display text-hull-50">Manage Group List</h2>
+    <div className="card p-4">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <div className="flex items-center gap-2 text-[11px] font-display uppercase tracking-[0.16em] text-hull-300">
+            <Users size={14} className="text-plasma-400" />
+            Group Roster
           </div>
-          <button type="button" onClick={onClose} className="rounded-xl border border-hull-400/40 bg-hull-800/70 p-2 text-hull-200 hover:text-hull-50">
-            <X size={18} />
+          <h2 className="mt-1 text-xl font-display text-hull-50">Review detected players</h2>
+          <p className="mt-1 max-w-3xl text-sm text-hull-300">
+            The parser makes a best guess from heals, performs, utility, and combat behavior. You decide who really counts as group.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            className="btn-ghost"
+            onClick={() => filteredSuggestions.forEach((entry) => !groupSet.has(entry.name) && onToggle(entry.name))}
+          >
+            <UserPlus size={15} /> Add suggested
+          </button>
+          <button
+            type="button"
+            className="btn-ghost"
+            onClick={() => groupMembers.forEach((name) => onToggle(name))}
+            disabled={!groupMembers.length}
+          >
+            <X size={15} /> Clear group
           </button>
         </div>
+      </div>
 
-        <div className="grid gap-4 overflow-y-auto p-5 lg:grid-cols-[1.05fr_1fr]">
-          <section className="space-y-4">
-            <div className="rounded-2xl border border-hull-400/30 bg-hull-800/50 p-4">
-              <div className="mb-3 flex items-center gap-2 text-[11px] font-display uppercase tracking-[0.16em] text-hull-300">
-                <Sparkles size={14} className="text-plasma-400" /> Suggested Players
-              </div>
-              <div className="space-y-2">
-                {suggested.map((entry) => {
-                  const inGroup = groupSet.has(entry.name);
-                  return (
-                    <button
-                      key={entry.name}
-                      type="button"
-                      onClick={() => onToggle(entry.name)}
-                      className={`flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left transition-colors ${
-                        inGroup
-                          ? 'border-green-400/30 bg-green-500/10 text-green-100'
-                          : 'border-hull-400/30 bg-hull-900/60 text-hull-100 hover:border-plasma-400/40'
-                      }`}
-                    >
-                      <div className="min-w-0">
-                        <div className="truncate font-medium">{entry.name}</div>
-                        <div className="text-xs opacity-80">score {entry.score} · heals {entry.heals} · performs {entry.performs} · utility {entry.utilities}</div>
-                      </div>
-                      <span className="ml-3 shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-[10px] uppercase tracking-[0.14em]">
-                        {inGroup ? 'In group' : 'Add'}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+      <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
+        <section className="space-y-4">
+          <div className="rounded-2xl border border-hull-400/30 bg-hull-800/50 p-4">
+            <div className="mb-3 flex items-center gap-2 text-[11px] font-display uppercase tracking-[0.16em] text-hull-300">
+              <Search size={14} className="text-plasma-400" /> Search names
             </div>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Filter detected names"
+                className="flex-1 rounded-xl border border-hull-400/40 bg-hull-900/80 px-3 py-2 text-hull-50 placeholder:text-hull-400 focus:border-plasma-400/50 focus:outline-none"
+              />
+              <div className="text-xs text-hull-300 self-center">{actorInsights.length} names seen</div>
+            </div>
+          </div>
 
-            <div className="rounded-2xl border border-hull-400/30 bg-hull-800/50 p-4">
-              <div className="mb-3 flex items-center gap-2 text-[11px] font-display uppercase tracking-[0.16em] text-hull-300">
-                <Plus size={14} className="text-plasma-400" /> Add Manually
-              </div>
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <input
-                  value={manualName}
-                  onChange={(event) => setManualName(event.target.value)}
-                  placeholder="Enter player name"
-                  className="flex-1 rounded-xl border border-hull-400/40 bg-hull-900/80 px-3 py-2 text-hull-50 placeholder:text-hull-400 focus:border-plasma-400/50 focus:outline-none"
-                />
-                <button type="button" onClick={onManualAdd} className="btn-secondary whitespace-nowrap">
-                  <UserCheck size={15} /> Add to Group
+          <div className="rounded-2xl border border-hull-400/30 bg-hull-800/50 p-4">
+            <div className="mb-3 flex items-center gap-2 text-[11px] font-display uppercase tracking-[0.16em] text-hull-300">
+              <Sparkles size={14} className="text-plasma-400" /> Suggested players
+            </div>
+            <div className="space-y-2">
+              {filteredSuggestions.length ? (
+                filteredSuggestions.map((entry) => (
+                  <InsightRow key={entry.name} entry={entry} inGroup={groupSet.has(entry.name)} onToggle={onToggle} />
+                ))
+              ) : (
+                <div className="rounded-xl border border-hull-400/30 bg-hull-900/50 px-3 py-3 text-sm text-hull-300">
+                  No suggested players matched your filter.
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+
+        <section className="space-y-4">
+          <div className="rounded-2xl border border-hull-400/30 bg-hull-800/50 p-4">
+            <div className="mb-3 flex items-center gap-2 text-[11px] font-display uppercase tracking-[0.16em] text-hull-300">
+              <UserCheck size={14} className="text-plasma-400" /> Current group
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {groupMembers.length ? (
+                groupMembers.slice().sort((a, b) => a.localeCompare(b)).map((name) => (
+                  <GroupChip key={name} name={name} removable onRemove={onToggle} />
+                ))
+              ) : (
+                <div className="text-sm text-hull-300">No confirmed group members yet.</div>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-hull-400/30 bg-hull-800/50 p-4">
+            <div className="mb-3 flex items-center gap-2 text-[11px] font-display uppercase tracking-[0.16em] text-hull-300">
+              <Plus size={14} className="text-plasma-400" /> Add manually
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <input
+                value={manualName}
+                onChange={(event) => setManualName(event.target.value)}
+                placeholder="Enter player name"
+                className="flex-1 rounded-xl border border-hull-400/40 bg-hull-900/80 px-3 py-2 text-hull-50 placeholder:text-hull-400 focus:border-plasma-400/50 focus:outline-none"
+              />
+              <button type="button" onClick={onManualAdd} className="btn-secondary whitespace-nowrap">
+                <UserCheck size={15} /> Add to group
+              </button>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-hull-400/30 bg-hull-800/50 p-4">
+            <div className="mb-3 flex items-center justify-between gap-2 text-[11px] font-display uppercase tracking-[0.16em] text-hull-300">
+              <span className="inline-flex items-center gap-2"><ShieldQuestion size={14} className="text-plasma-400" /> Other seen names</span>
+              {filteredOthers.length > 12 ? (
+                <button type="button" className="text-xs text-plasma-300 hover:text-plasma-200" onClick={() => setShowAll((value) => !value)}>
+                  {showAll ? (<span className="inline-flex items-center gap-1">Show less <ChevronUp size={14} /></span>) : (<span className="inline-flex items-center gap-1">Show all <ChevronDown size={14} /></span>)}
                 </button>
-              </div>
+              ) : null}
             </div>
-          </section>
-
-          <section className="space-y-4">
-            <div className="rounded-2xl border border-hull-400/30 bg-hull-800/50 p-4">
-              <div className="mb-3 flex items-center gap-2 text-[11px] font-display uppercase tracking-[0.16em] text-hull-300">
-                <Users size={14} className="text-plasma-400" /> Current Group
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {groupSet.size ? (
-                  Array.from(groupSet).sort((a, b) => a.localeCompare(b)).map((name) => (
-                    <GroupChip key={name} name={name} removable onRemove={onToggle} />
-                  ))
-                ) : (
-                  <div className="text-sm text-hull-300">No one in the group list yet.</div>
-                )}
-              </div>
+            <div className="space-y-2 max-h-[22rem] overflow-y-auto pr-1">
+              {visibleOthers.length ? (
+                visibleOthers.map((entry) => (
+                  <InsightRow key={entry.name} entry={entry} inGroup={groupSet.has(entry.name)} onToggle={onToggle} />
+                ))
+              ) : (
+                <div className="rounded-xl border border-hull-400/30 bg-hull-900/50 px-3 py-3 text-sm text-hull-300">
+                  No other names matched your filter.
+                </div>
+              )}
             </div>
-
-            <div className="rounded-2xl border border-hull-400/30 bg-hull-800/50 p-4">
-              <div className="mb-3 flex items-center gap-2 text-[11px] font-display uppercase tracking-[0.16em] text-hull-300">
-                <ShieldQuestion size={14} className="text-plasma-400" /> All Seen Names
-              </div>
-              <div className="max-h-[45vh] space-y-2 overflow-y-auto pr-1">
-                {everyoneElse.map((entry) => {
-                  const inGroup = groupSet.has(entry.name);
-                  return (
-                    <button
-                      key={entry.name}
-                      type="button"
-                      onClick={() => onToggle(entry.name)}
-                      className={`flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left transition-colors ${
-                        inGroup
-                          ? 'border-green-400/30 bg-green-500/10 text-green-100'
-                          : 'border-hull-400/30 bg-hull-900/60 text-hull-100 hover:border-plasma-400/40'
-                      }`}
-                    >
-                      <div className="min-w-0">
-                        <div className="truncate font-medium">{entry.name}</div>
-                        <div className="text-xs opacity-80">heuristic {entry.role} · score {entry.score} · attacks {entry.attacks} · incoming {entry.incomingHits + entry.incomingDots}</div>
-                      </div>
-                      <span className="ml-3 shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-[10px] uppercase tracking-[0.14em]">
-                        {inGroup ? 'In group' : 'Add'}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </section>
-        </div>
+          </div>
+        </section>
       </div>
     </div>
   );
@@ -244,7 +291,6 @@ export default function CombatLogAnalyzer() {
   const [actorTypeFilter, setActorTypeFilter] = useState('all');
   const [nameFilter, setNameFilter] = useState('');
   const [groupMembers, setGroupMembers] = useState([]);
-  const [groupModalOpen, setGroupModalOpen] = useState(false);
   const [manualName, setManualName] = useState('');
 
   useEffect(() => {
@@ -335,18 +381,12 @@ export default function CombatLogAnalyzer() {
   const filteredEncounterEvents = useMemo(() => {
     if (!selectedEncounter) return [];
     return selectedEncounter.events.filter((event) => {
-      const rolePass =
-        actorTypeFilter === 'all' || event.actorRole === actorTypeFilter || event.targetRole === actorTypeFilter;
+      const rolePass = actorTypeFilter === 'all' || event.actorRole === actorTypeFilter || event.targetRole === actorTypeFilter;
       const text = `${event.actor} ${event.target} ${event.ability} ${event.raw}`.toLowerCase();
       const namePass = !normalizedFilter || text.includes(normalizedFilter);
       return rolePass && namePass;
     });
   }, [selectedEncounter, actorTypeFilter, normalizedFilter]);
-
-  const suggestedPlayers = useMemo(
-    () => (result?.actorInsights || []).filter((entry) => entry.suggestedPlayer),
-    [result],
-  );
 
   async function handleFilesChange(event) {
     const selected = Array.from(event.target.files || []);
@@ -410,7 +450,7 @@ export default function CombatLogAnalyzer() {
           </div>
           <h1 className="mb-2 font-display text-3xl font-bold tracking-wider text-hull-50">Combat Log Analyzer</h1>
           <p className="max-w-3xl text-hull-200">
-            Original parser built for this site from your uploaded SWG chat logs. It shows detected players up front and lets you correct the group list instead of pretending the parser is clairvoyant.
+            Original parser built for this site from your uploaded SWG chat logs. Review the detected roster, confirm the real group, and then slice encounters with something less embarrassing than blind heuristics.
           </p>
         </div>
 
@@ -437,7 +477,7 @@ export default function CombatLogAnalyzer() {
           </div>
           <div className="text-xl font-display text-hull-50">Drop in one or more chat logs</div>
           <p className="mx-auto max-w-2xl text-hull-200">
-            The parser matches the combat, heal, DoT, perform, and group-credit patterns found in your uploaded sample logs. It uses original site code, not the unlabeled analyzer repo.
+            The parser matches the combat, heal, DoT, perform, and group-credit patterns found in your uploaded sample logs. It uses original site code, not lifted analyzer code.
           </p>
         </div>
       ) : null}
@@ -445,7 +485,7 @@ export default function CombatLogAnalyzer() {
       {parsing ? (
         <div className="card p-8 text-center text-hull-200">
           <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-2 border-plasma-500 border-t-transparent" />
-          Parsing combat logs… because apparently 80 megabytes of MMO nostalgia need structure.
+          Parsing combat logs… because 20 years of MMO combat text apparently needed a second job.
         </div>
       ) : null}
 
@@ -459,31 +499,20 @@ export default function CombatLogAnalyzer() {
             <StatCard icon={Swords} label="Encounters" value={result.summary.encounterCount} hint={`${result.summary.actorCount} actors seen`} />
           </div>
 
-          <div className="card p-4">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 text-[11px] font-display uppercase tracking-[0.16em] text-hull-300">
-                  <Users size={14} className="text-plasma-400" />
-                  Detected Group
-                </div>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {groupMembers.length ? groupMembers.sort((a, b) => a.localeCompare(b)).map((name) => <GroupChip key={name} name={name} />) : <span className="text-sm text-hull-300">No group members selected yet.</span>}
-                </div>
-                <div className="mt-2 text-xs text-hull-300">
-                  {suggestedPlayers.length} suggested player{suggestedPlayers.length === 1 ? '' : 's'} detected from heals, performs, utility lines, and other supportive actions.
-                </div>
-              </div>
-              <button type="button" onClick={() => setGroupModalOpen(true)} className="btn-secondary self-start lg:self-center">
-                <Pencil size={15} /> Manage Group
-              </button>
-            </div>
-          </div>
+          <RosterManager
+            actorInsights={result.actorInsights || []}
+            groupMembers={groupMembers}
+            onToggle={toggleGroupMember}
+            manualName={manualName}
+            setManualName={setManualName}
+            onManualAdd={addManualGroupMember}
+          />
 
           <div className="grid gap-4 xl:grid-cols-[18rem_minmax(0,1fr)]">
             <aside className="space-y-4">
               <div className="card p-4">
                 <div className="mb-3 flex items-center gap-2 text-[11px] font-display uppercase tracking-[0.16em] text-hull-300">
-                  <Sparkles size={14} className="text-plasma-400" /> Encounters
+                  <ScrollText size={14} className="text-plasma-400" /> Encounters
                 </div>
                 <div className="space-y-2">
                   {result.encounters.map((encounter) => (
@@ -491,7 +520,7 @@ export default function CombatLogAnalyzer() {
                       key={encounter.id}
                       type="button"
                       onClick={() => setSelectedEncounterId(encounter.id)}
-                      className={`w-full rounded-2xl border px-3 py-3 text-left transition-colors ${
+                      className={`w-full rounded-2xl border px-3 py-2 text-left transition-colors ${
                         selectedEncounter?.id === encounter.id
                           ? 'border-plasma-400/40 bg-plasma-500/10'
                           : 'border-hull-400/30 bg-hull-800/60 hover:border-hull-300/50'
@@ -630,17 +659,6 @@ export default function CombatLogAnalyzer() {
           </div>
         </>
       ) : null}
-
-      <GroupModal
-        open={groupModalOpen}
-        onClose={() => setGroupModalOpen(false)}
-        actorInsights={result?.actorInsights || []}
-        groupSet={groupSet}
-        onToggle={toggleGroupMember}
-        manualName={manualName}
-        setManualName={setManualName}
-        onManualAdd={addManualGroupMember}
-      />
     </div>
   );
 }

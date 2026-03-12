@@ -16,10 +16,10 @@ import PublicLoadouts from './components/PublicLoadouts';
 import BuildoutExplorer from './components/BuildoutExplorer';
 import GCWCalculator from './components/GCWCalculator';
 import EntBuffBuilder from './components/EntBuffBuilder';
-import CombatLogAnalyzer from './components/CombatLogAnalyzer';
 import ModsBrowser from './components/ModsBrowser';
 import AdminPage from './components/AdminPage';
 import PrivacyPage from './components/PrivacyPage';
+import CombatLogAnalyzer from './components/CombatLogAnalyzer';
 import { CollectionsPage, CharacterDirectory, CollectionLeaderboard } from './components/collections';
 
 function resolveFooter(pathname) {
@@ -46,7 +46,7 @@ function resolveFooter(pathname) {
   if (pathname.startsWith('/tools/logs')) {
     return {
       id: 'logs',
-      content: <>Combat Log Analyzer is an original feature of this site, built from user-provided SWG chat logs.</>,
+      content: <>Combat Log Analyzer is an original site feature built from user-provided SWG chat log samples.</>,
     };
   }
 
