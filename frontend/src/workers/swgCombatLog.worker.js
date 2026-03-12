@@ -11,6 +11,40 @@ const GROUP_LOOT_RE = /^\[GROUP] (?<actor>.+?) looted (?<amount>\d+) credits fro
 
 const ENCOUNTER_GAP_SECONDS = 15;
 
+const NPC_EXACT_NAMES = new Set(['AT-AT', 'AT-ST']);
+const NPC_PREFIX_PATTERNS = [
+  /^corpse of/i,
+  /^(a|an|the)/i,
+];
+const NPC_TERM_PATTERNS = [
+  /at-at/i,
+  /at-st/i,
+  /ev(a)?c crew member/i,
+  /(commando|commander|phalanx commander|trooper|officer|crew member|battle droid|super battle droid|droid)/i,
+];
+const PLAYER_INVALID_NAMES = new Set(['a', 'an', 'the']);
+
+function cleanName(name) {
+  return (name || '').trim();
+}
+
+function isImpossiblePlayerName(name) {
+  const trimmed = cleanName(name);
+  if (!trimmed) return true;
+  const lowered = trimmed.toLowerCase();
+  if (PLAYER_INVALID_NAMES.has(lowered)) return true;
+  return lowered.length === 1;
+}
+
+function isNpcLikeName(name) {
+  const trimmed = cleanName(name);
+  if (!trimmed) return false;
+  if (NPC_EXACT_NAMES.has(trimmed.toUpperCase())) return true;
+  if (isImpossiblePlayerName(trimmed)) return true;
+  if (NPC_PREFIX_PATTERNS.some((pattern) => pattern.test(trimmed))) return true;
+  return NPC_TERM_PATTERNS.some((pattern) => pattern.test(trimmed));
+}
+
 function timeToSeconds(value) {
   const [hours, minutes, seconds] = value.split(':').map(Number);
   return hours * 3600 + minutes * 60 + seconds;
@@ -246,13 +280,14 @@ function parseChatMessage(channel, message) {
   return null;
 }
 
-function buildActorInsights(events, roleMap) {
+function buildActorInsights(events) {
   const map = new Map();
   const ensure = (name) => {
-    if (!name) return null;
-    if (!map.has(name)) {
-      map.set(name, {
-        name,
+    const trimmed = cleanName(name);
+    if (!trimmed) return null;
+    if (!map.has(trimmed)) {
+      map.set(trimmed, {
+        name: trimmed,
         heals: 0,
         performs: 0,
         utilities: 0,
@@ -262,25 +297,16 @@ function buildActorInsights(events, roleMap) {
         incomingHits: 0,
         incomingDots: 0,
         credits: 0,
-        sourceEvents: 0,
-        targetEvents: 0,
         score: 0,
         reason: '',
       });
     }
-    return map.get(name);
+    return map.get(trimmed);
   };
 
   for (const event of events) {
     const actor = ensure(event.actor);
     const target = ensure(event.target);
-
-    if (actor) {
-      actor.sourceEvents += 1;
-    }
-    if (target) {
-      target.targetEvents += 1;
-    }
 
     if (event.type === 'heal') {
       if (actor) actor.heals += 1;
@@ -303,56 +329,75 @@ function buildActorInsights(events, roleMap) {
   }
 
   const insights = Array.from(map.values()).map((entry) => {
-    const supportCount = entry.heals + entry.performs + entry.utilities;
-    const combatCount = entry.attacks + entry.dots;
-    const targetHeavy = entry.targetEvents > Math.max(3, entry.sourceEvents * 1.75);
-    const activeSource = entry.sourceEvents >= Math.max(2, Math.ceil(entry.targetEvents * 0.35));
-    const role = roleMap.get(entry.name) || 'unknown';
-
     let score = 0;
-    if (entry.name === 'You') score += 100;
-    score += entry.heals * 8;
-    score += entry.performs * 8;
-    score += entry.utilities * 5;
-    score += Math.min(combatCount, 15) * 2;
-    score += activeSource ? 4 : 0;
-    score += entry.credits > 0 ? 2 : 0;
-    score -= targetHeavy ? 8 : 0;
-    score -= role === 'npc' ? 6 : 0;
+    const reasons = [];
+    const name = cleanName(entry.name);
+    const npcLike = isNpcLikeName(name);
+    const impossible = isImpossiblePlayerName(name);
 
-    let reason = 'seen in log';
-    if (entry.name === 'You') {
-      reason = 'self reference from the uploaded log';
-    } else if (supportCount > 0) {
-      reason = 'uses support actions that usually come from players';
-    } else if (role === 'player' && combatCount >= 3 && activeSource) {
-      reason = 'acts as an active combat source more than a target';
-    } else if (activeSource && combatCount >= 6) {
-      reason = 'appears repeatedly as an active source';
-    } else if (targetHeavy) {
-      reason = 'mostly appears as a target, so likely NPC or noise';
+    if (name === 'You') {
+      score += 100;
+      reasons.push('local player');
     }
 
-    const suggestedPlayer = Boolean(
-      entry.name === 'You'
-      || supportCount > 0
-      || (role === 'player' && combatCount >= 3 && activeSource && !targetHeavy)
-      || (role !== 'npc' && combatCount >= 6 && activeSource && !targetHeavy)
-    );
+    if (entry.heals > 0) {
+      score += entry.heals * 4;
+      reasons.push(`heals ${entry.heals}`);
+    }
+    if (entry.performs > 0) {
+      score += entry.performs * 4;
+      reasons.push(`performs ${entry.performs}`);
+    }
+    if (entry.utilities > 0) {
+      score += entry.utilities * 2;
+      reasons.push(`utility ${entry.utilities}`);
+    }
+    if (entry.supportiveTargets > 0) {
+      score += entry.supportiveTargets * 2;
+      reasons.push(`supports allies ${entry.supportiveTargets}`);
+    }
+    if (entry.credits > 0) {
+      score += 2;
+      reasons.push('group credit line');
+    }
+    if (entry.attacks > 1) {
+      score += Math.min(4, entry.attacks);
+      reasons.push(`active source ${entry.attacks}`);
+    }
+    if (entry.dots > 0) {
+      score += Math.min(2, entry.dots);
+    }
+
+    if (entry.incomingHits > entry.attacks + entry.heals + entry.performs + entry.utilities + 1) {
+      score -= 4;
+      reasons.push('mostly target');
+    }
+    if (entry.incomingDots > entry.dots + 1) {
+      score -= 2;
+    }
+
+    if (npcLike) {
+      score -= 100;
+      reasons.push('npc-like name');
+    }
+    if (impossible) {
+      score -= 100;
+      reasons.push('invalid player name');
+    }
+
+    const suggestedPlayer =
+      name === 'You' ||
+      (!npcLike && !impossible && (entry.heals > 0 || entry.performs > 0 || entry.utilities > 0 || score >= 6));
 
     return {
       ...entry,
-      role,
       score,
-      reason,
       suggestedPlayer,
+      reason: reasons.length ? reasons.join(' · ') : 'seen in logs',
     };
   });
 
-  insights.sort((a, b) => {
-    if (b.suggestedPlayer !== a.suggestedPlayer) return Number(b.suggestedPlayer) - Number(a.suggestedPlayer);
-    return b.score - a.score || b.sourceEvents - a.sourceEvents || a.name.localeCompare(b.name);
-  });
+  insights.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
   return insights;
 }
 
@@ -361,9 +406,12 @@ function classifyActors(events) {
   const npcNames = new Set();
 
   for (const event of events) {
+    if (event.actor && isNpcLikeName(event.actor)) npcNames.add(cleanName(event.actor));
+    if (event.target && isNpcLikeName(event.target)) npcNames.add(cleanName(event.target));
+
     if (event.type === 'heal' || event.type === 'perform' || event.type === 'utility' || event.type === 'groupCredits') {
-      if (event.actor) playerNames.add(event.actor);
-      if (event.target) playerNames.add(event.target);
+      if (event.actor && !isNpcLikeName(event.actor)) playerNames.add(cleanName(event.actor));
+      if (event.target && !isNpcLikeName(event.target)) playerNames.add(cleanName(event.target));
     }
   }
 
@@ -373,18 +421,16 @@ function classifyActors(events) {
     for (const event of events) {
       if (event.type !== 'attack' && event.type !== 'dot') continue;
 
-      if (playerNames.has(event.actor) && event.target && !playerNames.has(event.target) && !npcNames.has(event.target)) {
-        npcNames.add(event.target);
+      const actor = cleanName(event.actor);
+      const target = cleanName(event.target);
+
+      if (playerNames.has(actor) && target && !playerNames.has(target) && !npcNames.has(target)) {
+        npcNames.add(target);
         changed = true;
       }
 
-      if (playerNames.has(event.target) && event.actor && !playerNames.has(event.actor) && !npcNames.has(event.actor)) {
-        npcNames.add(event.actor);
-        changed = true;
-      }
-
-      if (event.type === 'heal' && event.target && playerNames.has(event.target) && event.actor && !playerNames.has(event.actor)) {
-        playerNames.add(event.actor);
+      if (playerNames.has(target) && actor && !playerNames.has(actor) && !npcNames.has(actor) && !isNpcLikeName(actor)) {
+        npcNames.add(actor);
         changed = true;
       }
     }
@@ -393,13 +439,14 @@ function classifyActors(events) {
   const roleMap = new Map();
   const allNames = new Set();
   for (const event of events) {
-    if (event.actor) allNames.add(event.actor);
-    if (event.target) allNames.add(event.target);
+    if (event.actor) allNames.add(cleanName(event.actor));
+    if (event.target) allNames.add(cleanName(event.target));
   }
 
   for (const name of allNames) {
-    if (playerNames.has(name)) roleMap.set(name, 'player');
-    else if (npcNames.has(name)) roleMap.set(name, 'npc');
+    if (!name) continue;
+    if (playerNames.has(name) && !npcNames.has(name) && !isNpcLikeName(name)) roleMap.set(name, 'player');
+    else if (npcNames.has(name) || isNpcLikeName(name)) roleMap.set(name, 'npc');
     else roleMap.set(name, 'unknown');
   }
 
@@ -667,7 +714,10 @@ function parseFiles(files) {
 
   events.sort((a, b) => a.epochSec - b.epochSec || a.lineNumber - b.lineNumber);
   const roleMap = classifyActors(events);
-  const actorInsights = buildActorInsights(events, roleMap);
+  const actorInsights = buildActorInsights(events).map((entry) => ({
+    ...entry,
+    role: roleMap.get(entry.name) || 'unknown',
+  }));
   const suggestedPlayers = actorInsights.filter((entry) => entry.suggestedPlayer).map((entry) => entry.name);
 
   events.forEach((event) => {
