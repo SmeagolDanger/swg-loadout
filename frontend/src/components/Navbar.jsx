@@ -52,7 +52,7 @@ const FEATURE_MODES = [
   { key: 'buildouts', to: '/tools/buildouts', label: 'Buildout Maps', icon: Orbit, sublabel: 'Zone parser and map tools' },
   { key: 'gcw', to: '/tools/gcw', label: 'GCW Calculator', icon: Flag, sublabel: 'Rank and decay projection' },
   { key: 'ent', to: '/tools/ent-buffs', label: 'Ent Buffs', icon: Music4, sublabel: 'Buff planning and requests' },
-  { key: 'logs', to: '/tools/logs', label: 'Log Analyzer', icon: ScrollText, sublabel: 'Combat parsing and encounter summaries' },
+  //{ key: 'logs', to: '/tools/logs', label: 'Log Analyzer', icon: ScrollText, sublabel: 'Combat parsing and encounter summaries' },
   { key: 'mods', to: '/mods', label: 'Game Mods', icon: Download, sublabel: 'Curated downloads and screenshots' },
   { key: 'collections', to: '/collections', label: 'Collections', icon: Trophy, sublabel: 'Tracker and leaderboard' },
 ];
