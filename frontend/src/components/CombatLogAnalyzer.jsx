@@ -124,7 +124,7 @@ function InsightRow({ entry, inGroup, onToggle }) {
           ) : null}
         </div>
         <div className="mt-1 text-xs opacity-80">
-          score {entry.score} · atk {entry.attacks} · heals {entry.heals} · perf {entry.performs} · util {entry.utilities}
+          {entry.reason || `score ${entry.score}`} · src {entry.sourceCount} · tgt {entry.targetCount} · atk {entry.attacks} · heals {entry.heals}
         </div>
       </div>
       <span className="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-[10px] uppercase tracking-[0.14em]">
@@ -164,7 +164,7 @@ function RosterManager({
           </div>
           <h2 className="mt-1 text-xl font-display text-hull-50">Review detected players</h2>
           <p className="mt-1 max-w-3xl text-sm text-hull-300">
-            Suggestions are conservative now. Current Group starts empty so obvious NPCs do not get promoted automatically. Review Suggested Group Members, then add only the real players.
+            Suggestions are conservative and based on source-side behavior, support activity, and NPC-name filtering. Confirm the real group yourself instead of trusting the parser blindly.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -394,6 +394,7 @@ export default function CombatLogAnalyzer() {
     setResult(null);
     setSelectedEncounterId('');
     setGroupMembers([]);
+    setManualName('');
     setError('');
     if (!selected.length) return;
 
