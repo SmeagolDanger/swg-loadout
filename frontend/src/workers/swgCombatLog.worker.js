@@ -11,38 +11,31 @@ const GROUP_LOOT_RE = /^\[GROUP] (?<actor>.+?) looted (?<amount>\d+) credits fro
 
 const ENCOUNTER_GAP_SECONDS = 15;
 
-const NPC_EXACT_NAMES = new Set(['AT-AT', 'AT-ST']);
-const NPC_PREFIX_PATTERNS = [
-  /^corpse of/i,
-  /^(a|an|the)/i,
-];
-const NPC_TERM_PATTERNS = [
-  /at-at/i,
-  /at-st/i,
-  /ev(a)?c crew member/i,
-  /(commando|commander|phalanx commander|trooper|officer|crew member|battle droid|super battle droid|droid)/i,
-];
-const PLAYER_INVALID_NAMES = new Set(['a', 'an', 'the']);
 
-function cleanName(name) {
-  return (name || '').trim();
+const PLAYER_BLOCKLIST_EXACT = new Set(['a', 'an', 'the', 'at-st', 'at-at']);
+const NPC_PREFIX_RE = /^(?:a|an|the)\s+/i;
+const NPC_KEYWORD_RE = /(?:wampa|snowtrooper|stormtrooper|storm commando|stormcommando|commando|commander|trooper|berserker|brute|defender|crew member|evac crew member|assassin|phalanx|droid|officer|corpse of|rebel|imperial|pirate|bandit|beast|creature|skullcrusher)/i;
+
+function normalizeActorName(name) {
+  return (name || '').trim().replace(/\s+/g, ' ');
 }
 
-function isImpossiblePlayerName(name) {
-  const trimmed = cleanName(name);
-  if (!trimmed) return true;
-  const lowered = trimmed.toLowerCase();
-  if (PLAYER_INVALID_NAMES.has(lowered)) return true;
-  return lowered.length === 1;
+function looksLikeNpcName(name) {
+  const normalized = normalizeActorName(name);
+  const lower = normalized.toLowerCase();
+  if (!normalized) return true;
+  if (PLAYER_BLOCKLIST_EXACT.has(lower)) return true;
+  if (normalized.length <= 1) return true;
+  if (lower.startsWith('corpse of ')) return true;
+  if (NPC_PREFIX_RE.test(normalized)) return true;
+  if (NPC_KEYWORD_RE.test(normalized)) return true;
+  return false;
 }
 
-function isNpcLikeName(name) {
-  const trimmed = cleanName(name);
-  if (!trimmed) return false;
-  if (NPC_EXACT_NAMES.has(trimmed.toUpperCase())) return true;
-  if (isImpossiblePlayerName(trimmed)) return true;
-  if (NPC_PREFIX_PATTERNS.some((pattern) => pattern.test(trimmed))) return true;
-  return NPC_TERM_PATTERNS.some((pattern) => pattern.test(trimmed));
+function looksLikeGarbageName(name) {
+  const normalized = normalizeActorName(name);
+  const lower = normalized.toLowerCase();
+  return !normalized || normalized.length <= 1 || PLAYER_BLOCKLIST_EXACT.has(lower) || lower.startsWith('corpse of ');
 }
 
 function timeToSeconds(value) {
@@ -283,11 +276,11 @@ function parseChatMessage(channel, message) {
 function buildActorInsights(events) {
   const map = new Map();
   const ensure = (name) => {
-    const trimmed = cleanName(name);
-    if (!trimmed) return null;
-    if (!map.has(trimmed)) {
-      map.set(trimmed, {
-        name: trimmed,
+    const normalized = normalizeActorName(name);
+    if (!normalized) return null;
+    if (!map.has(normalized)) {
+      map.set(normalized, {
+        name: normalized,
         heals: 0,
         performs: 0,
         utilities: 0,
@@ -297,16 +290,21 @@ function buildActorInsights(events) {
         incomingHits: 0,
         incomingDots: 0,
         credits: 0,
+        sourceEvents: 0,
+        targetEvents: 0,
         score: 0,
         reason: '',
       });
     }
-    return map.get(trimmed);
+    return map.get(normalized);
   };
 
   for (const event of events) {
     const actor = ensure(event.actor);
     const target = ensure(event.target);
+
+    if (actor) actor.sourceEvents += 1;
+    if (target) target.targetEvents += 1;
 
     if (event.type === 'heal') {
       if (actor) actor.heals += 1;
@@ -329,75 +327,63 @@ function buildActorInsights(events) {
   }
 
   const insights = Array.from(map.values()).map((entry) => {
+    const npcLike = looksLikeNpcName(entry.name);
+    const garbageLike = looksLikeGarbageName(entry.name);
+    const strongSupport = entry.heals > 0 || entry.performs > 0 || entry.utilities > 0 || entry.supportiveTargets > 0;
+    const activeSource = entry.sourceEvents >= 3 || entry.attacks + entry.dots >= 3;
+    const mostlyTarget = entry.targetEvents > entry.sourceEvents * 2 && !strongSupport;
+
     let score = 0;
     const reasons = [];
-    const name = cleanName(entry.name);
-    const npcLike = isNpcLikeName(name);
-    const impossible = isImpossiblePlayerName(name);
 
-    if (name === 'You') {
+    if (entry.name === 'You') {
       score += 100;
       reasons.push('local player');
     }
-
-    if (entry.heals > 0) {
-      score += entry.heals * 4;
-      reasons.push(`heals ${entry.heals}`);
+    if (strongSupport) {
+      score += 8;
+      reasons.push('support actions');
     }
-    if (entry.performs > 0) {
-      score += entry.performs * 4;
-      reasons.push(`performs ${entry.performs}`);
-    }
-    if (entry.utilities > 0) {
-      score += entry.utilities * 2;
-      reasons.push(`utility ${entry.utilities}`);
-    }
-    if (entry.supportiveTargets > 0) {
-      score += entry.supportiveTargets * 2;
-      reasons.push(`supports allies ${entry.supportiveTargets}`);
-    }
+    if (entry.heals > 0) score += 4;
+    if (entry.performs > 0) score += 4;
+    if (entry.utilities > 0) score += 2;
     if (entry.credits > 0) {
       score += 2;
-      reasons.push('group credit line');
+      reasons.push('credit/loot activity');
     }
-    if (entry.attacks > 1) {
-      score += Math.min(4, entry.attacks);
-      reasons.push(`active source ${entry.attacks}`);
+    if (activeSource) {
+      score += 3;
+      reasons.push('repeated source activity');
     }
-    if (entry.dots > 0) {
-      score += Math.min(2, entry.dots);
-    }
-
-    if (entry.incomingHits > entry.attacks + entry.heals + entry.performs + entry.utilities + 1) {
-      score -= 4;
-      reasons.push('mostly target');
-    }
-    if (entry.incomingDots > entry.dots + 1) {
-      score -= 2;
-    }
-
+    if (mostlyTarget) score -= 5;
     if (npcLike) {
-      score -= 100;
-      reasons.push('npc-like name');
+      score -= 20;
+      reasons.push('npc-style name');
     }
-    if (impossible) {
-      score -= 100;
-      reasons.push('invalid player name');
+    if (garbageLike) {
+      score -= 30;
+      reasons.push('invalid/corpse fragment');
     }
 
     const suggestedPlayer =
-      name === 'You' ||
-      (!npcLike && !impossible && (entry.heals > 0 || entry.performs > 0 || entry.utilities > 0 || score >= 6));
+      !npcLike &&
+      !garbageLike &&
+      (entry.name === 'You' || strongSupport || (activeSource && !mostlyTarget && entry.sourceEvents >= 4));
 
     return {
       ...entry,
+      npcLike,
+      garbageLike,
       score,
+      reason: reasons.join(' · '),
       suggestedPlayer,
-      reason: reasons.length ? reasons.join(' · ') : 'seen in logs',
     };
   });
 
-  insights.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
+  insights.sort((a, b) => {
+    if (Number(b.suggestedPlayer) !== Number(a.suggestedPlayer)) return Number(b.suggestedPlayer) - Number(a.suggestedPlayer);
+    return b.score - a.score || a.name.localeCompare(b.name);
+  });
   return insights;
 }
 
@@ -406,47 +392,34 @@ function classifyActors(events) {
   const npcNames = new Set();
 
   for (const event of events) {
-    if (event.actor && isNpcLikeName(event.actor)) npcNames.add(cleanName(event.actor));
-    if (event.target && isNpcLikeName(event.target)) npcNames.add(cleanName(event.target));
+    const actor = normalizeActorName(event.actor);
+    const target = normalizeActorName(event.target);
+    if (looksLikeNpcName(actor)) npcNames.add(actor);
+    if (looksLikeNpcName(target)) npcNames.add(target);
 
     if (event.type === 'heal' || event.type === 'perform' || event.type === 'utility' || event.type === 'groupCredits') {
-      if (event.actor && !isNpcLikeName(event.actor)) playerNames.add(cleanName(event.actor));
-      if (event.target && !isNpcLikeName(event.target)) playerNames.add(cleanName(event.target));
+      if (actor && !looksLikeNpcName(actor)) playerNames.add(actor);
+      if (target && !looksLikeNpcName(target)) playerNames.add(target);
     }
   }
 
-  let changed = true;
-  while (changed) {
-    changed = false;
-    for (const event of events) {
-      if (event.type !== 'attack' && event.type !== 'dot') continue;
-
-      const actor = cleanName(event.actor);
-      const target = cleanName(event.target);
-
-      if (playerNames.has(actor) && target && !playerNames.has(target) && !npcNames.has(target)) {
-        npcNames.add(target);
-        changed = true;
-      }
-
-      if (playerNames.has(target) && actor && !playerNames.has(actor) && !npcNames.has(actor) && !isNpcLikeName(actor)) {
-        npcNames.add(actor);
-        changed = true;
-      }
-    }
+  const insights = buildActorInsights(events);
+  for (const entry of insights) {
+    if (entry.suggestedPlayer) playerNames.add(entry.name);
+    if (entry.npcLike || entry.garbageLike) npcNames.add(entry.name);
   }
 
   const roleMap = new Map();
   const allNames = new Set();
   for (const event of events) {
-    if (event.actor) allNames.add(cleanName(event.actor));
-    if (event.target) allNames.add(cleanName(event.target));
+    if (event.actor) allNames.add(normalizeActorName(event.actor));
+    if (event.target) allNames.add(normalizeActorName(event.target));
   }
 
   for (const name of allNames) {
     if (!name) continue;
-    if (playerNames.has(name) && !npcNames.has(name) && !isNpcLikeName(name)) roleMap.set(name, 'player');
-    else if (npcNames.has(name) || isNpcLikeName(name)) roleMap.set(name, 'npc');
+    if (playerNames.has(name) && !npcNames.has(name)) roleMap.set(name, 'player');
+    else if (npcNames.has(name)) roleMap.set(name, 'npc');
     else roleMap.set(name, 'unknown');
   }
 
@@ -701,6 +674,8 @@ function parseFiles(files) {
 
       events.push({
         ...parsed,
+        actor: normalizeActorName(parsed.actor),
+        target: normalizeActorName(parsed.target),
         channel,
         timestamp,
         epochSec,

@@ -108,31 +108,23 @@ function InsightRow({ entry, inGroup, onToggle }) {
     <button
       type="button"
       onClick={() => onToggle(entry.name)}
-      className={`flex w-full items-start justify-between gap-3 rounded-xl border px-3 py-3 text-left transition-colors ${
+      className={`flex w-full items-center justify-between gap-3 rounded-xl border px-3 py-2 text-left transition-colors ${
         inGroup
           ? 'border-green-400/30 bg-green-500/10 text-green-100'
           : 'border-hull-400/30 bg-hull-900/60 text-hull-100 hover:border-plasma-400/40'
       }`}
     >
       <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-2">
           <div className="truncate font-medium">{entry.name}</div>
           {entry.suggestedPlayer ? (
             <span className="rounded-full border border-plasma-400/30 bg-plasma-500/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] text-plasma-200">
               suggested
             </span>
           ) : null}
-          <span className={`rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] ${roleTone(entry.role)}`}>
-            {entry.role}
-          </span>
         </div>
-        <div className="mt-1 text-xs text-hull-300">{entry.reason}</div>
-        <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] uppercase tracking-[0.14em] text-hull-300">
-          <span className="rounded-full border border-hull-400/30 bg-hull-800/70 px-2 py-0.5">src {entry.sourceEvents}</span>
-          <span className="rounded-full border border-hull-400/30 bg-hull-800/70 px-2 py-0.5">tgt {entry.targetEvents}</span>
-          <span className="rounded-full border border-hull-400/30 bg-hull-800/70 px-2 py-0.5">atk {entry.attacks + entry.dots}</span>
-          <span className="rounded-full border border-hull-400/30 bg-hull-800/70 px-2 py-0.5">support {entry.heals + entry.performs + entry.utilities}</span>
-          <span className="rounded-full border border-hull-400/30 bg-hull-800/70 px-2 py-0.5">score {entry.score}</span>
+        <div className="mt-1 text-xs opacity-80">
+          score {entry.score} · atk {entry.attacks} · heals {entry.heals} · perf {entry.performs} · util {entry.utilities}
         </div>
       </div>
       <span className="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-[10px] uppercase tracking-[0.14em]">
@@ -170,9 +162,9 @@ function RosterManager({
             <Users size={14} className="text-plasma-400" />
             Group Roster
           </div>
-          <h2 className="mt-1 text-xl font-display text-hull-50">Review suggested group members</h2>
+          <h2 className="mt-1 text-xl font-display text-hull-50">Review detected players</h2>
           <p className="mt-1 max-w-3xl text-sm text-hull-300">
-            Suggestions are just a draft. Start from all seen names, then confirm the real group yourself.
+            Suggestions are conservative now. Current Group starts empty so obvious NPCs do not get promoted automatically. Review Suggested Group Members, then add only the real players.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -181,7 +173,7 @@ function RosterManager({
             className="btn-ghost"
             onClick={() => filteredSuggestions.forEach((entry) => !groupSet.has(entry.name) && onToggle(entry.name))}
           >
-            <UserPlus size={15} /> Use suggested
+            <UserPlus size={15} /> Add suggested
           </button>
           <button
             type="button"
@@ -213,7 +205,7 @@ function RosterManager({
 
           <div className="rounded-2xl border border-hull-400/30 bg-hull-800/50 p-4">
             <div className="mb-3 flex items-center gap-2 text-[11px] font-display uppercase tracking-[0.16em] text-hull-300">
-              <Sparkles size={14} className="text-plasma-400" /> Suggested group members
+              <Sparkles size={14} className="text-plasma-400" /> Suggested players
             </div>
             <div className="space-y-2">
               {filteredSuggestions.length ? (
@@ -222,7 +214,7 @@ function RosterManager({
                 ))
               ) : (
                 <div className="rounded-xl border border-hull-400/30 bg-hull-900/50 px-3 py-3 text-sm text-hull-300">
-                  No suggested names matched your filter.
+                  No suggested players matched your filter.
                 </div>
               )}
             </div>
@@ -240,7 +232,7 @@ function RosterManager({
                   <GroupChip key={name} name={name} removable onRemove={onToggle} />
                 ))
               ) : (
-                <div className="text-sm text-hull-300">No confirmed group members yet. Use the suggestions or add names manually.</div>
+                <div className="text-sm text-hull-300">No confirmed group members yet.</div>
               )}
             </div>
           </div>
@@ -264,7 +256,7 @@ function RosterManager({
 
           <div className="rounded-2xl border border-hull-400/30 bg-hull-800/50 p-4">
             <div className="mb-3 flex items-center justify-between gap-2 text-[11px] font-display uppercase tracking-[0.16em] text-hull-300">
-              <span className="inline-flex items-center gap-2"><ShieldQuestion size={14} className="text-plasma-400" /> All other seen names</span>
+              <span className="inline-flex items-center gap-2"><ShieldQuestion size={14} className="text-plasma-400" /> Other seen names</span>
               {filteredOthers.length > 12 ? (
                 <button type="button" className="text-xs text-plasma-300 hover:text-plasma-200" onClick={() => setShowAll((value) => !value)}>
                   {showAll ? (<span className="inline-flex items-center gap-1">Show less <ChevronUp size={14} /></span>) : (<span className="inline-flex items-center gap-1">Show all <ChevronDown size={14} /></span>)}
@@ -310,7 +302,7 @@ export default function CombatLogAnalyzer() {
       if (type === 'parsed') {
         setResult(payload);
         setSelectedEncounterId(payload.encounters?.[0]?.id || '');
-        setGroupMembers(payload.suggestedPlayers || []);
+        setGroupMembers([]);
         setParsing(false);
         setError('');
       }
