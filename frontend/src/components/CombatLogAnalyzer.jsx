@@ -86,7 +86,7 @@ function professionColor(profession) {
   return {
     Jedi: 'bg-sky-400',
     'Bounty Hunter': 'bg-rose-500',
-    Commando: 'bg-amber-200',
+    Commando: 'bg-amber-300',
     Officer: 'bg-lime-400',
     Spy: 'bg-yellow-300',
     Medic: 'bg-violet-400',
@@ -97,21 +97,140 @@ function professionColor(profession) {
   }[profession] || 'bg-hull-400';
 }
 
-function inferProfession(actor) {
-  const names = (actor?.abilities || []).map((entry) => String(entry.name || '').toLowerCase());
-  const joined = names.join(' | ');
-  const has = (...terms) => terms.some((term) => joined.includes(term));
+const PROFESSION_OPTIONS = [
+  'Unknown',
+  'Commando',
+  'Bounty Hunter',
+  'Officer',
+  'Medic',
+  'Spy',
+  'Smuggler',
+  'Entertainer',
+  'Jedi',
+  'Trader',
+];
 
-  if (has('force', 'lightsaber', 'force lightning', 'force choke', 'saber')) return 'Jedi';
-  if (has('carbine', 'rifle', 'pistol whip', 'vital shot', 'headshot', 'sniper')) return 'Bounty Hunter';
-  if (has('grenade', 'flame thrower', 'acid launcher', 'rocket', 'full auto')) return 'Commando';
-  if (has('called shot', 'cover', 'aim', 'quick shot', 'suppressing')) return 'Officer';
-  if (has('conceal', 'sneak', 'poison', 'shiv', 'surprise shot')) return 'Spy';
-  if (has('heal', 'bacta', 'cure', 'revive', 'stim')) return 'Medic';
-  if (has('quickdraw', 'feint', 'cheap shot', 'panic shot')) return 'Smuggler';
-  if (has('inspire', 'flourish', 'dance', 'music', 'perform')) return 'Entertainer';
-  if (has('assembly', 'experimentation', 'sampling', 'crafting')) return 'Trader';
-  return 'Unknown';
+const PROFESSION_NAME_OVERRIDES_DEFAULT = {
+  Dexeridix: 'Commando',
+  ChickenRat: 'Bounty Hunter',
+};
+
+const PROFESSION_ABILITY_MAP = {
+  Commando: [
+    'commando area cold',
+    'focused beam',
+    'lethal beam',
+    'riddle armor',
+    'suppressing fire',
+    'acid beam',
+    'commando area',
+    'flame cone',
+    'plasma grenade',
+    'fragmentation grenade',
+    'rocket',
+  ],
+  'Bounty Hunter': [
+    'eye shot',
+    'leg shot',
+    'torso shot',
+    'head shot',
+    'body shot',
+    'flame cone',
+    'flamethrower',
+    'missile',
+    'rocket',
+    'intimidate',
+    'dizzy shot',
+    'tangle bomb',
+    'snare shot',
+    'bh ',
+  ],
+  Officer: [
+    'cover',
+    'fire maneuver',
+    'focus fire',
+    'called shot',
+    'tactical superiority',
+  ],
+  Medic: [
+    'bacta',
+    'heal',
+    'revive',
+    'resuscitate',
+    'medical',
+    'diagnosis',
+    'cure',
+    'stim',
+  ],
+  Spy: [
+    'ambush',
+    'feign death',
+    'vital strike',
+    'puncture',
+    'shrapnel',
+    'cloak',
+    'surprise shot',
+  ],
+  Smuggler: [
+    'lucky shot',
+    'dirty trick',
+    'low blow',
+    'pistol whip',
+    'disarming shot',
+    'panic shot',
+    'quickdraw',
+  ],
+  Entertainer: [
+    'favor of the elders',
+    'inspire',
+    'entertain',
+    'flourish',
+    'dance',
+    'music',
+  ],
+  Jedi: [
+    'force ',
+    'lightsaber',
+    'saber',
+    'force lightning',
+    'force choke',
+  ],
+  Trader: [
+    'assembly',
+    'experimentation',
+    'sampling',
+    'repair',
+    'crafting',
+  ],
+};
+
+function inferProfessionFromAbilities(abilities = []) {
+  const scores = Object.fromEntries(PROFESSION_OPTIONS.map((profession) => [profession, 0]));
+  const normalized = abilities.filter(Boolean).map((value) => String(value).toLowerCase());
+
+  for (const [profession, patterns] of Object.entries(PROFESSION_ABILITY_MAP)) {
+    for (const ability of normalized) {
+      for (const pattern of patterns) {
+        if (ability.includes(pattern)) {
+          scores[profession] += 3;
+        }
+      }
+    }
+  }
+
+  const ranked = Object.entries(scores)
+    .filter(([profession]) => profession !== 'Unknown')
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+
+  if (!ranked.length || ranked[0][1] <= 0) return 'Unknown';
+  return ranked[0][0];
+}
+
+function resolveProfession(name, abilities = [], overrides = {}) {
+  if (overrides?.[name]) {
+    return overrides[name];
+  }
+  return inferProfessionFromAbilities(abilities);
 }
 
 function ChartPanel({ title, subtitle, items }) {
@@ -174,6 +293,15 @@ export default function CombatLogAnalyzer() {
   const [actorTypeFilter, setActorTypeFilter] = useState('all');
   const [nameFilter, setNameFilter] = useState('');
   const [groupMembers, setGroupMembers] = useState([]);
+  const [professionOverrides, setProfessionOverrides] = useState(() => {
+    try {
+      const stored = window.localStorage.getItem('swg-log-profession-overrides');
+      return stored ? { ...PROFESSION_NAME_OVERRIDES_DEFAULT, ...JSON.parse(stored) } : PROFESSION_NAME_OVERRIDES_DEFAULT;
+    } catch (error) {
+      return PROFESSION_NAME_OVERRIDES_DEFAULT;
+    }
+  });
+  const [professionConfigOpen, setProfessionConfigOpen] = useState(false);
 
   useEffect(() => {
     workerRef.current = new Worker(new URL('../workers/swgCombatLog.worker.js', import.meta.url), { type: 'module' });
@@ -196,6 +324,10 @@ export default function CombatLogAnalyzer() {
 
     return () => worker.terminate();
   }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem('swg-log-profession-overrides', JSON.stringify(professionOverrides));
+  }, [professionOverrides]);
 
   const activeGroupMembers = useMemo(() => (groupMembers.length ? groupMembers : (result?.suggestedPlayers || [])), [groupMembers, result]);
   const groupSet = useMemo(() => new Set(activeGroupMembers), [activeGroupMembers]);
@@ -272,12 +404,16 @@ export default function CombatLogAnalyzer() {
   }, [selectedEncounter, actorTypeFilter, normalizedFilter]);
 
   const dashboardActors = useMemo(() => {
-    return (result?.summary?.actors || []).map((actor) => ({
-      ...actor,
-      profession: inferProfession(actor),
-      totalActions: actor.actionCount || actor.abilities?.reduce((sum, ability) => sum + (ability.uses || 0), 0) || 0,
-    }));
-  }, [result]);
+    return (result?.summary?.actors || []).map((actor) => {
+      const actorAbilityNames = (actor.abilities || []).map((entry) => entry.name);
+      const profession = resolveProfession(actor.name, actorAbilityNames, professionOverrides);
+      return {
+        ...actor,
+        profession,
+        totalActions: actor.actionCount || actor.abilities?.reduce((sum, ability) => sum + (ability.uses || 0), 0) || 0,
+      };
+    });
+  }, [professionOverrides, result]);
 
   const dashboardDurationMinutes = useMemo(() => {
     const seconds = result?.summary?.totalDurationSec || 0;
@@ -305,6 +441,19 @@ export default function CombatLogAnalyzer() {
     return Array.from(seen.entries());
   }, [dashboardActors]);
 
+
+  function setActorProfession(name, profession) {
+    setProfessionOverrides((current) => {
+      if (!name) return current;
+      const next = { ...current };
+      if (!profession || profession === 'Unknown') {
+        delete next[name];
+      } else {
+        next[name] = profession;
+      }
+      return next;
+    });
+  }
 
   async function handleFilesChange(event) {
     const selected = Array.from(event.target.files || []);
@@ -421,16 +570,79 @@ export default function CombatLogAnalyzer() {
                 </div>
                 <div className="mt-1 text-sm text-hull-200">Colors are inferred from observed abilities and used for the overview bars.</div>
               </div>
-              <div className="flex flex-wrap gap-3 text-xs text-hull-200">
+              <div className="flex flex-wrap items-center gap-3 text-xs text-hull-200">
                 {professionLegend.map(([profession, color]) => (
                   <span key={profession} className="inline-flex items-center gap-2 rounded-full border border-hull-400/30 bg-hull-800/50 px-3 py-1">
                     <span className={`h-2.5 w-2.5 rounded-full ${color}`} />
                     {profession}
                   </span>
                 ))}
+                <button
+                  type="button"
+                  className="btn-ghost px-3 py-1.5 text-xs"
+                  onClick={() => setProfessionConfigOpen((current) => !current)}
+                >
+                  {professionConfigOpen ? 'Hide profession config' : 'Configure professions'}
+                </button>
               </div>
             </div>
           </div>
+
+          {professionConfigOpen ? (
+            <div className="card p-4">
+              <div className="mb-3 flex items-center gap-2 text-[11px] font-display uppercase tracking-[0.16em] text-hull-300">
+                <Users size={14} className="text-plasma-400" /> Profession overrides
+              </div>
+              <div className="mb-3 text-sm text-hull-200">
+                Profession colors are inferred from parsed ability names first. Use overrides only where the logs are incomplete or ambiguous.
+              </div>
+              <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                {dashboardActors
+                  .slice()
+                  .sort((a, b) => a.name.localeCompare(b.name))
+                  .map((actor) => {
+                    const abilityPreview = (actor.abilities || [])
+                      .slice(0, 3)
+                      .map((entry) => entry.name)
+                      .filter(Boolean)
+                      .join(', ');
+                    return (
+                      <div key={actor.name} className="rounded-2xl border border-hull-400/30 bg-hull-800/50 p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="truncate text-sm font-medium text-hull-50">{actor.name}</div>
+                            <div className="mt-1 text-xs text-hull-300">{abilityPreview || 'No parsed abilities yet'}</div>
+                          </div>
+                          <span className={`h-3 w-3 shrink-0 rounded-full ${professionColor(actor.profession)}`} />
+                        </div>
+                        <div className="mt-3 flex items-center gap-2">
+                          <select
+                            value={professionOverrides[actor.name] || 'Unknown'}
+                            onChange={(event) => setActorProfession(actor.name, event.target.value)}
+                            className="w-full rounded-xl border border-hull-400/40 bg-hull-900/80 px-3 py-2 text-sm text-hull-50"
+                          >
+                            {PROFESSION_OPTIONS.map((option) => (
+                              <option key={option} value={option}>
+                                {option}
+                              </option>
+                            ))}
+                          </select>
+                          {professionOverrides[actor.name] ? (
+                            <button
+                              type="button"
+                              className="btn-ghost px-2.5 py-2 text-xs"
+                              onClick={() => setActorProfession(actor.name, 'Unknown')}
+                            >
+                              Clear
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+          ) : null}
 
           <CompactRoster groupMembers={groupMembers} suggested={result.suggestedPlayers || []} />
 
