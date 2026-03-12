@@ -16,6 +16,7 @@ import PublicLoadouts from './components/PublicLoadouts';
 import BuildoutExplorer from './components/BuildoutExplorer';
 import GCWCalculator from './components/GCWCalculator';
 import EntBuffBuilder from './components/EntBuffBuilder';
+import CombatLogAnalyzer from './components/CombatLogAnalyzer';
 import ModsBrowser from './components/ModsBrowser';
 import AdminPage from './components/AdminPage';
 import PrivacyPage from './components/PrivacyPage';
@@ -39,6 +40,13 @@ function resolveFooter(pathname) {
           .
         </>
       ),
+    };
+  }
+
+  if (pathname.startsWith('/tools/logs')) {
+    return {
+      id: 'logs',
+      content: <>Combat Log Analyzer is an original feature of this site, built from user-provided SWG chat logs.</>,
     };
   }
 
@@ -144,6 +152,7 @@ export default function App() {
           <Route path="/tools/buildouts" element={<BuildoutExplorer />} />
           <Route path="/tools/gcw" element={<GCWCalculator />} />
           <Route path="/tools/ent-buffs" element={<EntBuffBuilder />} />
+          <Route path="/tools/logs" element={<CombatLogAnalyzer />} />
           <Route path="/mods" element={<ModsBrowser />} />
           <Route path="/mods/:slug" element={<ModsBrowser />} />
 
@@ -164,6 +173,7 @@ export default function App() {
           <Route path="/buildouts" element={<Navigate to="/tools/buildouts" replace />} />
           <Route path="/gcw" element={<Navigate to="/tools/gcw" replace />} />
           <Route path="/ent-buffs" element={<Navigate to="/tools/ent-buffs" replace />} />
+          <Route path="/logs" element={<Navigate to="/tools/logs" replace />} />
           <Route path="/tools/mods" element={<Navigate to="/mods" replace />} />
           <Route path="/characters" element={<Navigate to="/collections/characters" replace />} />
           <Route path="/leaderboard" element={<Navigate to="/collections/leaderboard" replace />} />

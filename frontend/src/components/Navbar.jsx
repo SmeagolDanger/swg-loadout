@@ -16,6 +16,7 @@ import {
   Menu,
   Music4,
   Orbit,
+  ScrollText,
   Palette,
   Search,
   Shield,
@@ -35,6 +36,7 @@ const TOOL_NAV_ITEMS = [
   { to: '/tools/re', label: 'RE Calc', icon: FlaskConical },
   { to: '/tools/fc', label: 'FC Calc', icon: Cpu },
   { to: '/tools/loot', label: 'Loot', icon: Search },
+  { to: '/tools/logs', label: 'Logs', icon: ScrollText },
   { to: '/tools/starters', label: 'Starter Builds', icon: Sparkles },
   { to: '/tools/community', label: 'Community', icon: Users },
 ];
@@ -50,6 +52,7 @@ const FEATURE_MODES = [
   { key: 'buildouts', to: '/tools/buildouts', label: 'Buildout Maps', icon: Orbit, sublabel: 'Zone parser and map tools' },
   { key: 'gcw', to: '/tools/gcw', label: 'GCW Calculator', icon: Flag, sublabel: 'Rank and decay projection' },
   { key: 'ent', to: '/tools/ent-buffs', label: 'Ent Buffs', icon: Music4, sublabel: 'Buff planning and requests' },
+  { key: 'logs', to: '/tools/logs', label: 'Combat Logs', icon: ScrollText, sublabel: 'Parse fights and group activity' },
   { key: 'mods', to: '/mods', label: 'Game Mods', icon: Download, sublabel: 'Curated downloads and screenshots' },
   { key: 'collections', to: '/collections', label: 'Collections', icon: Trophy, sublabel: 'Tracker and leaderboard' },
 ];
@@ -65,6 +68,7 @@ function resolveSection(pathname) {
   if (pathname.startsWith('/tools/buildouts')) return 'buildouts';
   if (pathname.startsWith('/tools/gcw')) return 'gcw';
   if (pathname.startsWith('/tools/ent-buffs')) return 'ent';
+  if (pathname.startsWith('/tools/logs')) return 'logs';
   if (pathname.startsWith('/mods')) return 'mods';
   if (pathname.startsWith('/collections')) return 'collections';
   if (pathname.startsWith('/tools')) return 'tools';
@@ -97,6 +101,8 @@ export default function Navbar() {
         return 'Faction rank projection and decay planning';
       case 'ent':
         return 'Entertainer buff planning and request generator';
+      case 'logs':
+        return 'Combat log parsing, encounter summaries, and group analysis';
       case 'mods':
         return 'Curated mod downloads, screenshots, and install notes';
       case 'collections':
