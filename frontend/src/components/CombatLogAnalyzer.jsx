@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState, ScrollText } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Activity,
   Axe,
