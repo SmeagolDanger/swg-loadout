@@ -18,6 +18,7 @@ import {
   Orbit,
   Palette,
   Search,
+  ScrollText,
   Shield,
   Sparkles,
   Trophy,
