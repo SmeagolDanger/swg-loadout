@@ -246,7 +246,7 @@ function parseChatMessage(channel, message) {
   return null;
 }
 
-function buildActorInsights(events) {
+function buildActorInsights(events, roleMap) {
   const map = new Map();
   const ensure = (name) => {
     if (!name) return null;
@@ -262,7 +262,10 @@ function buildActorInsights(events) {
         incomingHits: 0,
         incomingDots: 0,
         credits: 0,
+        sourceEvents: 0,
+        targetEvents: 0,
         score: 0,
+        reason: '',
       });
     }
     return map.get(name);
@@ -271,6 +274,13 @@ function buildActorInsights(events) {
   for (const event of events) {
     const actor = ensure(event.actor);
     const target = ensure(event.target);
+
+    if (actor) {
+      actor.sourceEvents += 1;
+    }
+    if (target) {
+      target.targetEvents += 1;
+    }
 
     if (event.type === 'heal') {
       if (actor) actor.heals += 1;
@@ -293,27 +303,56 @@ function buildActorInsights(events) {
   }
 
   const insights = Array.from(map.values()).map((entry) => {
+    const supportCount = entry.heals + entry.performs + entry.utilities;
+    const combatCount = entry.attacks + entry.dots;
+    const targetHeavy = entry.targetEvents > Math.max(3, entry.sourceEvents * 1.75);
+    const activeSource = entry.sourceEvents >= Math.max(2, Math.ceil(entry.targetEvents * 0.35));
+    const role = roleMap.get(entry.name) || 'unknown';
+
     let score = 0;
-    if (entry.name === 'You') score += 10;
-    score += entry.heals * 3;
-    score += entry.performs * 3;
-    score += entry.utilities * 2;
-    score += entry.supportiveTargets * 2;
+    if (entry.name === 'You') score += 100;
+    score += entry.heals * 8;
+    score += entry.performs * 8;
+    score += entry.utilities * 5;
+    score += Math.min(combatCount, 15) * 2;
+    score += activeSource ? 4 : 0;
     score += entry.credits > 0 ? 2 : 0;
-    score += entry.attacks > 0 ? 1 : 0;
-    score += entry.dots > 0 ? 1 : 0;
-    score -= entry.incomingHits > 0 && entry.attacks === 0 && entry.heals === 0 && entry.performs === 0 && entry.utilities === 0 ? 2 : 0;
-    score -= entry.incomingDots > 0 && entry.dots === 0 && entry.heals === 0 && entry.performs === 0 && entry.utilities === 0 ? 1 : 0;
+    score -= targetHeavy ? 8 : 0;
+    score -= role === 'npc' ? 6 : 0;
+
+    let reason = 'seen in log';
+    if (entry.name === 'You') {
+      reason = 'self reference from the uploaded log';
+    } else if (supportCount > 0) {
+      reason = 'uses support actions that usually come from players';
+    } else if (role === 'player' && combatCount >= 3 && activeSource) {
+      reason = 'acts as an active combat source more than a target';
+    } else if (activeSource && combatCount >= 6) {
+      reason = 'appears repeatedly as an active source';
+    } else if (targetHeavy) {
+      reason = 'mostly appears as a target, so likely NPC or noise';
+    }
+
+    const suggestedPlayer = Boolean(
+      entry.name === 'You'
+      || supportCount > 0
+      || (role === 'player' && combatCount >= 3 && activeSource && !targetHeavy)
+      || (role !== 'npc' && combatCount >= 6 && activeSource && !targetHeavy)
+    );
 
     return {
       ...entry,
+      role,
       score,
-      suggestedPlayer:
-        entry.name === 'You' || score >= 4 || entry.heals > 0 || entry.performs > 0 || entry.utilities > 0,
+      reason,
+      suggestedPlayer,
     };
   });
 
-  insights.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
+  insights.sort((a, b) => {
+    if (b.suggestedPlayer !== a.suggestedPlayer) return Number(b.suggestedPlayer) - Number(a.suggestedPlayer);
+    return b.score - a.score || b.sourceEvents - a.sourceEvents || a.name.localeCompare(b.name);
+  });
   return insights;
 }
 
@@ -628,10 +667,7 @@ function parseFiles(files) {
 
   events.sort((a, b) => a.epochSec - b.epochSec || a.lineNumber - b.lineNumber);
   const roleMap = classifyActors(events);
-  const actorInsights = buildActorInsights(events).map((entry) => ({
-    ...entry,
-    role: roleMap.get(entry.name) || 'unknown',
-  }));
+  const actorInsights = buildActorInsights(events, roleMap);
   const suggestedPlayers = actorInsights.filter((entry) => entry.suggestedPlayer).map((entry) => entry.name);
 
   events.forEach((event) => {
