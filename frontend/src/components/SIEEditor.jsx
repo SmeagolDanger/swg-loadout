@@ -147,7 +147,8 @@ function FileListPanel({ node, onFileClick, treArchives, selectedFile, onSelectF
           return (
             <div key={f.name}
               className={`flex items-center text-[11px] cursor-pointer transition-colors border-l-2 px-2 py-px ${isSel ? 'bg-shield-blue/20 border-shield-blue text-hull-50' : 'border-transparent text-hull-200 hover:bg-hull-700/40'}`}
-              onClick={() => { onSelectFile(f); onFileClick(f); }}>
+              onClick={() => onSelectFile(f)}
+              onDoubleClick={() => onFileClick(f)}>
               <span className="flex-1 flex items-center gap-1.5 truncate min-w-0">
                 <span className="shrink-0">{getFileIcon(f.shortName)}</span>
                 <span className="truncate font-mono">{f.shortName}</span>
@@ -162,8 +163,9 @@ function FileListPanel({ node, onFileClick, treArchives, selectedFile, onSelectF
       {/* Version history */}
       {selectedFile && (
         <div className="border-t border-hull-600/40 shrink-0 max-h-28 overflow-auto">
-          <div className="px-2 py-0.5 text-[10px] font-display uppercase tracking-wider text-hull-400 bg-hull-800/60 sticky top-0">
-            Version history · {versions.length} TRE{versions.length !== 1 ? 's' : ''}
+          <div className="px-2 py-0.5 text-[10px] font-display uppercase tracking-wider text-hull-400 bg-hull-800/60 sticky top-0 flex items-center justify-between">
+            <span>Version history · {versions.length} TRE{versions.length !== 1 ? 's' : ''}</span>
+            <button onClick={() => onFileClick(selectedFile)} className="px-1.5 py-0.5 rounded bg-plasma-500/20 text-plasma-400 hover:bg-plasma-500/30 text-[10px] font-display tracking-wide">Open</button>
           </div>
           {versions.map((v, i) => (
             <div key={i} className="flex items-center text-[10px] px-2 py-px text-hull-300 hover:bg-hull-700/30 font-mono gap-1">
@@ -1257,7 +1259,7 @@ export default function SIEEditor() {
       <div className="flex flex-1 overflow-hidden">
         {/* Folder tree (left) */}
         {fileTree && (
-          <div className="w-48 border-r border-hull-600/40 bg-hull-800/40 flex flex-col shrink-0">
+          <div className="w-56 border-r border-hull-600/40 bg-hull-800/40 flex flex-col shrink-0">
             <div className="px-3 py-1 text-[10px] font-display uppercase tracking-[0.15em] text-hull-400 border-b border-hull-600/40 shrink-0 flex items-center justify-between">
               <span>Directories</span>
               <span className="text-hull-600">{Object.keys(fileTree.children).length}</span>
@@ -1273,7 +1275,7 @@ export default function SIEEditor() {
 
         {/* File list (center) */}
         {fileTree && (
-          <div className="w-96 border-r border-hull-600/40 bg-hull-800/20 flex flex-col shrink-0 overflow-hidden">
+          <div className="w-80 border-r border-hull-600/40 bg-hull-800/20 flex flex-col shrink-0 overflow-hidden">
             <FileListPanel node={selectedFolderNode} onFileClick={handleTREFileClick}
               treArchives={treArchives} selectedFile={selectedFile} onSelectFile={setSelectedFile} />
           </div>
