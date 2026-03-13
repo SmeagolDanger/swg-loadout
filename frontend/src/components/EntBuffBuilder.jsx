@@ -19,6 +19,7 @@ import {
   ENT_BUFF_POINTS_MAX,
   ENT_BUFF_REQUEST_TEMPLATE_DEFAULT,
   buildRequestText,
+  buildSelectedBuffEffects,
   buildSelectedBuffTexts,
   calculateAssignedPoints,
   canIncreaseBuff,
@@ -205,6 +206,7 @@ export default function EntBuffBuilder() {
 
   const pointsAssigned = useMemo(() => calculateAssignedPoints(categories), [categories]);
   const selectedBuffTexts = useMemo(() => buildSelectedBuffTexts(categories), [categories]);
+  const selectedBuffEffects = useMemo(() => buildSelectedBuffEffects(categories), [categories]);
   const requestText = useMemo(() => buildRequestText(categories, requestTemplate), [categories, requestTemplate]);
   const pointsRemaining = ENT_BUFF_POINTS_MAX - pointsAssigned;
 
@@ -325,10 +327,10 @@ export default function EntBuffBuilder() {
             </div>
 
             {/* actions */}
-            <div className="flex shrink-0 items-center gap-1.5">
+            <div className="flex shrink-0 items-center divide-x divide-hull-500/40 rounded-xl border border-hull-500/40 bg-hull-800/60 overflow-hidden">
               <button
                 type="button"
-                className="btn-secondary px-3 py-1.5 text-xs"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.12em] text-plasma-300 transition-colors hover:bg-hull-700/60 disabled:opacity-40 disabled:cursor-not-allowed"
                 onClick={handleCopyRequest}
                 disabled={!requestText}
               >
@@ -336,14 +338,14 @@ export default function EntBuffBuilder() {
               </button>
               <button
                 type="button"
-                className="btn-ghost px-3 py-1.5 text-xs"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.12em] text-hull-300 transition-colors hover:bg-hull-700/60"
                 onClick={handleCopyShareLink}
               >
                 <Link2 size={13} className="shrink-0" /> Share
               </button>
               <button
                 type="button"
-                className="btn-ghost px-3 py-1.5 text-xs"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.12em] text-hull-300 transition-colors hover:bg-hull-700/60 disabled:opacity-40 disabled:cursor-not-allowed"
                 onClick={handleOpenSaveInput}
                 disabled={!selectedBuffTexts.length}
               >
@@ -351,7 +353,7 @@ export default function EntBuffBuilder() {
               </button>
               <button
                 type="button"
-                className="btn-ghost px-3 py-1.5 text-xs"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.12em] text-hull-300 transition-colors hover:bg-hull-700/60"
                 onClick={() => setShowSavedModal(true)}
               >
                 <Bookmark size={13} className="shrink-0" /> Saved
@@ -539,14 +541,15 @@ export default function EntBuffBuilder() {
                 </div>
               </div>
 
-              {selectedBuffTexts.length ? (
-                <div className="grid w-full min-w-0 max-w-full gap-2 sm:grid-cols-2 xl:grid-cols-1">
-                  {selectedBuffTexts.map((buffText) => (
+              {selectedBuffEffects.length ? (
+                <div className="w-full min-w-0 max-w-full space-y-1">
+                  {selectedBuffEffects.map((effectText) => (
                     <div
-                      key={buffText}
-                      className="min-w-0 rounded-lg border border-hull-400/40 bg-hull-800/60 px-3 py-2 text-xs text-hull-100"
+                      key={effectText}
+                      className="flex min-w-0 items-center gap-2 px-1 py-0.5 text-sm text-hull-100"
                     >
-                      <span className="block min-w-0 break-words">{buffText}</span>
+                      <span className="shrink-0 text-plasma-400">›</span>
+                      <span className="min-w-0 break-words">{effectText}</span>
                     </div>
                   ))}
                 </div>

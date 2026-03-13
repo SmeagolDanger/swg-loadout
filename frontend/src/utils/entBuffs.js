@@ -99,6 +99,15 @@ export function buildSelectedBuffTexts(categories) {
     .map((buff) => `${buff.name} (${buff.assignments}/${buff.maxAssignments})`);
 }
 
+export function buildSelectedBuffEffects(categories) {
+  return flattenEntBuffs(categories)
+    .filter((buff) => buff.assignments > 0)
+    .map((buff) => {
+      const total = buff.effect * buff.assignments;
+      return `${buff.prefix || ''}${total}${buff.suffix || ''}`;
+    });
+}
+
 export function buildRequestText(categories, requestTemplate = ENT_BUFF_REQUEST_TEMPLATE_DEFAULT) {
   const buffTexts = buildSelectedBuffTexts(categories);
   if (!buffTexts.length) return '';
