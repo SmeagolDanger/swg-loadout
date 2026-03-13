@@ -81,6 +81,113 @@ function TreeNode({ node, depth = 0, onFileClick, searchTerm, bookmarks, onBookm
 }
 
 /* ═══════════════════════════════════════════════════════════
+   REPOSITORY FOLDER TREE (left pane)
+   ═══════════════════════════════════════════════════════════ */
+function FolderTreeNode({ name, node, depth = 0, selectedPath, currentPath, onSelect }) {
+  const [expanded, setExpanded] = useState(false);
+  const isSelected = selectedPath === currentPath;
+  const dirs = Object.keys(node.children).sort();
+  return (
+    <div>
+      <div className={`flex items-center pr-1 border-l-2 transition-colors ${isSelected ? 'bg-plasma-500/15 border-plasma-400' : 'border-transparent hover:bg-hull-700/40'}`}
+        style={{ paddingLeft: depth * 12 + 2 }}>
+        <button className="p-0.5 shrink-0 text-hull-500 hover:text-hull-200" onClick={() => setExpanded(e => !e)}>
+          {dirs.length > 0 ? (expanded ? <ChevronDown size={9} /> : <ChevronRight size={9} />) : <span className="w-2.5 inline-block" />}
+        </button>
+        <button className={`flex-1 flex items-center gap-1 py-0.5 text-left truncate text-[11px] ${isSelected ? 'text-plasma-300' : 'text-hull-200'}`}
+          onClick={() => onSelect(currentPath, node)}>
+          {isSelected ? <FolderOpen size={11} className="text-laser-yellow shrink-0" /> : <Folder size={11} className="text-laser-yellow shrink-0" />}
+          <span className="truncate">{name}</span>
+        </button>
+        <span className="text-[9px] text-hull-600 tabular-nums ml-1 shrink-0">{node.fileCount}</span>
+      </div>
+      {expanded && dirs.map(d => (
+        <FolderTreeNode key={d} name={d} node={node.children[d]} depth={depth + 1}
+          selectedPath={selectedPath} currentPath={currentPath + '/' + d} onSelect={onSelect} />
+      ))}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
+   FILE LIST PANEL (center pane)
+   ═══════════════════════════════════════════════════════════ */
+function FileListPanel({ node, onFileClick, treArchives, selectedFile, onSelectFile }) {
+  const [filter, setFilter] = useState('');
+  const files = useMemo(() => {
+    if (!node) return [];
+    let f = node.files || [];
+    if (filter) f = f.filter(file => file.shortName.toLowerCase().includes(filter.toLowerCase()));
+    return [...f].sort((a, b) => a.shortName.localeCompare(b.shortName));
+  }, [node, filter]);
+
+  const versions = useMemo(() => {
+    if (!selectedFile) return [];
+    return treArchives.filter(t => t.records).flatMap(t => t.records.filter(r => r.name === selectedFile.name));
+  }, [selectedFile, treArchives]);
+
+  if (!node) {
+    return <div className="flex-1 flex items-center justify-center text-hull-500 text-[11px]">Select a directory</div>;
+  }
+
+  return (
+    <div className="flex flex-col h-full min-h-0">
+      {/* Column headers */}
+      <div className="flex items-center border-b border-hull-600/40 shrink-0 bg-hull-800/60 text-[10px] font-display tracking-wide text-hull-500 uppercase px-2 py-0.5 gap-0">
+        <span className="flex-1">Filename</span>
+        <span className="w-14 text-right shrink-0">Comp</span>
+        <span className="w-16 text-right shrink-0">Uncomp</span>
+        <span className="w-24 pl-2 shrink-0">Source</span>
+      </div>
+      {/* File list */}
+      <div className="flex-1 overflow-auto min-h-0">
+        {files.length === 0 && <div className="py-8 text-center text-hull-500 text-[11px]">No files in this folder</div>}
+        {files.map(f => {
+          const isSel = selectedFile?.name === f.name;
+          return (
+            <div key={f.name}
+              className={`flex items-center text-[11px] cursor-pointer transition-colors border-l-2 px-2 py-px ${isSel ? 'bg-shield-blue/20 border-shield-blue text-hull-50' : 'border-transparent text-hull-200 hover:bg-hull-700/40'}`}
+              onClick={() => { onSelectFile(f); onFileClick(f); }}>
+              <span className="flex-1 flex items-center gap-1.5 truncate min-w-0">
+                <span className="shrink-0">{getFileIcon(f.shortName)}</span>
+                <span className="truncate font-mono">{f.shortName}</span>
+              </span>
+              <span className="w-14 text-right text-hull-500 tabular-nums font-mono text-[10px] shrink-0">{formatSize(f.compLen || f.uncompLen)}</span>
+              <span className="w-16 text-right text-hull-400 tabular-nums font-mono text-[10px] shrink-0">{formatSize(f.uncompLen)}</span>
+              <span className="w-24 pl-2 text-hull-500 text-[10px] truncate shrink-0">{(f.sourceTRE || '').replace('.tre', '')}</span>
+            </div>
+          );
+        })}
+      </div>
+      {/* Version history */}
+      {selectedFile && (
+        <div className="border-t border-hull-600/40 shrink-0 max-h-28 overflow-auto">
+          <div className="px-2 py-0.5 text-[10px] font-display uppercase tracking-wider text-hull-400 bg-hull-800/60 sticky top-0">
+            Version history · {versions.length} TRE{versions.length !== 1 ? 's' : ''}
+          </div>
+          {versions.map((v, i) => (
+            <div key={i} className="flex items-center text-[10px] px-2 py-px text-hull-300 hover:bg-hull-700/30 font-mono gap-1">
+              <span className="flex-1 truncate text-hull-200">{v.sourceTRE}</span>
+              <span className="text-hull-500 tabular-nums w-14 text-right shrink-0">{formatSize(v.compLen)}</span>
+              <span className="text-hull-400 tabular-nums w-16 text-right shrink-0">{formatSize(v.uncompLen)}</span>
+              <span className="text-hull-600 w-20 text-right shrink-0">0x{(v.checksum >>> 0).toString(16).toUpperCase().padStart(8, '0')}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      {/* Filter bar */}
+      <div className="px-2 py-1 border-t border-hull-600/40 shrink-0 bg-hull-800/40">
+        <div className="relative">
+          <Search size={10} className="absolute left-2 top-1/2 -translate-y-1/2 text-hull-500" />
+          <input type="text" value={filter} onChange={e => setFilter(e.target.value)} placeholder="Filter…"
+            className="w-full pl-5 pr-2 py-0.5 bg-hull-900 border border-hull-600/50 text-hull-100 text-[11px] rounded font-mono placeholder:text-hull-500 focus:outline-none focus:border-plasma-500/50" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
    IFF TREE VIEW
    ═══════════════════════════════════════════════════════════ */
 function IFFTreeView({ node, depth = 0, selectedNode, onSelectNode, path = '' }) {
@@ -784,6 +891,9 @@ export default function SIEEditor() {
   const [bookmarks, setBookmarks] = useState(new Set());
   const [recentFiles, setRecentFiles] = useState([]);
   const [rightPanel, setRightPanel] = useState(null); // 'crc' | 'search' | 'diff'
+  const [selectedFolderPath, setSelectedFolderPath] = useState(null);
+  const [selectedFolderNode, setSelectedFolderNode] = useState(null);
+  const [selectedFile, setSelectedFile] = useState(null);
 
   const activeTabData = openTabs.find(t => t.id === activeTab);
 
@@ -801,6 +911,12 @@ export default function SIEEditor() {
       next.unshift(name);
       return next.slice(0, 20);
     });
+  }, []);
+
+  const handleSelectFolder = useCallback((path, node) => {
+    setSelectedFolderPath(path);
+    setSelectedFolderNode(node);
+    setSelectedFile(null);
   }, []);
 
   /* ── Open directory (lazy mode) ── */
@@ -835,7 +951,8 @@ export default function SIEEditor() {
 
       setTreArchives(archives); setTreHandles(handles); setTreBuffers({});
       setFileTree(tree); setTotalFiles(merged.length); setLazyMode(true);
-      setSidebarView('files');
+      const firstDir = Object.keys(tree.children)[0];
+      if (firstDir) { setSelectedFolderPath(firstDir); setSelectedFolderNode(tree.children[firstDir]); setSelectedFile(null); }
       setStatusMsg(archives.length + ' TREs · ' + merged.length.toLocaleString() + ' files (lazy)' + (cfgFound ? ' · config detected' : ''));
       setLoading(false); setLoadingProgress(null);
     } catch (e) {
@@ -854,7 +971,10 @@ export default function SIEEditor() {
         const tre = await parseTRE(buffer, file.name);
         setTreArchives([{ name: file.name, numFiles: tre.numFiles, version: tre.version, records: tre.records }]);
         setTreBuffers({ [file.name]: buffer }); setTreHandles({}); setLazyMode(false);
-        setFileTree(buildFileTree(tre.records)); setTotalFiles(tre.numFiles); setSidebarView('files');
+        const tree = buildFileTree(tre.records);
+        setFileTree(tree); setTotalFiles(tre.numFiles);
+        const firstDir = Object.keys(tree.children)[0];
+        if (firstDir) { setSelectedFolderPath(firstDir); setSelectedFolderNode(tree.children[firstDir]); setSelectedFile(null); }
         setStatusMsg(file.name + ': ' + tre.numFiles.toLocaleString() + ' files');
       } else {
         openFileTab(file.name, new Uint8Array(buffer), ext);
@@ -1065,8 +1185,6 @@ export default function SIEEditor() {
     return <HexViewer data={data} />;
   };
 
-  const hasSidebar = treArchives.length > 0 || openTabs.length > 0;
-
   return (
     <div className="flex flex-col bg-hull-900 text-hull-100 font-mono text-[13px]" style={{ height: 'calc(100vh - 4rem)' }}>
       {/* Loading */}
@@ -1137,86 +1255,31 @@ export default function SIEEditor() {
 
       {/* Body */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Left sidebar */}
-        {hasSidebar && (
-          <div className="w-72 min-w-[260px] border-r border-hull-600/40 flex flex-col bg-hull-800/40 shrink-0">
-            <div className="flex items-center gap-2.5 px-3 py-1.5 border-b border-hull-600/40 text-[10px] font-display uppercase tracking-[0.15em] shrink-0">
-              {fileTree && <button onClick={() => setSidebarView('files')} className={`pb-px ${sidebarView === 'files' ? 'text-plasma-400 border-b border-plasma-400' : 'text-hull-400 hover:text-hull-200'}`}>Files</button>}
-              {treArchives.length > 1 && <button onClick={() => setSidebarView('tres')} className={`pb-px ${sidebarView === 'tres' ? 'text-plasma-400 border-b border-plasma-400' : 'text-hull-400 hover:text-hull-200'}`}>TREs</button>}
-              <button onClick={() => setSidebarView('tabs')} className={`pb-px ${sidebarView === 'tabs' ? 'text-plasma-400 border-b border-plasma-400' : 'text-hull-400 hover:text-hull-200'}`}>Open ({openTabs.length})</button>
-              {bookmarks.size > 0 && <button onClick={() => setSidebarView('bookmarks')} className={`pb-px ${sidebarView === 'bookmarks' ? 'text-plasma-400 border-b border-plasma-400' : 'text-hull-400 hover:text-hull-200'}`}>★ {bookmarks.size}</button>}
-              {recentFiles.length > 0 && <button onClick={() => setSidebarView('recent')} className={`pb-px ${sidebarView === 'recent' ? 'text-plasma-400 border-b border-plasma-400' : 'text-hull-400 hover:text-hull-200'}`}>Recent</button>}
+        {/* Folder tree (left) */}
+        {fileTree && (
+          <div className="w-48 border-r border-hull-600/40 bg-hull-800/40 flex flex-col shrink-0">
+            <div className="px-3 py-1 text-[10px] font-display uppercase tracking-[0.15em] text-hull-400 border-b border-hull-600/40 shrink-0 flex items-center justify-between">
+              <span>Directories</span>
+              <span className="text-hull-600">{Object.keys(fileTree.children).length}</span>
             </div>
-
-            {sidebarView === 'files' && fileTree && (
-              <>
-                <div className="px-2 py-1.5 border-b border-hull-600/40 shrink-0">
-                  <div className="relative">
-                    <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-hull-500" />
-                    <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Search files…"
-                      className="w-full pl-6 pr-2 py-1 bg-hull-900 border border-hull-600/50 text-hull-100 text-xs rounded font-mono placeholder:text-hull-500 focus:outline-none focus:border-plasma-500/50" />
-                  </div>
-                </div>
-                <div className="flex-1 overflow-auto"><TreeNode node={fileTree} onFileClick={handleTREFileClick} searchTerm={searchTerm} bookmarks={bookmarks} onBookmark={toggleBookmark} /></div>
-              </>
-            )}
-
-            {sidebarView === 'tres' && (
-              <div className="flex-1 overflow-auto">
-                <div className="px-3 py-1.5 text-[10px] text-hull-400 border-b border-hull-700/30">Load order (bottom = highest priority)</div>
-                {treArchives.map((tre, i) => (
-                  <div key={i} className="flex items-center gap-1.5 px-3 py-1 text-xs text-hull-200 hover:bg-hull-700/40">
-                    <span className="text-[10px] text-hull-500 w-5 tabular-nums text-right">#{i + 1}</span>
-                    <Archive size={12} className="text-laser-yellow shrink-0" />
-                    <span className="flex-1 truncate text-hull-100">{tre.name}</span>
-                    <span className="text-[10px] text-hull-400 tabular-nums">{tre.numFiles.toLocaleString()}</span>
-                    {tre.fileSize && <span className="text-[10px] text-hull-400">{formatSize(tre.fileSize)}</span>}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {sidebarView === 'tabs' && (
-              <div className="flex-1 overflow-auto">
-                {openTabs.map(tab => (
-                  <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                    className={`w-full flex items-center gap-1.5 px-3 py-1 text-xs transition-colors ${tab.id === activeTab ? 'bg-plasma-500/10 text-plasma-400' : 'text-hull-300 hover:bg-hull-700/40'}`}>
-                    <span className="text-[11px]">{getFileIcon(tab.name)}</span>
-                    <span className="flex-1 text-left truncate">{tab.name.split('/').pop()}</span>
-                    <Pill className="bg-hull-700/60 text-hull-400">{tab.type}</Pill>
-                    <span onClick={e => { e.stopPropagation(); closeTab(tab.id); }} className="text-hull-500 hover:text-hull-100 ml-0.5"><X size={11} /></span>
-                  </button>
-                ))}
-                {!openTabs.length && <div className="py-6 text-center text-hull-500 text-[11px]">No files open</div>}
-              </div>
-            )}
-
-            {sidebarView === 'bookmarks' && (
-              <div className="flex-1 overflow-auto">
-                {[...bookmarks].map(name => (
-                  <div key={name} className="flex items-center gap-1.5 px-3 py-1 text-xs text-hull-200 hover:bg-hull-700/40">
-                    <Bookmark size={10} className="text-plasma-400 fill-plasma-400 shrink-0" />
-                    <span className="flex-1 truncate">{name}</span>
-                    <button onClick={() => toggleBookmark(name)} className="text-hull-500 hover:text-hull-100"><X size={10} /></button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {sidebarView === 'recent' && (
-              <div className="flex-1 overflow-auto">
-                {recentFiles.map((name, i) => (
-                  <div key={i} className="flex items-center gap-1.5 px-3 py-1 text-xs text-hull-200 hover:bg-hull-700/40">
-                    <span className="text-[11px]">{getFileIcon(name)}</span>
-                    <span className="flex-1 truncate">{name}</span>
-                  </div>
-                ))}
-              </div>
-            )}
+            <div className="flex-1 overflow-auto py-0.5">
+              {Object.keys(fileTree.children).sort().map(d => (
+                <FolderTreeNode key={d} name={d} node={fileTree.children[d]} depth={0}
+                  selectedPath={selectedFolderPath} currentPath={d} onSelect={handleSelectFolder} />
+              ))}
+            </div>
           </div>
         )}
 
-        {/* Main content */}
+        {/* File list (center) */}
+        {fileTree && (
+          <div className="w-96 border-r border-hull-600/40 bg-hull-800/20 flex flex-col shrink-0 overflow-hidden">
+            <FileListPanel node={selectedFolderNode} onFileClick={handleTREFileClick}
+              treArchives={treArchives} selectedFile={selectedFile} onSelectFile={setSelectedFile} />
+          </div>
+        )}
+
+        {/* Editor */}
         <div className="flex-1 flex flex-col overflow-hidden min-w-0">
           {openTabs.length > 0 && (
             <div className="flex border-b border-hull-600/40 bg-hull-800/40 overflow-x-auto shrink-0">
