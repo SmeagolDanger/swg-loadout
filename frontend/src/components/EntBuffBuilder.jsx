@@ -408,7 +408,7 @@ export default function EntBuffBuilder() {
           <section className="min-w-0 max-w-full space-y-4">
             <div className="grid w-full min-w-0 max-w-full gap-3 xl:grid-cols-2 2xl:grid-cols-3">
               {categories.map((category) => (
-                <div key={category.name} className="card min-w-0 max-w-full overflow-hidden p-3">
+                <div key={category.name} className="card min-w-0 max-w-full p-3">
                   <div className="mb-3 flex min-w-0 items-center justify-between gap-3">
                     <h2 className="min-w-0 truncate font-display text-xs font-semibold uppercase tracking-[0.16em] text-plasma-400">
                       {category.name}
@@ -424,7 +424,7 @@ export default function EntBuffBuilder() {
                       return (
                         <div
                           key={buff.name}
-                          className={`w-full min-w-0 max-w-full overflow-hidden rounded-xl border px-3 py-2.5 transition-all ${
+                          className={`w-full min-w-0 max-w-full rounded-xl border px-3 py-2.5 transition-all ${
                             isSelected
                               ? 'border-plasma-400/50 bg-plasma-500/10'
                               : 'border-hull-400/40 bg-hull-800/60'
