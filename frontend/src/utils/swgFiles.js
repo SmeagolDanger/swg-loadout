@@ -113,8 +113,8 @@ export function crc32Lower(str) {
 }
 
 /* ───────────────────── Zlib Compression / Decompression ───────────────────── */
-async function _streamTransform(data, StreamClass) {
-  const stream = new StreamClass;
+async function _streamTransform(data, streamFactory) {
+  const stream = streamFactory();
   const writer = stream.writable.getWriter();
   writer.write(data instanceof Uint8Array ? data : new Uint8Array(data));
   writer.close();
