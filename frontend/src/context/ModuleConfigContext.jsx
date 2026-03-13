@@ -7,7 +7,7 @@ export const MODULE_GROUPS = [
     label: 'Feature Areas',
     modules: [
       { key: 'tools', label: 'Space Tools' },
-      { key: 'buildouts', label: 'Buildout Maps' },
+     // { key: 'buildouts', label: 'Buildout Maps' },
       { key: 'gcw', label: 'GCW Calculator' },
       { key: 'ent', label: 'Ent Buffs' },
       { key: 'mods', label: 'Game Mods' },
@@ -23,7 +23,7 @@ export const MODULE_GROUPS = [
       { key: 'nav:/tools/re', label: 'RE Calc' },
       { key: 'nav:/tools/fc', label: 'FC Calc' },
       { key: 'nav:/tools/loot', label: 'Loot Lookup' },
-      { key: 'nav:/tools/logs', label: 'Log Analyzer' },
+     // { key: 'nav:/tools/logs', label: 'Log Analyzer' },
       { key: 'nav:/tools/starters', label: 'Starter Builds' },
       { key: 'nav:/tools/community', label: 'Community' },
     ],
