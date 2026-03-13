@@ -80,7 +80,7 @@ function resolveSection(pathname) {
 export default function Navbar() {
   const { user, logout } = useAuth();
   const { theme, setTheme, themes } = useTheme();
-  const { isEnabled, toggle, reset } = useModuleConfig();
+  const { isEnabled, toggle, saving } = useModuleConfig();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [modeOpen, setModeOpen] = useState(false);
@@ -236,7 +236,8 @@ export default function Navbar() {
           )}
 
           <div className="flex items-center gap-1.5 shrink-0 ml-auto">
-            {/* Modules config button */}
+            {/* Modules config button — admin only */}
+            {(user?.role === 'admin' || user?.is_admin) && (
             <div className="hidden lg:block relative" ref={modulesRef}>
               <button
                 type="button"
@@ -251,13 +252,7 @@ export default function Navbar() {
                 <div className="absolute top-12 right-0 w-80 rounded-2xl border border-hull-400/50 bg-hull-900/95 shadow-2xl p-3 space-y-3 max-h-[80vh] overflow-y-auto">
                   <div className="flex items-center justify-between">
                     <div className="text-xs font-display uppercase tracking-[0.16em] text-plasma-400">Visible Modules</div>
-                    <button
-                      type="button"
-                      onClick={reset}
-                      className="text-[11px] text-hull-400 hover:text-hull-200 transition-colors"
-                    >
-                      Reset all
-                    </button>
+                    {saving && <span className="text-[11px] text-hull-400">Saving…</span>}
                   </div>
                   {MODULE_GROUPS.map((group) => (
                     <div key={group.label}>
@@ -285,6 +280,7 @@ export default function Navbar() {
                 </div>
               )}
             </div>
+            )}
 
             {user ? (
               <div className="hidden lg:flex items-center gap-2 shrink-0 relative" ref={userMenuRef}>
@@ -430,13 +426,14 @@ export default function Navbar() {
 
             <div className="section-divider" />
 
+            {(user?.role === 'admin' || user?.is_admin) && (
             <div className="rounded-xl border border-hull-400/40 bg-hull-800/80 px-3 py-3 space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-sm font-display text-hull-100">
                   <SlidersHorizontal size={16} className="text-plasma-400 shrink-0" />
                   <span>Modules</span>
                 </div>
-                <button type="button" onClick={reset} className="text-[11px] text-hull-400 hover:text-hull-200">Reset</button>
+                {saving && <span className="text-[11px] text-hull-400">Saving…</span>}
               </div>
               {MODULE_GROUPS.map((group) => (
                 <div key={group.label}>
@@ -459,6 +456,7 @@ export default function Navbar() {
                 </div>
               ))}
             </div>
+            )}
 
             <div className="section-divider" />
 

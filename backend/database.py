@@ -257,6 +257,19 @@ class ModScreenshot(Base):
 
 
 # ══════════════════════════════════════════════════════════════════════
+# Site Config
+# ══════════════════════════════════════════════════════════════════════
+
+
+class SiteConfig(Base):
+    __tablename__ = "site_config"
+
+    key = Column(String(100), primary_key=True)
+    value = Column(Text, default="")
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+# ══════════════════════════════════════════════════════════════════════
 # Ent Buff Builds
 # ══════════════════════════════════════════════════════════════════════
 
@@ -450,6 +463,15 @@ def _run_migrations():
             db.execute(text("UPDATE mods SET install_instructions = '' WHERE install_instructions IS NULL"))
             db.execute(text("UPDATE mods SET is_published = false WHERE is_published IS NULL"))
             db.execute(text("UPDATE mods SET is_featured = false WHERE is_featured IS NULL"))
+
+        if "site_config" not in tables:
+            db.execute(text("""
+                CREATE TABLE site_config (
+                    key VARCHAR(100) PRIMARY KEY,
+                    value TEXT NOT NULL DEFAULT '',
+                    updated_at TIMESTAMP DEFAULT NOW()
+                )
+            """))
 
         if "ent_buff_builds" not in tables:
             db.execute(

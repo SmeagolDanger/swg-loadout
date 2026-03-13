@@ -32,6 +32,7 @@ from database import (
 from routers.admin_router import router as admin_router
 from routers.auth_router import router as auth_router
 from routers.buildout_router import router as buildout_router
+from routers.config_router import router as config_router
 from routers.characters_router import router as characters_router
 from routers.collections_router import router as collections_router
 from routers.ent_buff_router import router as ent_buff_router
@@ -395,9 +396,10 @@ app.add_middleware(
 
 app.include_router(admin_router)
 app.include_router(auth_router)
-app.include_router(ent_buff_router)
 app.include_router(buildout_router)
 app.include_router(characters_router)
+app.include_router(config_router)
+app.include_router(ent_buff_router)
 app.include_router(collections_router)
 app.include_router(fc_router)
 app.include_router(gamedata_router)

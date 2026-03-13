@@ -1,6 +1,5 @@
-import React, { createContext, useContext, useMemo, useState } from 'react';
-
-const STORAGE_KEY = 'swg-module-config';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { api } from '../api';
 
 export const MODULE_GROUPS = [
   {
@@ -40,22 +39,30 @@ export const MODULE_GROUPS = [
 
 const ALL_KEYS = new Set(MODULE_GROUPS.flatMap((g) => g.modules.map((m) => m.key)));
 
-function loadEnabled() {
-  try {
-    const stored = JSON.parse(window.localStorage.getItem(STORAGE_KEY) || 'null');
-    if (!Array.isArray(stored)) return ALL_KEYS;
-    return new Set(stored.filter((k) => ALL_KEYS.has(k)));
-  } catch {
-    return new Set(ALL_KEYS);
-  }
-}
-
 const ModuleConfigContext = createContext(null);
 
 export function ModuleConfigProvider({ children }) {
-  const [enabled, setEnabled] = useState(() => loadEnabled());
+  const [enabled, setEnabled] = useState(new Set(ALL_KEYS));
+  const [saving, setSaving] = useState(false);
 
-  function toggle(key) {
+  const fetchConfig = useCallback(async () => {
+    try {
+      const data = await api.getModuleConfig();
+      if (Array.isArray(data.enabled)) {
+        setEnabled(new Set(data.enabled.filter((k) => ALL_KEYS.has(k))));
+      } else {
+        setEnabled(new Set(ALL_KEYS));
+      }
+    } catch {
+      setEnabled(new Set(ALL_KEYS));
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchConfig();
+  }, [fetchConfig]);
+
+  const toggle = useCallback(async (key) => {
     setEnabled((prev) => {
       const next = new Set(prev);
       if (next.has(key)) {
@@ -63,23 +70,20 @@ export function ModuleConfigProvider({ children }) {
       } else {
         next.add(key);
       }
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify([...next]));
+      setSaving(true);
+      api.updateModuleConfig([...next]).finally(() => setSaving(false));
       return next;
     });
-  }
-
-  function reset() {
-    setEnabled(new Set(ALL_KEYS));
-    window.localStorage.removeItem(STORAGE_KEY);
-  }
+  }, []);
 
   const value = useMemo(
     () => ({
       isEnabled: (key) => enabled.has(key),
       toggle,
-      reset,
+      saving,
+      refetch: fetchConfig,
     }),
-    [enabled],
+    [enabled, toggle, saving, fetchConfig],
   );
 
   return <ModuleConfigContext.Provider value={value}>{children}</ModuleConfigContext.Provider>;

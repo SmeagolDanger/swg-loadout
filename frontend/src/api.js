@@ -193,6 +193,10 @@ export const api = {
   saveREProject: (data) => request('/re/projects', { method: 'POST', body: JSON.stringify(data) }),
   deleteREProject: (id) => request(`/re/projects/${id}`, { method: 'DELETE' }),
 
+  // Site config
+  getModuleConfig: () => request('/config/modules'),
+  updateModuleConfig: (enabled) => request('/config/modules', { method: 'PUT', body: JSON.stringify({ enabled }) }),
+
   // Ent Buff Builds
   getEntBuffBuilds: () => request('/ent-buff-builds'),
   saveEntBuffBuild: (name, serialized) => request('/ent-buff-builds', { method: 'POST', body: JSON.stringify({ name, serialized }) }),
