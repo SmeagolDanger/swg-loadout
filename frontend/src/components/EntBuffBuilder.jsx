@@ -143,21 +143,6 @@ function InfoTip({ title, lines = [] }) {
   );
 }
 
-function SummaryPill({ label, value, tone = 'neutral' }) {
-  const toneClass =
-    tone === 'good'
-      ? 'border-green-400/30 bg-green-500/10 text-green-200'
-      : tone === 'warn'
-        ? 'border-laser-yellow/40 bg-laser-yellow/10 text-laser-yellow'
-        : 'border-hull-400/40 bg-hull-800/70 text-hull-100';
-
-  return (
-    <div className={`min-w-0 rounded-xl border px-3 py-2 ${toneClass}`}>
-      <div className="text-[10px] uppercase tracking-[0.18em] opacity-80">{label}</div>
-      <div className="mt-1 font-display text-lg leading-none">{value}</div>
-    </div>
-  );
-}
 
 export default function EntBuffBuilder() {
   const { user } = useAuth();
@@ -305,74 +290,75 @@ export default function EntBuffBuilder() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-[95rem] overflow-x-clip px-4 py-6 animate-slide-up">
+    <div className="mx-auto w-full max-w-[95rem] overflow-x-clip px-4 py-4 animate-slide-up">
       <div className="w-full max-w-full space-y-4">
-        <div className="card w-full max-w-full overflow-hidden p-4 lg:p-5">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-            <div className="min-w-0">
-              <div className="mb-3 inline-flex max-w-full items-center gap-2 rounded-full border border-hull-500/50 bg-hull-800/70 px-3 py-1.5 text-[11px] font-display uppercase tracking-[0.22em] text-hull-200">
-                <Music4 size={13} className="shrink-0 text-plasma-400" />
-                <span className="truncate">Social Tools</span>
-              </div>
-              <div className="flex min-w-0 items-center gap-2">
-                <h1 className="min-w-0 truncate font-display text-2xl font-bold tracking-wider text-hull-50">
-                  Entertainer Buff Builder
-                </h1>
-                <InfoTip
-                  title="How this works"
-                  lines={[
-                    'Pick buff packages until you reach the 20-point entertainer cap.',
-                    'Use the request template tokens %Buffs% or %buffs% to insert your current selection.',
-                    'Selections are stored in the q= URL parameter so you can bookmark or share the build.',
-                  ]}
-                />
-              </div>
+        <div className="card w-full max-w-full overflow-hidden px-4 py-3">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            {/* title */}
+            <div className="flex min-w-0 flex-1 items-center gap-2">
+              <Music4 size={13} className="shrink-0 text-plasma-400" />
+              <h1 className="min-w-0 truncate font-display text-lg font-bold tracking-wider text-hull-50">
+                Entertainer Buff Builder
+              </h1>
+              <InfoTip
+                title="How this works"
+                lines={[
+                  'Pick buff packages until you reach the 20-point entertainer cap.',
+                  'Use the request template tokens %Buffs% or %buffs% to insert your current selection.',
+                  'Selections are stored in the q= URL parameter so you can bookmark or share the build.',
+                ]}
+              />
             </div>
 
-            <div className="grid w-full min-w-0 max-w-full grid-cols-2 gap-2 xl:min-w-[34rem] xl:max-w-[34rem] lg:grid-cols-4">
-              <SummaryPill label="Assigned" value={pointsAssigned} tone="good" />
-              <SummaryPill
-                label="Remaining"
-                value={pointsRemaining}
-                tone={pointsRemaining === 0 ? 'warn' : 'neutral'}
-              />
-              <SummaryPill label="Selected" value={selectedBuffTexts.length} />
-              <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
-                <button
-                  type="button"
-                  className="btn-secondary min-w-0 flex-1 px-3 py-2 text-xs sm:flex-none"
-                  onClick={handleCopyRequest}
-                  disabled={!requestText}
-                >
-                  <Copy size={15} className="shrink-0" /> <span className="truncate">Request</span>
-                </button>
-                <button
-                  type="button"
-                  className="btn-ghost min-w-0 flex-1 px-3 py-2 text-xs sm:flex-none"
-                  onClick={handleCopyShareLink}
-                >
-                  <Link2 size={15} className="shrink-0" /> <span className="truncate">Share</span>
-                </button>
-                <button
-                  type="button"
-                  className="btn-ghost min-w-0 flex-1 px-3 py-2 text-xs sm:flex-none"
-                  onClick={handleOpenSaveInput}
-                  disabled={!selectedBuffTexts.length}
-                >
-                  <BookmarkPlus size={15} className="shrink-0" /> <span className="truncate">Save</span>
-                </button>
-                <button
-                  type="button"
-                  className="btn-ghost min-w-0 flex-1 px-3 py-2 text-xs sm:flex-none"
-                  onClick={() => setShowSavedModal(true)}
-                >
-                  <Bookmark size={15} className="shrink-0" />
-                  <span className="truncate">Saved</span>
-                  {savedBuilds.length > 0 && (
-                    <span className="badge badge-neutral ml-1 shrink-0">{savedBuilds.length}</span>
-                  )}
-                </button>
-              </div>
+            {/* stats */}
+            <div className="flex shrink-0 items-center divide-x divide-hull-500/40 rounded-xl border border-hull-500/40 bg-hull-800/60">
+              {[
+                { label: 'Assigned', value: pointsAssigned, color: 'text-green-300' },
+                { label: 'Remaining', value: pointsRemaining, color: pointsRemaining === 0 ? 'text-laser-yellow' : 'text-hull-100' },
+                { label: 'Selected', value: selectedBuffTexts.length, color: 'text-hull-100' },
+              ].map(({ label, value, color }) => (
+                <div key={label} className="flex items-baseline gap-1.5 px-3 py-1.5">
+                  <span className="text-[10px] uppercase tracking-[0.16em] text-hull-400">{label}</span>
+                  <span className={`font-display text-base font-semibold leading-none ${color}`}>{value}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* actions */}
+            <div className="flex shrink-0 items-center gap-1.5">
+              <button
+                type="button"
+                className="btn-secondary px-3 py-1.5 text-xs"
+                onClick={handleCopyRequest}
+                disabled={!requestText}
+              >
+                <Copy size={13} className="shrink-0" /> Request
+              </button>
+              <button
+                type="button"
+                className="btn-ghost px-3 py-1.5 text-xs"
+                onClick={handleCopyShareLink}
+              >
+                <Link2 size={13} className="shrink-0" /> Share
+              </button>
+              <button
+                type="button"
+                className="btn-ghost px-3 py-1.5 text-xs"
+                onClick={handleOpenSaveInput}
+                disabled={!selectedBuffTexts.length}
+              >
+                <BookmarkPlus size={13} className="shrink-0" /> Save
+              </button>
+              <button
+                type="button"
+                className="btn-ghost px-3 py-1.5 text-xs"
+                onClick={() => setShowSavedModal(true)}
+              >
+                <Bookmark size={13} className="shrink-0" /> Saved
+                {savedBuilds.length > 0 && (
+                  <span className="badge badge-neutral ml-1 shrink-0">{savedBuilds.length}</span>
+                )}
+              </button>
             </div>
           </div>
 
