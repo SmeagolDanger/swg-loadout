@@ -7,6 +7,7 @@ import pako from 'pako';
 /* ───────────────────── Binary Reader ───────────────────── */
 export class BinaryReader {
   constructor(buffer) {
+    if (buffer == null) throw new Error('BinaryReader: buffer is null or undefined');
     const ab = buffer instanceof ArrayBuffer ? buffer : buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
     this.view = new DataView(ab);
     this.bytes = new Uint8Array(ab);
@@ -120,9 +121,9 @@ export function zlibDecompress(data) {
   const input = data instanceof Uint8Array ? data : new Uint8Array(data);
   if (input.length === 0) return new Uint8Array(0);
   // Try zlib inflate (RFC 1950 — standard SWG TRE format)
-  try { return pako.inflate(input); } catch { /* fall through */ }
+  try { const r = pako.inflate(input); if (r instanceof Uint8Array) return r; } catch { /* fall through */ }
   // Try raw inflate (RFC 1951 — no zlib header)
-  try { return pako.inflateRaw(input); } catch { /* fall through */ }
+  try { const r = pako.inflateRaw(input); if (r instanceof Uint8Array) return r; } catch { /* fall through */ }
   // Tiny data (just a header, no payload) — common in empty patch TREs
   if (input.length <= 6) return new Uint8Array(0);
   throw new Error('Decompression failed for ' + input.length + ' bytes');
@@ -170,6 +171,7 @@ export async function parseTRE(buffer, treName) {
     nameData = new Uint8Array(0);
   }
 
+  if (!infoData) return { version, numFiles: 0, records: [], buffer };
   const records = [];
   const ir = new BinaryReader(infoData);
   for (let i = 0; i < numFiles; i++) {
@@ -231,6 +233,7 @@ export async function parseTRELazy(fileHandle, treName) {
     nameData = new Uint8Array(0);
   }
 
+  if (!infoData) return { version, numFiles: 0, records: [], fileHandle, fileSize: file.size };
   const records = [];
   const ir = new BinaryReader(infoData);
   for (let i = 0; i < numFiles; i++) {
