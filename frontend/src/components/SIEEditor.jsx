@@ -27,8 +27,25 @@ function Pill({ children, className = '' }) {
 /* ═══════════════════════════════════════════════════════════
    FILE TREE
    ═══════════════════════════════════════════════════════════ */
-function TreeNode({ node, depth = 0, onFileClick, searchTerm, bookmarks, onBookmark }) {
+function DirNode({ dirName, node, depth, onFileClick, searchTerm, bookmarks, onBookmark }) {
   const [expanded, setExpanded] = useState(depth < 1);
+  const open = expanded || !!searchTerm;
+  return (
+    <div>
+      <button onClick={() => setExpanded(e => !e)}
+        className="w-full flex items-center gap-1.5 px-2 py-px text-xs text-hull-100 hover:bg-hull-700/50 transition-colors"
+        style={{ paddingLeft: depth * 14 + 8 }}>
+        {open ? <ChevronDown size={10} className="text-hull-400 shrink-0" /> : <ChevronRight size={10} className="text-hull-400 shrink-0" />}
+        {open ? <FolderOpen size={12} className="text-laser-yellow shrink-0" /> : <Folder size={12} className="text-laser-yellow shrink-0" />}
+        <span className="flex-1 text-left truncate">{dirName}</span>
+        <span className="text-[10px] text-hull-400 tabular-nums">{node.fileCount}</span>
+      </button>
+      {open && <TreeNode node={node} depth={depth + 1} onFileClick={onFileClick} searchTerm={searchTerm} bookmarks={bookmarks} onBookmark={onBookmark} />}
+    </div>
+  );
+}
+
+function TreeNode({ node, depth = 0, onFileClick, searchTerm, bookmarks, onBookmark }) {
   const dirs = Object.keys(node.children).sort();
   const files = (node.files || []).sort((a, b) => a.shortName.localeCompare(b.shortName));
   const filteredDirs = searchTerm ? dirs.filter(d => hasMatchingFiles(node.children[d], searchTerm)) : dirs;
@@ -38,17 +55,7 @@ function TreeNode({ node, depth = 0, onFileClick, searchTerm, bookmarks, onBookm
   return (
     <div>
       {filteredDirs.map(d => (
-        <div key={d}>
-          <button onClick={() => setExpanded(e => !e)}
-            className="w-full flex items-center gap-1.5 px-2 py-px text-xs text-hull-100 hover:bg-hull-700/50 transition-colors"
-            style={{ paddingLeft: depth * 14 + 8 }}>
-            {expanded || searchTerm ? <ChevronDown size={10} className="text-hull-400 shrink-0" /> : <ChevronRight size={10} className="text-hull-400 shrink-0" />}
-            {expanded ? <FolderOpen size={12} className="text-laser-yellow shrink-0" /> : <Folder size={12} className="text-laser-yellow shrink-0" />}
-            <span className="flex-1 text-left truncate">{d}</span>
-            <span className="text-[10px] text-hull-400 tabular-nums">{node.children[d].fileCount}</span>
-          </button>
-          {(expanded || searchTerm) && <TreeNode node={node.children[d]} depth={depth + 1} onFileClick={onFileClick} searchTerm={searchTerm} bookmarks={bookmarks} onBookmark={onBookmark} />}
-        </div>
+        <DirNode key={d} dirName={d} node={node.children[d]} depth={depth} onFileClick={onFileClick} searchTerm={searchTerm} bookmarks={bookmarks} onBookmark={onBookmark} />
       ))}
       {filteredFiles.map(f => {
         const isBookmarked = bookmarks?.has(f.name);
