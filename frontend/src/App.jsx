@@ -20,6 +20,7 @@ import ModsBrowser from './components/ModsBrowser';
 import AdminPage from './components/AdminPage';
 import PrivacyPage from './components/PrivacyPage';
 import CombatLogAnalyzer from './components/CombatLogAnalyzer';
+import SIEEditor from './components/SIEEditor';
 import { CollectionsPage, CharacterDirectory, CollectionLeaderboard } from './components/collections';
 
 function resolveFooter(pathname) {
@@ -47,6 +48,26 @@ function resolveFooter(pathname) {
     return {
       id: 'logs',
       content: <>Combat Log Analyzer is an original site feature built from user-provided SWG chat log samples.</>,
+    };
+  }
+
+  if (pathname.startsWith('/tools/sie')) {
+    return {
+      id: 'sie',
+      content: (
+        <>
+          SIE (SWG Interchange Editor) inspired by the original{' '}
+          <a
+            href="https://modthegalaxy.com/index.php?resources/sie.1/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-hull-200 hover:text-plasma-400 transition-colors"
+          >
+            SIE by Sytner &amp; Timbab
+          </a>
+          .
+        </>
+      ),
     };
   }
 
@@ -153,6 +174,7 @@ export default function App() {
           <Route path="/tools/gcw" element={<GCWCalculator />} />
           <Route path="/tools/ent-buffs" element={<EntBuffBuilder />} />
           <Route path="/tools/logs" element={<CombatLogAnalyzer />} />
+          <Route path="/tools/sie" element={<SIEEditor />} />
           <Route path="/mods" element={<ModsBrowser />} />
           <Route path="/mods/:slug" element={<ModsBrowser />} />
 
@@ -174,6 +196,7 @@ export default function App() {
           <Route path="/gcw" element={<Navigate to="/tools/gcw" replace />} />
           <Route path="/ent-buffs" element={<Navigate to="/tools/ent-buffs" replace />} />
           <Route path="/logs" element={<Navigate to="/tools/logs" replace />} />
+          <Route path="/sie" element={<Navigate to="/tools/sie" replace />} />
           <Route path="/tools/mods" element={<Navigate to="/mods" replace />} />
           <Route path="/characters" element={<Navigate to="/collections/characters" replace />} />
           <Route path="/leaderboard" element={<Navigate to="/collections/leaderboard" replace />} />
