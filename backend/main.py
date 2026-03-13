@@ -32,9 +32,9 @@ from database import (
 from routers.admin_router import router as admin_router
 from routers.auth_router import router as auth_router
 from routers.buildout_router import router as buildout_router
-from routers.config_router import router as config_router
 from routers.characters_router import router as characters_router
 from routers.collections_router import router as collections_router
+from routers.config_router import router as config_router
 from routers.ent_buff_router import router as ent_buff_router
 from routers.fc_router import router as fc_router
 from routers.gamedata_router import router as gamedata_router

@@ -465,13 +465,15 @@ def _run_migrations():
             db.execute(text("UPDATE mods SET is_featured = false WHERE is_featured IS NULL"))
 
         if "site_config" not in tables:
-            db.execute(text("""
+            db.execute(
+                text("""
                 CREATE TABLE site_config (
                     key VARCHAR(100) PRIMARY KEY,
                     value TEXT NOT NULL DEFAULT '',
                     updated_at TIMESTAMP DEFAULT NOW()
                 )
-            """))
+            """)
+            )
 
         if "ent_buff_builds" not in tables:
             db.execute(
