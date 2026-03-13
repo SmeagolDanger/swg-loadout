@@ -134,8 +134,26 @@ async function _streamTransform(data, streamFactory) {
 }
 
 export async function zlibDecompress(data) {
-  try { return await _streamTransform(data, () => new DecompressionStream('deflate')); }
-  catch { return await _streamTransform(data, () => new DecompressionStream('raw')); }
+  const input = data instanceof Uint8Array ? data : new Uint8Array(data);
+  // Try zlib-wrapped deflate (RFC 1950) — standard for SWG TRE files
+  try { return await _streamTransform(input, () => new DecompressionStream('deflate')); }
+  catch { /* fall through */ }
+  // Try raw deflate (RFC 1951) — some browsers use 'deflate-raw'
+  try { return await _streamTransform(input, () => new DecompressionStream('deflate-raw')); }
+  catch { /* fall through */ }
+  // Try stripping 2-byte zlib header and using raw deflate
+  if (input.length > 2) {
+    try { return await _streamTransform(input.slice(2), () => new DecompressionStream('deflate-raw')); }
+    catch { /* fall through */ }
+  }
+  // Try adding a zlib header (78 01) if data is raw
+  try {
+    const withHeader = new Uint8Array(input.length + 2);
+    withHeader[0] = 0x78; withHeader[1] = 0x01;
+    withHeader.set(input, 2);
+    return await _streamTransform(withHeader, () => new DecompressionStream('deflate'));
+  } catch { /* fall through */ }
+  throw new Error('All decompression methods failed for ' + input.length + ' bytes');
 }
 
 export async function zlibCompress(data) {
