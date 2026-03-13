@@ -1,5 +1,6 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useModuleConfig } from '../context/ModuleConfigContext';
 import { Crosshair, Download, Flag, Music4, Orbit, Sparkles, Trophy, Users, Wrench } from 'lucide-react';
 
 const ROW_THEMES = {
@@ -26,6 +27,7 @@ const ENTRY_ROWS = [
     cards: [
       {
         to: '/tools',
+        moduleKey: 'tools',
         title: 'Space Tools',
         subtitle: 'Builders, calculators, loot, and other practical shipyard tools.',
         icon: Crosshair,
@@ -33,6 +35,7 @@ const ENTRY_ROWS = [
       },
       {
         to: '/tools/buildouts',
+        moduleKey: 'buildouts',
         title: 'Buildout Maps',
         subtitle: 'Parse SWG space buildout tabs, inspect patrol paths, and copy waypoint strings.',
         icon: Orbit,
@@ -40,6 +43,7 @@ const ENTRY_ROWS = [
       },
       {
         to: '/tools/gcw',
+        moduleKey: 'gcw',
         title: 'GCW Calculator',
         subtitle: 'Project next-week faction rank, inspect decay breakpoints, and verify the math.',
         icon: Flag,
@@ -52,6 +56,7 @@ const ENTRY_ROWS = [
     cards: [
       {
         to: '/tools/ent-buffs',
+        moduleKey: 'ent',
         title: 'Ent Buffs',
         subtitle: 'Plan entertainer buff packages, stay inside the cap, and copy a ready-to-send request.',
         icon: Music4,
@@ -59,6 +64,7 @@ const ENTRY_ROWS = [
       },
       {
         to: '/tools/starters',
+        moduleKey: 'nav:/tools/starters',
         title: 'Starter Builds',
         subtitle: 'Browse curated starter ship setups and load them into the builder cleanly.',
         icon: Sparkles,
@@ -66,6 +72,7 @@ const ENTRY_ROWS = [
       },
       {
         to: '/tools/community',
+        moduleKey: 'nav:/tools/community',
         title: 'Community Builds',
         subtitle: 'Browse public player builds, inspect their parts, and copy the ones worth remixing.',
         icon: Users,
@@ -78,6 +85,7 @@ const ENTRY_ROWS = [
     cards: [
       {
         to: '/mods',
+        moduleKey: 'mods',
         title: 'Game Mods',
         subtitle: 'Browse curated downloads with screenshots, install notes, and bundled zip packages.',
         icon: Download,
@@ -85,6 +93,7 @@ const ENTRY_ROWS = [
       },
       {
         to: '/collections',
+        moduleKey: 'collections',
         title: 'Collections',
         subtitle: 'Track badges, characters, leaderboard progress, and other completion goals.',
         icon: Trophy,
@@ -128,6 +137,7 @@ function WelcomeCard({ card, theme }) {
 export default function WelcomeScreen() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { isEnabled } = useModuleConfig();
 
   const loadoutId = searchParams.get('loadout');
 
@@ -157,14 +167,19 @@ export default function WelcomeScreen() {
         <div className="space-y-5 md:space-y-6">
           {ENTRY_ROWS.map((row) => {
             const theme = ROW_THEMES[row.key];
+            const visibleCards = row.cards.filter((card) => isEnabled(card.moduleKey));
+            if (!visibleCards.length) return null;
+            const count = visibleCards.length;
             const rowClasses =
-              row.key === 'bottom'
-                ? 'max-w-4xl mx-auto grid md:grid-cols-2 gap-5 md:gap-6'
-                : 'grid md:grid-cols-2 xl:grid-cols-3 gap-5 md:gap-6';
+              count === 1
+                ? 'max-w-md mx-auto'
+                : count === 2
+                  ? 'max-w-4xl mx-auto grid md:grid-cols-2 gap-5 md:gap-6'
+                  : 'grid md:grid-cols-2 xl:grid-cols-3 gap-5 md:gap-6';
 
             return (
               <div key={row.key} className={rowClasses}>
-                {row.cards.map((card) => (
+                {visibleCards.map((card) => (
                   <WelcomeCard key={card.to} card={card} theme={theme} />
                 ))}
               </div>
