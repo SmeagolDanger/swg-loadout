@@ -119,7 +119,9 @@ function computePeak10sDps(events, durationSec) {
     windowSum += buckets[i] - buckets[i - windowSize];
     if (windowSum > best) best = windowSum;
   }
-  return best / windowSize;
+  // Always divide by 10 so the metric means "best damage per 10-second span",
+  // even for encounters shorter than 10 seconds (matching reference implementation).
+  return best / 10;
 }
 
 // ─── Actor bucket ─────────────────────────────────────────────────
@@ -685,7 +687,7 @@ function accumulateAttackEvent(event, bucket, targetBucket) {
       targetBucket.defDodges += 1;
     } else if (outcome === 'parry') {
       targetBucket.defParries += 1;
-    } else if (outcome !== 'misses' && event.amount > 0) {
+    } else if (outcome !== 'misses') {
       targetBucket.defHitsTaken += 1;
     }
   }
@@ -702,6 +704,16 @@ function accumulateAttackEvent(event, bucket, targetBucket) {
     parries: outcome === 'parry' ? 1 : 0,
   };
   bumpAbility(bucket, event.ability || 'Basic Attack', abilityFields);
+}
+
+// ─── APM helpers ──────────────────────────────────────────────────
+// Exclude noisy auto-attack / periodic tick abilities from APM so the rate
+// reflects intentional player actions only (matches reference implementation).
+function apmCountsAbility(ability) {
+  if (!ability) return false;
+  const k = ability.toLowerCase().trim();
+  if (k === 'periodic' || k === 'attack' || k === 'and hits' || k === 'basic attack') return false;
+  return true;
 }
 
 // ─── Encounter summary ───────────────────────────────────────────
@@ -734,7 +746,7 @@ function summarizeEncounter(encounter, number, roleMap) {
       const targetBucket = event.target ? getActorBucket(actorMap, event.target, roleMap.get(event.target) || 'unknown') : null;
       accumulateAttackEvent(event, bucket, targetBucket);
       directDamage += event.amount;
-      trackApm(event.actor, event);
+      if (apmCountsAbility(event.ability)) trackApm(event.actor, event);
       if (event.target) {
         targetDamage.set(event.target, (targetDamage.get(event.target) || 0) + event.amount);
       }
@@ -879,7 +891,7 @@ function summarizeAll(events, encounters, roleMap) {
       const targetBucket = event.target ? getActorBucket(actorMap, event.target, roleMap.get(event.target) || 'unknown') : null;
       accumulateAttackEvent(event, bucket, targetBucket);
       directDamage += event.amount;
-      trackApm(event.actor, event);
+      if (apmCountsAbility(event.ability)) trackApm(event.actor, event);
     } else if (event.type === 'dot') {
       bucket.actionCount += 1;
       bucket.dotDamage += event.amount;
