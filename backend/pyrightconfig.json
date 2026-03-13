@@ -1,0 +1,12 @@
+{
+  "include": ["."],
+  "exclude": ["tests"],
+  "pythonVersion": "3.12",
+  "typeCheckingMode": "standard",
+  "reportMissingModuleSource": "none",
+  "reportAttributeAccessIssue": "none",
+  "reportGeneralTypeIssues": "none",
+  "reportArgumentType": "none",
+  "reportOperatorIssue": "none",
+  "reportOptionalMemberAccess": "none"
+}
