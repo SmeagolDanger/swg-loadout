@@ -71,6 +71,9 @@ class User(Base):
     # Curated mods
     mods = relationship("Mod", back_populates="owner", cascade="all, delete-orphan")
 
+    # Ent buff builds
+    ent_buff_builds = relationship("EntBuffBuild", back_populates="owner", cascade="all, delete-orphan")
+
 
 # ══════════════════════════════════════════════════════════════════════
 # Loadout Tool Models
@@ -254,6 +257,26 @@ class ModScreenshot(Base):
 
 
 # ══════════════════════════════════════════════════════════════════════
+# Ent Buff Builds
+# ══════════════════════════════════════════════════════════════════════
+
+
+class EntBuffBuild(Base):
+    __tablename__ = "ent_buff_builds"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    name = Column(String(100), nullable=False)
+    serialized = Column(String(500), nullable=False, default="")
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    owner = relationship("User", back_populates="ent_buff_builds")
+
+    __table_args__ = (UniqueConstraint("user_id", "name", name="uq_ent_buff_user_name"),)
+
+
+# ══════════════════════════════════════════════════════════════════════
 # Collections Models
 # ══════════════════════════════════════════════════════════════════════
 
@@ -427,6 +450,19 @@ def _run_migrations():
             db.execute(text("UPDATE mods SET install_instructions = '' WHERE install_instructions IS NULL"))
             db.execute(text("UPDATE mods SET is_published = false WHERE is_published IS NULL"))
             db.execute(text("UPDATE mods SET is_featured = false WHERE is_featured IS NULL"))
+
+        if "ent_buff_builds" not in tables:
+            db.execute(text("""
+                CREATE TABLE ent_buff_builds (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    name VARCHAR(100) NOT NULL,
+                    serialized VARCHAR(500) NOT NULL DEFAULT '',
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    updated_at TIMESTAMP DEFAULT NOW(),
+                    CONSTRAINT uq_ent_buff_user_name UNIQUE (user_id, name)
+                )
+            """))
 
         db.commit()
     except Exception:

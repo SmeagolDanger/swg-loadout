@@ -1,5 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Bookmark,
+  BookmarkPlus,
   Copy,
   Info,
   Link2,
@@ -8,7 +10,11 @@ import {
   Plus,
   RefreshCcw,
   Save,
+  Trash2,
+  X,
 } from 'lucide-react';
+import { api } from '../api';
+import { useAuth } from '../context/AuthContext';
 import {
   ENT_BUFF_POINTS_MAX,
   ENT_BUFF_REQUEST_TEMPLATE_DEFAULT,
@@ -24,6 +30,74 @@ import {
 } from '../utils/entBuffs';
 
 const STORAGE_KEY = 'ent-buff-request-template';
+const SAVED_BUFFS_KEY = 'ent-buff-saved-builds';
+
+function loadSavedBuilds() {
+  try {
+    return JSON.parse(window.localStorage.getItem(SAVED_BUFFS_KEY) || '[]');
+  } catch {
+    return [];
+  }
+}
+
+function SavedBuildsModal({ savedBuilds, onLoad, onDelete, onClose }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div className="card w-full max-w-md overflow-hidden p-0 shadow-2xl">
+        <div className="flex items-center justify-between border-b border-hull-500/40 px-4 py-3">
+          <h2 className="font-display text-sm font-semibold uppercase tracking-[0.16em] text-plasma-400">
+            Saved Builds
+          </h2>
+          <button
+            type="button"
+            className="btn-ghost h-7 w-7 justify-center p-0"
+            onClick={onClose}
+            aria-label="Close"
+          >
+            <X size={14} />
+          </button>
+        </div>
+
+        <div className="max-h-96 overflow-y-auto p-3 space-y-2">
+          {savedBuilds.length === 0 ? (
+            <div className="rounded-lg border border-hull-400/40 bg-hull-800/60 px-3 py-4 text-center text-sm text-hull-300">
+              No saved builds yet.
+            </div>
+          ) : (
+            savedBuilds.map((build) => (
+              <div
+                key={build.id ?? build.name}
+                className="flex items-center gap-2 rounded-xl border border-hull-400/40 bg-hull-800/60 px-3 py-2"
+              >
+                <span className="min-w-0 flex-1 truncate text-sm text-hull-100" title={build.name}>
+                  {build.name}
+                </span>
+                <button
+                  type="button"
+                  className="btn-secondary shrink-0 px-2.5 py-1.5 text-xs"
+                  onClick={() => { onLoad(build); onClose(); }}
+                >
+                  Load
+                </button>
+                <button
+                  type="button"
+                  className="btn-ghost h-7 w-7 shrink-0 justify-center p-0 text-hull-400 hover:text-red-400"
+                  onClick={() => onDelete(build.id, build.name)}
+                  aria-label={`Delete ${build.name}`}
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function formatBuffEffect(buff) {
   return `${buff.prefix || ''}${buff.effect}${buff.suffix || ''}`;
@@ -86,9 +160,32 @@ function SummaryPill({ label, value, tone = 'neutral' }) {
 }
 
 export default function EntBuffBuilder() {
+  const { user } = useAuth();
   const [categories, setCategories] = useState(() => cloneEntBuffCategories());
   const [requestTemplate, setRequestTemplate] = useState(ENT_BUFF_REQUEST_TEMPLATE_DEFAULT);
   const [toast, setToast] = useState('');
+  const [savedBuilds, setSavedBuilds] = useState(() => loadSavedBuilds());
+  const [showSavedModal, setShowSavedModal] = useState(false);
+  const [showSaveInput, setShowSaveInput] = useState(false);
+  const [saveName, setSaveName] = useState('');
+  const saveInputRef = useRef(null);
+
+  const fetchBuildsFromApi = useCallback(async () => {
+    try {
+      const data = await api.getEntBuffBuilds();
+      setSavedBuilds(data);
+    } catch {
+      // fall back to localStorage if API fails
+    }
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      fetchBuildsFromApi();
+    } else {
+      setSavedBuilds(loadSavedBuilds());
+    }
+  }, [user, fetchBuildsFromApi]);
 
   useEffect(() => {
     const storedTemplate = window.localStorage.getItem(STORAGE_KEY);
@@ -156,6 +253,57 @@ export default function EntBuffBuilder() {
     setToast(ok ? 'Share link copied' : 'Unable to copy share link');
   }
 
+  function handleOpenSaveInput() {
+    setSaveName('');
+    setShowSaveInput(true);
+    setTimeout(() => saveInputRef.current?.focus(), 0);
+  }
+
+  async function handleConfirmSave() {
+    const trimmed = saveName.trim();
+    if (!trimmed) return;
+    const serialized = serializeAssignments(categories);
+    setShowSaveInput(false);
+    setSaveName('');
+    if (user) {
+      try {
+        await api.saveEntBuffBuild(trimmed, serialized);
+        await fetchBuildsFromApi();
+        setToast(`Saved "${trimmed}"`);
+      } catch {
+        setToast('Failed to save build');
+      }
+    } else {
+      const updated = [
+        { name: trimmed, serialized },
+        ...savedBuilds.filter((b) => b.name !== trimmed),
+      ];
+      setSavedBuilds(updated);
+      window.localStorage.setItem(SAVED_BUFFS_KEY, JSON.stringify(updated));
+      setToast(`Saved "${trimmed}"`);
+    }
+  }
+
+  function handleLoadBuild(build) {
+    setCategories(parseAssignments(build.serialized));
+    setToast(`Loaded "${build.name}"`);
+  }
+
+  async function handleDeleteSaved(id, name) {
+    if (user) {
+      try {
+        await api.deleteEntBuffBuild(id);
+        setSavedBuilds((prev) => prev.filter((b) => b.id !== id));
+      } catch {
+        setToast('Failed to delete build');
+      }
+    } else {
+      const updated = savedBuilds.filter((b) => b.name !== name);
+      setSavedBuilds(updated);
+      window.localStorage.setItem(SAVED_BUFFS_KEY, JSON.stringify(updated));
+    }
+  }
+
   return (
     <div className="mx-auto w-full max-w-[95rem] overflow-x-clip px-4 py-6 animate-slide-up">
       <div className="w-full max-w-full space-y-4">
@@ -205,9 +353,61 @@ export default function EntBuffBuilder() {
                 >
                   <Link2 size={15} className="shrink-0" /> <span className="truncate">Share</span>
                 </button>
+                <button
+                  type="button"
+                  className="btn-ghost min-w-0 flex-1 px-3 py-2 text-xs sm:flex-none"
+                  onClick={handleOpenSaveInput}
+                  disabled={!selectedBuffTexts.length}
+                >
+                  <BookmarkPlus size={15} className="shrink-0" /> <span className="truncate">Save</span>
+                </button>
+                <button
+                  type="button"
+                  className="btn-ghost min-w-0 flex-1 px-3 py-2 text-xs sm:flex-none"
+                  onClick={() => setShowSavedModal(true)}
+                >
+                  <Bookmark size={15} className="shrink-0" />
+                  <span className="truncate">Saved</span>
+                  {savedBuilds.length > 0 && (
+                    <span className="badge badge-neutral ml-1 shrink-0">{savedBuilds.length}</span>
+                  )}
+                </button>
               </div>
             </div>
           </div>
+
+          {showSaveInput && (
+            <div className="mt-3 flex items-center gap-2">
+              <input
+                ref={saveInputRef}
+                value={saveName}
+                onChange={(e) => setSaveName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleConfirmSave();
+                  if (e.key === 'Escape') setShowSaveInput(false);
+                }}
+                placeholder="Build name…"
+                className="flex-1 text-sm"
+                maxLength={64}
+              />
+              <button
+                type="button"
+                className="btn-secondary shrink-0 px-3 py-2 text-xs"
+                onClick={handleConfirmSave}
+                disabled={!saveName.trim()}
+              >
+                <Save size={14} className="shrink-0" /> Save
+              </button>
+              <button
+                type="button"
+                className="btn-ghost h-8 w-8 shrink-0 justify-center p-0"
+                onClick={() => setShowSaveInput(false)}
+                aria-label="Cancel"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          )}
 
           {toast ? (
             <div className="mt-3 rounded-xl border border-plasma-400/40 bg-plasma-500/10 px-3 py-2 text-sm text-plasma-200">
@@ -373,6 +573,15 @@ export default function EntBuffBuilder() {
           </aside>
         </div>
       </div>
+
+      {showSavedModal && (
+        <SavedBuildsModal
+          savedBuilds={savedBuilds}
+          onLoad={handleLoadBuild}
+          onDelete={handleDeleteSaved}
+          onClose={() => setShowSavedModal(false)}
+        />
+      )}
     </div>
   );
 }

@@ -193,6 +193,11 @@ export const api = {
   saveREProject: (data) => request('/re/projects', { method: 'POST', body: JSON.stringify(data) }),
   deleteREProject: (id) => request(`/re/projects/${id}`, { method: 'DELETE' }),
 
+  // Ent Buff Builds
+  getEntBuffBuilds: () => request('/ent-buff-builds'),
+  saveEntBuffBuild: (name, serialized) => request('/ent-buff-builds', { method: 'POST', body: JSON.stringify({ name, serialized }) }),
+  deleteEntBuffBuild: (id) => request(`/ent-buff-builds/${id}`, { method: 'DELETE' }),
+
   // FC Calculator
   getFCLevels: () => request('/fc/levels'),
   calcCooldowns: (data) => request('/fc/cooldowns', { method: 'POST', body: JSON.stringify(data) }),
