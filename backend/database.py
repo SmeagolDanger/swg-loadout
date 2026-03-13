@@ -452,7 +452,8 @@ def _run_migrations():
             db.execute(text("UPDATE mods SET is_featured = false WHERE is_featured IS NULL"))
 
         if "ent_buff_builds" not in tables:
-            db.execute(text("""
+            db.execute(
+                text("""
                 CREATE TABLE ent_buff_builds (
                     id SERIAL PRIMARY KEY,
                     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -462,7 +463,8 @@ def _run_migrations():
                     updated_at TIMESTAMP DEFAULT NOW(),
                     CONSTRAINT uq_ent_buff_user_name UNIQUE (user_id, name)
                 )
-            """))
+            """)
+            )
 
         db.commit()
     except Exception:
