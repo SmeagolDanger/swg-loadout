@@ -4,15 +4,19 @@ import {
   Axe,
   BarChart3,
   Coins,
+  Crosshair,
   Download,
   FileUp,
   Gem,
   HeartPulse,
   ScrollText,
   Shield,
+  ShieldOff,
+  Skull,
   Sparkles,
   Swords,
   Upload,
+  Zap,
 } from 'lucide-react';
 
 function formatNumber(value) {
@@ -270,8 +274,8 @@ export default function CombatLogAnalyzer() {
           </div>
 
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
-            <StatCard icon={Sparkles} label="Quests / Unlocks" value={formatNumber(result.summary.questCount + result.summary.abilityUnlockCount)} hint={`${result.summary.questCount} quests · ${result.summary.abilityUnlockCount} unlocks`} />
-            <StatCard icon={Shield} label="Loot Notices" value={formatNumber(result.summary.lootNoticeCount)} hint={`${result.summary.systemNoticeCount} other system notices`} />
+            <StatCard icon={Zap} label="Peak 10s DPS" value={formatNumber(result.summary.peak10sDps || 0)} hint="Highest damage in any 10-second window" />
+            <StatCard icon={Skull} label="Deaths" value={formatNumber(result.summary.deathCount || 0)} hint={`${result.summary.encounterCount} encounters`} />
             <StatCard icon={BarChart3} label="Top Healer" value={topHealer?.name || '—'} hint={topHealer ? formatNumber(topHealer.healing) : ''} />
             <StatCard icon={BarChart3} label="Unique Abilities" value={formatNumber(new Set(actors.flatMap((a) => (a.abilities || []).map((b) => b.name))).size)} />
             <StatCard icon={BarChart3} label="Biggest Hit" value={formatNumber(Math.max(0, ...actors.map((a) => a.biggestAbilityHit || 0)))} />
@@ -284,6 +288,52 @@ export default function CombatLogAnalyzer() {
             <ChartPanel title="Damage Taken by Source" subtitle="Incoming damage sustained" items={chartData.damageTaken} />
             <ChartPanel title="Actions per Minute" subtitle="Player-triggered combat actions only" items={chartData.apm} />
           </div>
+
+          {/* Defense Flow — dodge, parry, glance breakdown per actor */}
+          {actors.some((a) => a.defense && a.defense.attempts > 0) ? (
+            <div className="card p-4">
+              <div className="mb-4">
+                <div className="flex items-center gap-2 text-[11px] font-display uppercase tracking-[0.16em] text-hull-300">
+                  <ShieldOff size={14} className="text-plasma-400" /> Defense Flow
+                </div>
+                <div className="mt-1 text-xs text-hull-400">Incoming attack breakdown per target — dodge, parry, glance, and hit rates computed from total attempts.</div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-hull-200">
+                  <thead>
+                    <tr className="border-b border-hull-400/30 text-left text-[11px] font-display uppercase tracking-wider text-hull-400">
+                      <th className="pb-2 pr-4">Defender</th>
+                      <th className="pb-2 pr-4 text-right">Attempts</th>
+                      <th className="pb-2 pr-4 text-right">Dodge</th>
+                      <th className="pb-2 pr-4 text-right">Parry</th>
+                      <th className="pb-2 pr-4 text-right">Avoid %</th>
+                      <th className="pb-2 pr-4 text-right">Glance</th>
+                      <th className="pb-2 pr-4 text-right">Glance %</th>
+                      <th className="pb-2 text-right">Avg Glance</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {actors
+                      .filter((a) => a.defense && a.defense.attempts > 0)
+                      .sort((a, b) => b.defense.attempts - a.defense.attempts)
+                      .slice(0, 20)
+                      .map((a) => (
+                        <tr key={`def-${a.name}`} className="border-b border-hull-400/15">
+                          <td className="py-1.5 pr-4 text-hull-100">{a.name}</td>
+                          <td className="py-1.5 pr-4 text-right">{formatNumber(a.defense.attempts)}</td>
+                          <td className="py-1.5 pr-4 text-right">{a.defense.dodgeCount}{a.defense.dodgeChancePct > 0 ? ` (${formatRate(a.defense.dodgeChancePct)}%)` : ''}</td>
+                          <td className="py-1.5 pr-4 text-right">{a.defense.parryCount}{a.defense.parryChancePct > 0 ? ` (${formatRate(a.defense.parryChancePct)}%)` : ''}</td>
+                          <td className="py-1.5 pr-4 text-right font-medium text-plasma-300">{formatRate(a.defense.avoidChancePct)}%</td>
+                          <td className="py-1.5 pr-4 text-right">{a.defense.glanceCount}</td>
+                          <td className="py-1.5 pr-4 text-right">{formatRate(a.defense.glanceChancePct)}%</td>
+                          <td className="py-1.5 text-right">{a.defense.glanceCount > 0 ? formatNumber(a.defense.avgGlanceDamage) : '—'}</td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : null}
 
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
             <div className="card p-4">
@@ -350,8 +400,12 @@ export default function CombatLogAnalyzer() {
                 </div>
               </div>
               <div className="rounded-2xl border border-hull-400/30 bg-hull-800/50 p-4">
-                <div className="text-[11px] font-display uppercase tracking-[0.16em] text-hull-300">What counts as APM here</div>
-                <div className="mt-2 text-sm text-hull-200">Attacks, heals, performs, and explicit utility actions like free shots or bacta infusions. Passive DoT ticks and simple gain messages are excluded so the rate does not drift upward from follow-on log lines.</div>
+                <div className="text-[11px] font-display uppercase tracking-[0.16em] text-hull-300">Notes</div>
+                <div className="mt-2 space-y-2 text-sm text-hull-200">
+                  <p><span className="font-medium text-hull-100">APM</span> counts attacks, heals, performs, and explicit utility actions like free shots or bacta infusions. Passive DoT ticks and gain messages are excluded.</p>
+                  <p><span className="font-medium text-hull-100">Peak 10s DPS</span> is the highest damage output in any sliding 10-second window across the session, matching the standard DPS meter methodology.</p>
+                  <p><span className="font-medium text-hull-100">Defense Flow</span> shows per-defender breakdown of incoming attacks: dodge, parry, and glance rates are computed from total attack attempts (landed + avoided). Dodge and parry are distinguished when the log provides the reason (e.g. "misses (dodge)").</p>
+                </div>
               </div>
             </div>
           </div>

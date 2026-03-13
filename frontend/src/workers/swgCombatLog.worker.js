@@ -1,11 +1,42 @@
+// ─── Line-level regex ──────────────────────────────────────────────
 const COMBAT_LINE_RE = /^\[(?<channel>[^\]]+)]\s+(?<time>\d{2}:\d{2}:\d{2})\s+(?<message>.+)$/;
+
+// ─── Combat message patterns ──────────────────────────────────────
+// Primary attack line — "X attacks Y [with/using Ability] and hits/crits/glances/misses/strikes through ..."
 const ATTACK_RE = /^(?<actor>.+?) attacks (?:(?<target>.+?) )?(?:(?:using|with) (?<ability>.+?) )?and (?<outcome>hits|crits|glances|misses|strikes through)(?: \((?<qualifiers>[^)]*)\))?(?: for (?<amount>\d+) points(?: \((?<damageTypes>[^)]*)\))?)?\.?(?: Armor absorbed (?<absorbed>\d+) points out of (?<mitigated>\d+)\.)?$/;
+
+// "X has caused Y to take N points of <type> damage. (details)"
 const DOT_RE = /^(?<actor>.+?) has caused (?<target>.+?) to take (?<amount>\d+) points of (?<damageType>[a-zA-Z ]+) damage\. \((?<details>[^)]*)\)$/;
+
+// NEW: "X suffers N points of damage from Ability over time." (periodic self-report format)
+const SUFFERS_DOT_RE = /^(?<target>.+?) suffers (?<amount>\d+) points of damage from (?<ability>.+?) over time\.?$/;
+
+// NEW: "X damages Y for N points [with/using Ability]." (generic damage)
+const GENERIC_DMG_RE = /^(?<actor>.+?) damages (?<target>.+?) for (?<amount>\d+) points(?:\s+(?:with|using)\s+(?<ability>.+?))?\.?$/;
+
+// NEW: "X causes Y to take N points of damage." (no element, no details)
+const CAUSES_DMG_RE = /^(?<actor>.+?) causes (?<target>.+?) to take (?<amount>\d+) points of damage\.?$/;
+
+// NEW: Dodge/parry specific patterns (miss with reason in parens)
+const MISS_REASON_RE = /^(?<actor>.+?) attacks (?<target>.+?)(?:\s+(?:with|using)\s+.+?)?\s+(?:and\s+)?misses\s*\((?<reason>dodge|parry|parries)\)\.?$/i;
+
+// NEW: "X attacks Y ... but Y dodges/parries"
+const DODGE_PARRY_BUT_RE = /^(?<actor>.+?) attacks (?<target>.+?)(?:\s+(?:with|using)\s+.+?)?(?:,?\s*)?(?:but|and)\s+\2\s+(?<outcome>dodges|parries)\b/i;
+
+// NEW: "Y dodges/parries X's attack"
+const TARGET_AVOIDS_RE = /^(?<target>.+?) (?<outcome>dodges|parries) (?<actor>.+?)'?s?\s+attack\b/i;
+
+// NEW: "X's attack is dodged/parried by Y"
+const ATTACK_AVOIDED_BY_RE = /^(?<actor>.+?)'?s?\s+attack\s+(?:is|was)\s+(?<outcome>dodged|parried)\s+by\s+(?<target>.+?)\b/i;
+
 const HEAL_RE = /^(?<actor>.+?) heals (?<target>.+?) for (?<amount>\d+) points of damage\.$/;
 const PERFORM_RE = /^(?<actor>.+?) performs (?<ability>.+?)(?: on (?<target>.+?))?\.$/;
 const INFUSE_RE = /^(?<actor>.+?) infuses (?<target>.+?) with a large amount of bacta\.$/;
 const GAIN_RE = /^(?<actor>.+?) gains (?<effect>.+)\.$/;
 const FREE_SHOT_RE = /^(?<actor>.+?) snaps off a free shot!$/;
+const DEATH_RE = /^(?<target>.+?) is no more\.$/;
+
+// ─── Chat / system patterns ───────────────────────────────────────
 const GROUP_SHARE_RE = /^\[GROUP] You receive (?<amount>\d+) credits as your share\.$/;
 const GROUP_SPLIT_RE = /^\[GROUP] You split (?<total>\d+) credits and receive (?<share>\d+) credits as your share\.$/;
 const GROUP_LOOT_CREDITS_RE = /^\[GROUP] (?<actor>.+?) looted (?<amount>\d+) credits from (?<target>.+)\.$/;
@@ -18,6 +49,8 @@ const NEW_ABILITY_RE = /^You have acquired a new ability: (?<ability>.+)!$/;
 const DESTROYED_RE = /^The (?<target>.+?) has been Destroyed!$/;
 
 const ENCOUNTER_GAP_SECONDS = 15;
+
+// ─── Helpers ──────────────────────────────────────────────────────
 
 function timeToSeconds(value) {
   const [hours, minutes, seconds] = value.split(':').map(Number);
@@ -68,6 +101,29 @@ function parseDotDetails(raw) {
   };
 }
 
+// ─── Peak 10-second DPS (sliding window) ──────────────────────────
+function computePeak10sDps(events, durationSec) {
+  if (!durationSec || events.length === 0) return 0;
+  const buckets = new Array(durationSec + 1).fill(0);
+  const startEpoch = events[0]?.epochSec ?? 0;
+  for (const e of events) {
+    if (e.type !== 'attack' && e.type !== 'dot') continue;
+    const s = Math.max(0, Math.min(durationSec, (e.epochSec ?? 0) - startEpoch));
+    buckets[s] += e.amount || 0;
+  }
+  const windowSize = Math.min(10, durationSec + 1);
+  let windowSum = 0;
+  for (let i = 0; i < windowSize; i++) windowSum += buckets[i];
+  let best = windowSum;
+  for (let i = windowSize; i <= durationSec; i++) {
+    windowSum += buckets[i] - buckets[i - windowSize];
+    if (windowSum > best) best = windowSum;
+  }
+  return best / windowSize;
+}
+
+// ─── Actor bucket ─────────────────────────────────────────────────
+
 function createActorBucket(name, role = 'unknown') {
   return {
     name,
@@ -79,7 +135,10 @@ function createActorBucket(name, role = 'unknown') {
     hits: 0,
     crits: 0,
     glances: 0,
+    strikethroughs: 0,
     misses: 0,
+    dodges: 0,
+    parries: 0,
     performs: 0,
     utility: 0,
     actionCount: 0,
@@ -89,6 +148,12 @@ function createActorBucket(name, role = 'unknown') {
     splitCredits: 0,
     lootItems: 0,
     lootNotices: 0,
+    // Defensive tallies (incoming attacks against this actor)
+    defHitsTaken: 0,       // non-glance landed hits received
+    defGlancesTaken: 0,    // glancing blows received
+    defGlanceDmgSum: 0,    // sum of glancing blow damage taken
+    defDodges: 0,          // times this actor dodged
+    defParries: 0,         // times this actor parried
     abilities: new Map(),
     items: new Map(),
   };
@@ -114,7 +179,10 @@ function bumpAbility(bucket, ability, fields) {
       hits: 0,
       crits: 0,
       glances: 0,
+      strikethroughs: 0,
       misses: 0,
+      dodges: 0,
+      parries: 0,
     });
   }
   const record = bucket.abilities.get(ability);
@@ -142,8 +210,96 @@ function finalizeItemMap(bucket) {
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
 }
 
+// ─── Compute defense stats from bucket tallies ────────────────────
+function computeDefenseStats(bucket) {
+  const landed = bucket.defHitsTaken + bucket.defGlancesTaken;
+  const attempts = landed + bucket.defDodges + bucket.defParries;
+  const glanceDenom = bucket.defHitsTaken + bucket.defGlancesTaken;
+  return {
+    attempts,
+    landed,
+    hitsTaken: bucket.defHitsTaken,
+    glanceCount: bucket.defGlancesTaken,
+    glanceChancePct: glanceDenom > 0 ? (bucket.defGlancesTaken / glanceDenom) * 100 : 0,
+    avgGlanceDamage: bucket.defGlancesTaken > 0 ? bucket.defGlanceDmgSum / bucket.defGlancesTaken : 0,
+    dodgeCount: bucket.defDodges,
+    parryCount: bucket.defParries,
+    dodgeChancePct: attempts > 0 ? (bucket.defDodges / attempts) * 100 : 0,
+    parryChancePct: attempts > 0 ? (bucket.defParries / attempts) * 100 : 0,
+    avoidChancePct: attempts > 0 ? ((bucket.defDodges + bucket.defParries) / attempts) * 100 : 0,
+  };
+}
+
+// ─── Parse combat messages ────────────────────────────────────────
+
 function parseCombatMessage(message) {
-  let match = message.match(ATTACK_RE);
+  let match;
+
+  // ── Dodge/parry specific patterns (checked BEFORE generic attack) ──
+
+  // "X attacks Y ... misses (dodge)" / "misses (parry)"
+  match = message.match(MISS_REASON_RE);
+  if (match?.groups) {
+    const reason = (match.groups.reason || '').toLowerCase();
+    const avoidType = reason.startsWith('dodg') ? 'dodge' : 'parry';
+    return {
+      type: 'attack',
+      actor: shortenPlayerName(match.groups.actor.trim()),
+      target: shortenPlayerName(match.groups.target.trim()),
+      ability: '',
+      outcome: avoidType,
+      amount: 0,
+      raw: message,
+    };
+  }
+
+  // "X attacks Y ... but Y dodges/parries"
+  match = message.match(DODGE_PARRY_BUT_RE);
+  if (match?.groups) {
+    const flag = (match.groups.outcome || '').toLowerCase();
+    return {
+      type: 'attack',
+      actor: shortenPlayerName(match.groups.actor.trim()),
+      target: shortenPlayerName(match.groups.target.trim()),
+      ability: '',
+      outcome: flag === 'dodges' ? 'dodge' : 'parry',
+      amount: 0,
+      raw: message,
+    };
+  }
+
+  // "Y dodges/parries X's attack"
+  match = message.match(TARGET_AVOIDS_RE);
+  if (match?.groups) {
+    const flag = (match.groups.outcome || '').toLowerCase();
+    return {
+      type: 'attack',
+      actor: shortenPlayerName(match.groups.actor.trim()),
+      target: shortenPlayerName(match.groups.target.trim()),
+      ability: '',
+      outcome: flag === 'dodges' ? 'dodge' : 'parry',
+      amount: 0,
+      raw: message,
+    };
+  }
+
+  // "X's attack is dodged/parried by Y"
+  match = message.match(ATTACK_AVOIDED_BY_RE);
+  if (match?.groups) {
+    const flag = (match.groups.outcome || '').toLowerCase();
+    return {
+      type: 'attack',
+      actor: shortenPlayerName(match.groups.actor.trim()),
+      target: shortenPlayerName(match.groups.target.trim()),
+      ability: '',
+      outcome: flag === 'dodged' ? 'dodge' : 'parry',
+      amount: 0,
+      raw: message,
+    };
+  }
+
+  // ── Primary attack line ────────────────────────────────────────
+  match = message.match(ATTACK_RE);
   if (match?.groups) {
     const qualifiers = parseQualifiers(match.groups.qualifiers || '');
     return {
@@ -163,6 +319,7 @@ function parseCombatMessage(message) {
     };
   }
 
+  // ── "X has caused Y to take N points of <type> damage" ─────────
   match = message.match(DOT_RE);
   if (match?.groups) {
     const details = parseDotDetails(match.groups.details || '');
@@ -180,6 +337,61 @@ function parseCombatMessage(message) {
     };
   }
 
+  // ── NEW: "X suffers N points of damage from Ability over time" ──
+  match = message.match(SUFFERS_DOT_RE);
+  if (match?.groups) {
+    return {
+      type: 'dot',
+      actor: '',  // source unknown in this format; will attribute to ability name
+      target: shortenPlayerName(match.groups.target.trim()),
+      ability: match.groups.ability.trim(),
+      outcome: 'ticks',
+      amount: Number(match.groups.amount),
+      absorbed: 0,
+      resisted: 0,
+      damageTypes: [],
+      raw: message,
+    };
+  }
+
+  // ── NEW: "X damages Y for N points [with/using Ability]" ───────
+  match = message.match(GENERIC_DMG_RE);
+  if (match?.groups) {
+    return {
+      type: 'attack',
+      actor: shortenPlayerName(match.groups.actor.trim()),
+      target: shortenPlayerName(match.groups.target.trim()),
+      ability: match.groups.ability?.trim() || '',
+      outcome: 'hits',
+      amount: Number(match.groups.amount),
+      absorbed: 0,
+      mitigated: 0,
+      damageTypes: [],
+      blocked: 0,
+      evadedPct: null,
+      qualifiers: '',
+      raw: message,
+    };
+  }
+
+  // ── NEW: "X causes Y to take N points of damage" ──────────────
+  match = message.match(CAUSES_DMG_RE);
+  if (match?.groups) {
+    return {
+      type: 'dot',
+      actor: shortenPlayerName(match.groups.actor.trim()),
+      target: shortenPlayerName(match.groups.target.trim()),
+      ability: 'Periodic',
+      outcome: 'ticks',
+      amount: Number(match.groups.amount),
+      absorbed: 0,
+      resisted: 0,
+      damageTypes: [],
+      raw: message,
+    };
+  }
+
+  // ── Healing ────────────────────────────────────────────────────
   match = message.match(HEAL_RE);
   if (match?.groups) {
     return {
@@ -193,6 +405,21 @@ function parseCombatMessage(message) {
     };
   }
 
+  // ── Death ─────────────────────────────────────────────────────
+  match = message.match(DEATH_RE);
+  if (match?.groups) {
+    return {
+      type: 'death',
+      actor: '',
+      target: match.groups.target.trim(),
+      ability: '',
+      outcome: 'death',
+      amount: 0,
+      raw: message,
+    };
+  }
+
+  // ── Perform ───────────────────────────────────────────────────
   match = message.match(PERFORM_RE);
   if (match?.groups) {
     return {
@@ -337,6 +564,8 @@ function parseChatMessage(channel, message) {
   return null;
 }
 
+// ─── Actor insight / role classification ──────────────────────────
+
 function createInsight(name) {
   return {
     name,
@@ -430,6 +659,54 @@ function aggregateEncounterAbilities(events) {
   return Array.from(map.values()).sort((a, b) => b.damage + b.healing - (a.damage + a.healing) || b.uses - a.uses || a.ability.localeCompare(b.ability));
 }
 
+// ─── Accumulate attack stats into actor bucket ────────────────────
+// Shared between summarizeEncounter and summarizeAll to keep logic consistent.
+function accumulateAttackEvent(event, bucket, targetBucket) {
+  bucket.actionCount += 1;
+  bucket.activeActionCount += 1;
+
+  const outcome = event.outcome;
+  if (outcome === 'hits') bucket.hits += 1;
+  else if (outcome === 'crits') bucket.crits += 1;
+  else if (outcome === 'glances') bucket.glances += 1;
+  else if (outcome === 'strikes through') { bucket.hits += 1; bucket.strikethroughs += 1; }
+  else if (outcome === 'dodge') { bucket.misses += 1; bucket.dodges += 1; }
+  else if (outcome === 'parry') { bucket.misses += 1; bucket.parries += 1; }
+  else if (outcome === 'misses') bucket.misses += 1;
+
+  bucket.directDamage += event.amount;
+
+  // Defensive tallies on the target
+  if (targetBucket && event.actor !== event.target) {
+    targetBucket.takenDamage += event.amount;
+    if (outcome === 'glances') {
+      targetBucket.defGlancesTaken += 1;
+      targetBucket.defGlanceDmgSum += event.amount;
+    } else if (outcome === 'dodge') {
+      targetBucket.defDodges += 1;
+    } else if (outcome === 'parry') {
+      targetBucket.defParries += 1;
+    } else if (outcome !== 'misses' && event.amount > 0) {
+      targetBucket.defHitsTaken += 1;
+    }
+  }
+
+  const abilityFields = {
+    uses: 1,
+    directDamage: event.amount,
+    hits: (outcome === 'hits' || outcome === 'strikes through') ? 1 : 0,
+    crits: outcome === 'crits' ? 1 : 0,
+    glances: outcome === 'glances' ? 1 : 0,
+    strikethroughs: outcome === 'strikes through' ? 1 : 0,
+    misses: (outcome === 'misses' || outcome === 'dodge' || outcome === 'parry') ? 1 : 0,
+    dodges: outcome === 'dodge' ? 1 : 0,
+    parries: outcome === 'parry' ? 1 : 0,
+  };
+  bumpAbility(bucket, event.ability || 'Basic Attack', abilityFields);
+}
+
+// ─── Encounter summary ───────────────────────────────────────────
+
 function summarizeEncounter(encounter, number, roleMap) {
   const actorMap = new Map();
   const targetSet = new Set();
@@ -439,6 +716,7 @@ function summarizeEncounter(encounter, number, roleMap) {
   let healing = 0;
   let credits = 0;
   let lootItems = 0;
+  let deathCount = 0;
 
   for (const event of encounter.events) {
     if (event.target) targetSet.add(event.target);
@@ -446,21 +724,12 @@ function summarizeEncounter(encounter, number, roleMap) {
     if (!bucket) continue;
 
     if (event.type === 'attack') {
-      bucket.actionCount += 1;
-      bucket.activeActionCount += 1;
-      if (event.outcome === 'hits') bucket.hits += 1;
-      if (event.outcome === 'crits') bucket.crits += 1;
-      if (event.outcome === 'glances') bucket.glances += 1;
-      if (event.outcome === 'misses') bucket.misses += 1;
-      if (event.outcome === 'strikes through') bucket.hits += 1;
-      bucket.directDamage += event.amount;
+      const targetBucket = event.target ? getActorBucket(actorMap, event.target, roleMap.get(event.target) || 'unknown') : null;
+      accumulateAttackEvent(event, bucket, targetBucket);
       directDamage += event.amount;
       if (event.target) {
         targetDamage.set(event.target, (targetDamage.get(event.target) || 0) + event.amount);
-        const targetBucket = getActorBucket(actorMap, event.target, roleMap.get(event.target) || 'unknown');
-        if (targetBucket) targetBucket.takenDamage += event.amount;
       }
-      bumpAbility(bucket, event.ability || 'Basic Attack', { uses: 1, directDamage: event.amount, hits: event.outcome === 'hits' || event.outcome === 'strikes through' ? 1 : 0, crits: event.outcome === 'crits' ? 1 : 0, glances: event.outcome === 'glances' ? 1 : 0, misses: event.outcome === 'misses' ? 1 : 0 });
     } else if (event.type === 'dot') {
       bucket.actionCount += 1;
       bucket.dotDamage += event.amount;
@@ -491,6 +760,8 @@ function summarizeEncounter(encounter, number, roleMap) {
       credits += event.amount;
     } else if (event.type === 'lootItem') {
       lootItems += 1;
+    } else if (event.type === 'death') {
+      deathCount += 1;
     }
   }
 
@@ -499,12 +770,14 @@ function summarizeEncounter(encounter, number, roleMap) {
     totalDamage: actor.directDamage + actor.dotDamage,
     abilities: finalizeAbilityMap(actor),
     items: finalizeItemMap(actor),
+    defense: computeDefenseStats(actor),
   }));
   actors.sort((a, b) => b.totalDamage - a.totalDamage || b.healing - a.healing || a.name.localeCompare(b.name));
 
   const durationSec = Math.max(1, encounter.endEpochSec - encounter.startEpochSec + 1);
   const totalDamage = directDamage + dotDamage;
   const topAbilities = aggregateEncounterAbilities(encounter.events);
+  const peak10sDps = computePeak10sDps(encounter.events, durationSec);
   const npcTargets = Array.from(targetDamage.entries())
     .filter(([name]) => (roleMap.get(name) || 'unknown') !== 'player')
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
@@ -525,8 +798,10 @@ function summarizeEncounter(encounter, number, roleMap) {
     healing,
     credits,
     lootItems,
+    deathCount,
     dps: totalDamage / durationSec,
     hps: healing / durationSec,
+    peak10sDps,
     actors,
     targets: Array.from(targetSet).sort(),
     abilities: topAbilities,
@@ -557,6 +832,8 @@ function buildEncounters(events, roleMap) {
   return encounters.map((encounter, index) => summarizeEncounter(encounter, index + 1, roleMap));
 }
 
+// ─── Overall summary ─────────────────────────────────────────────
+
 function summarizeAll(events, encounters, roleMap) {
   const actorMap = new Map();
   let directDamage = 0;
@@ -571,23 +848,14 @@ function summarizeAll(events, encounters, roleMap) {
   let abilityUnlockCount = 0;
   let lootNoticeCount = 0;
   let systemNoticeCount = 0;
+  let deathCount = 0;
 
   for (const event of events) {
     const bucket = getActorBucket(actorMap, event.actor, roleMap.get(event.actor) || 'unknown');
     if (event.type === 'attack') {
-      bucket.actionCount += 1;
-      bucket.activeActionCount += 1;
-      bucket.directDamage += event.amount;
+      const targetBucket = event.target ? getActorBucket(actorMap, event.target, roleMap.get(event.target) || 'unknown') : null;
+      accumulateAttackEvent(event, bucket, targetBucket);
       directDamage += event.amount;
-      if (event.target) {
-        const targetBucket = getActorBucket(actorMap, event.target, roleMap.get(event.target) || 'unknown');
-        if (targetBucket) targetBucket.takenDamage += event.amount;
-      }
-      if (event.outcome === 'hits' || event.outcome === 'strikes through') bucket.hits += 1;
-      if (event.outcome === 'crits') bucket.crits += 1;
-      if (event.outcome === 'glances') bucket.glances += 1;
-      if (event.outcome === 'misses') bucket.misses += 1;
-      bumpAbility(bucket, event.ability || 'Basic Attack', { uses: 1, directDamage: event.amount, hits: event.outcome === 'hits' || event.outcome === 'strikes through' ? 1 : 0, crits: event.outcome === 'crits' ? 1 : 0, glances: event.outcome === 'glances' ? 1 : 0, misses: event.outcome === 'misses' ? 1 : 0 });
     } else if (event.type === 'dot') {
       bucket.actionCount += 1;
       bucket.dotDamage += event.amount;
@@ -639,6 +907,8 @@ function summarizeAll(events, encounters, roleMap) {
       abilityUnlockCount += 1;
     } else if (event.type === 'system') {
       systemNoticeCount += 1;
+    } else if (event.type === 'death') {
+      deathCount += 1;
     }
   }
 
@@ -647,6 +917,7 @@ function summarizeAll(events, encounters, roleMap) {
     totalDamage: actor.directDamage + actor.dotDamage,
     abilities: finalizeAbilityMap(actor),
     items: finalizeItemMap(actor),
+    defense: computeDefenseStats(actor),
   }));
   actors.sort((a, b) => b.totalDamage - a.totalDamage || b.healing - a.healing || a.name.localeCompare(b.name));
 
@@ -660,6 +931,7 @@ function summarizeAll(events, encounters, roleMap) {
     .reverse();
 
   const totalDurationSec = encounters.reduce((sum, encounter) => sum + encounter.durationSec, 0);
+  const peak10sDps = computePeak10sDps(events, totalDurationSec);
 
   return {
     totalEvents: events.length,
@@ -678,14 +950,18 @@ function summarizeAll(events, encounters, roleMap) {
     questCount,
     abilityUnlockCount,
     systemNoticeCount,
+    deathCount,
     encounterCount: encounters.length,
     actorCount: actors.length,
     totalDurationSec,
+    peak10sDps,
     actors,
     looters,
     recentLoot,
   };
 }
+
+// ─── Entry point ─────────────────────────────────────────────────
 
 function parseFiles(files) {
   const events = [];
