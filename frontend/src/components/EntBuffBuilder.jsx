@@ -132,7 +132,7 @@ function InfoTip({ title, lines = [] }) {
       >
         <Info size={14} />
       </button>
-      <div className="pointer-events-none absolute right-0 top-9 z-30 hidden w-72 max-w-[calc(100vw-2rem)] rounded-xl border border-hull-400/60 bg-hull-900/95 p-3 text-left shadow-2xl group-hover:block group-focus-within:block">
+      <div className="pointer-events-none absolute left-0 top-9 z-30 hidden w-72 max-w-[calc(100vw-2rem)] rounded-xl border border-hull-400/60 bg-hull-900/95 p-3 text-left shadow-2xl group-hover:block group-focus-within:block">
         <div className="text-sm font-medium text-hull-50">{title}</div>
         <div className="mt-2 space-y-1.5 text-xs leading-relaxed text-hull-200">
           {lines.map((line) => (
