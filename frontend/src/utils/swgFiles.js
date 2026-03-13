@@ -2,6 +2,8 @@
    SWG File Utilities — Parsers, Writers, Helpers
    ═══════════════════════════════════════════════════════════ */
 
+import pako from 'pako';
+
 /* ───────────────────── Binary Reader ───────────────────── */
 export class BinaryReader {
   constructor(buffer) {
@@ -112,49 +114,23 @@ export function crc32Lower(str) {
   return crc32(str.toLowerCase());
 }
 
-/* ───────────────────── Zlib Compression / Decompression ───────────────────── */
-async function _streamTransform(data, streamFactory) {
-  const stream = streamFactory();
-  const writer = stream.writable.getWriter();
-  writer.write(data instanceof Uint8Array ? data : new Uint8Array(data));
-  writer.close();
-  const reader = stream.readable.getReader();
-  const chunks = [];
-  let total = 0;
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    chunks.push(value);
-    total += value.length;
-  }
-  const result = new Uint8Array(total);
-  let off = 0;
-  for (const c of chunks) { result.set(c, off); off += c.length; }
-  return result;
-}
+/* ───────────────────── Zlib Compression / Decompression (pako) ───────────────────── */
 
-export async function zlibDecompress(data) {
+export function zlibDecompress(data) {
   const input = data instanceof Uint8Array ? data : new Uint8Array(data);
-  // Nothing to decompress
   if (input.length === 0) return new Uint8Array(0);
-  // Try zlib-wrapped deflate (RFC 1950) — standard for SWG TRE files
-  try { return await _streamTransform(input, () => new DecompressionStream('deflate')); }
-  catch { /* fall through */ }
-  // Try raw deflate (RFC 1951)
-  try { return await _streamTransform(input, () => new DecompressionStream('deflate-raw')); }
-  catch { /* fall through */ }
-  // Try stripping 2-byte zlib header and using raw deflate
-  if (input.length > 2) {
-    try { return await _streamTransform(input.slice(2), () => new DecompressionStream('deflate-raw')); }
-    catch { /* fall through */ }
-  }
-  // If input is tiny (e.g. 2 bytes = just a zlib header, no data), return empty
-  if (input.length <= 2) return new Uint8Array(0);
-  throw new Error('All decompression methods failed for ' + input.length + ' bytes');
+  // Try zlib inflate (RFC 1950 — standard SWG TRE format)
+  try { return pako.inflate(input); } catch { /* fall through */ }
+  // Try raw inflate (RFC 1951 — no zlib header)
+  try { return pako.inflateRaw(input); } catch { /* fall through */ }
+  // Tiny data (just a header, no payload) — common in empty patch TREs
+  if (input.length <= 6) return new Uint8Array(0);
+  throw new Error('Decompression failed for ' + input.length + ' bytes');
 }
 
-export async function zlibCompress(data) {
-  return await _streamTransform(data, () => new CompressionStream('deflate'));
+export function zlibCompress(data) {
+  const input = data instanceof Uint8Array ? data : new Uint8Array(data);
+  return pako.deflate(input);
 }
 
 /* ───────────────────── TRE Parser ───────────────────── */
