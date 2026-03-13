@@ -663,7 +663,6 @@ function aggregateEncounterAbilities(events) {
 // Shared between summarizeEncounter and summarizeAll to keep logic consistent.
 function accumulateAttackEvent(event, bucket, targetBucket) {
   bucket.actionCount += 1;
-  bucket.activeActionCount += 1;
 
   const outcome = event.outcome;
   if (outcome === 'hits') bucket.hits += 1;
@@ -711,12 +710,20 @@ function summarizeEncounter(encounter, number, roleMap) {
   const actorMap = new Map();
   const targetSet = new Set();
   const targetDamage = new Map();
+  // APM dedup: per-actor set of "epochSec|ability" keys so AoE multi-hits count once
+  const apmKeys = new Map();
   let directDamage = 0;
   let dotDamage = 0;
   let healing = 0;
   let credits = 0;
   let lootItems = 0;
   let deathCount = 0;
+
+  const trackApm = (actor, event) => {
+    if (!actor) return;
+    if (!apmKeys.has(actor)) apmKeys.set(actor, new Set());
+    apmKeys.get(actor).add(`${event.epochSec}|${event.ability || event.type}`);
+  };
 
   for (const event of encounter.events) {
     if (event.target) targetSet.add(event.target);
@@ -727,6 +734,7 @@ function summarizeEncounter(encounter, number, roleMap) {
       const targetBucket = event.target ? getActorBucket(actorMap, event.target, roleMap.get(event.target) || 'unknown') : null;
       accumulateAttackEvent(event, bucket, targetBucket);
       directDamage += event.amount;
+      trackApm(event.actor, event);
       if (event.target) {
         targetDamage.set(event.target, (targetDamage.get(event.target) || 0) + event.amount);
       }
@@ -734,6 +742,7 @@ function summarizeEncounter(encounter, number, roleMap) {
       bucket.actionCount += 1;
       bucket.dotDamage += event.amount;
       dotDamage += event.amount;
+      // DoT ticks excluded from APM intentionally
       if (event.target) {
         targetDamage.set(event.target, (targetDamage.get(event.target) || 0) + event.amount);
         const targetBucket = getActorBucket(actorMap, event.target, roleMap.get(event.target) || 'unknown');
@@ -742,18 +751,18 @@ function summarizeEncounter(encounter, number, roleMap) {
       bumpAbility(bucket, event.ability, { uses: 1, dotDamage: event.amount });
     } else if (event.type === 'heal') {
       bucket.actionCount += 1;
-      bucket.activeActionCount += 1;
       bucket.healing += event.amount;
       healing += event.amount;
+      trackApm(event.actor, event);
       bumpAbility(bucket, event.ability, { uses: 1, healing: event.amount });
     } else if (event.type === 'perform') {
       bucket.actionCount += 1;
-      bucket.activeActionCount += 1;
       bucket.performs += 1;
+      trackApm(event.actor, event);
       bumpAbility(bucket, event.ability, { uses: 1 });
     } else if (event.type === 'utility') {
       bucket.actionCount += 1;
-      if (event.countsAsAction) bucket.activeActionCount += 1;
+      if (event.countsAsAction) trackApm(event.actor, event);
       bucket.utility += 1;
       bumpAbility(bucket, event.ability, { uses: 1 });
     } else if (event.type === 'groupCredits' || event.type === 'lootCredits') {
@@ -763,6 +772,12 @@ function summarizeEncounter(encounter, number, roleMap) {
     } else if (event.type === 'death') {
       deathCount += 1;
     }
+  }
+
+  // Set deduped active action counts from APM tracking
+  for (const [actorName, keys] of apmKeys) {
+    const bucket = actorMap.get(actorName);
+    if (bucket) bucket.activeActionCount = keys.size;
   }
 
   const actors = Array.from(actorMap.values()).map((actor) => ({
@@ -836,6 +851,8 @@ function buildEncounters(events, roleMap) {
 
 function summarizeAll(events, encounters, roleMap) {
   const actorMap = new Map();
+  // APM dedup: per-actor set of "epochSec|ability" keys so AoE multi-hits count once
+  const apmKeys = new Map();
   let directDamage = 0;
   let dotDamage = 0;
   let healing = 0;
@@ -850,16 +867,24 @@ function summarizeAll(events, encounters, roleMap) {
   let systemNoticeCount = 0;
   let deathCount = 0;
 
+  const trackApm = (actor, event) => {
+    if (!actor) return;
+    if (!apmKeys.has(actor)) apmKeys.set(actor, new Set());
+    apmKeys.get(actor).add(`${event.epochSec}|${event.ability || event.type}`);
+  };
+
   for (const event of events) {
     const bucket = getActorBucket(actorMap, event.actor, roleMap.get(event.actor) || 'unknown');
     if (event.type === 'attack') {
       const targetBucket = event.target ? getActorBucket(actorMap, event.target, roleMap.get(event.target) || 'unknown') : null;
       accumulateAttackEvent(event, bucket, targetBucket);
       directDamage += event.amount;
+      trackApm(event.actor, event);
     } else if (event.type === 'dot') {
       bucket.actionCount += 1;
       bucket.dotDamage += event.amount;
       dotDamage += event.amount;
+      // DoT ticks excluded from APM intentionally
       if (event.target) {
         const targetBucket = getActorBucket(actorMap, event.target, roleMap.get(event.target) || 'unknown');
         if (targetBucket) targetBucket.takenDamage += event.amount;
@@ -867,18 +892,18 @@ function summarizeAll(events, encounters, roleMap) {
       bumpAbility(bucket, event.ability, { uses: 1, dotDamage: event.amount });
     } else if (event.type === 'heal') {
       bucket.actionCount += 1;
-      bucket.activeActionCount += 1;
       bucket.healing += event.amount;
       healing += event.amount;
+      trackApm(event.actor, event);
       bumpAbility(bucket, event.ability, { uses: 1, healing: event.amount });
     } else if (event.type === 'perform') {
       bucket.actionCount += 1;
-      bucket.activeActionCount += 1;
       bucket.performs += 1;
+      trackApm(event.actor, event);
       bumpAbility(bucket, event.ability, { uses: 1 });
     } else if (event.type === 'utility') {
       bucket.actionCount += 1;
-      if (event.countsAsAction) bucket.activeActionCount += 1;
+      if (event.countsAsAction) trackApm(event.actor, event);
       bucket.utility += 1;
       bumpAbility(bucket, event.ability, { uses: 1 });
     } else if (event.type === 'groupCredits') {
@@ -910,6 +935,12 @@ function summarizeAll(events, encounters, roleMap) {
     } else if (event.type === 'death') {
       deathCount += 1;
     }
+  }
+
+  // Set deduped active action counts from APM tracking
+  for (const [actorName, keys] of apmKeys) {
+    const bucket = actorMap.get(actorName);
+    if (bucket) bucket.activeActionCount = keys.size;
   }
 
   const actors = Array.from(actorMap.values()).map((actor) => ({
