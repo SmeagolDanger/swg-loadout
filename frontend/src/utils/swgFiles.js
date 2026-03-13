@@ -135,10 +135,12 @@ async function _streamTransform(data, streamFactory) {
 
 export async function zlibDecompress(data) {
   const input = data instanceof Uint8Array ? data : new Uint8Array(data);
+  // Nothing to decompress
+  if (input.length === 0) return new Uint8Array(0);
   // Try zlib-wrapped deflate (RFC 1950) — standard for SWG TRE files
   try { return await _streamTransform(input, () => new DecompressionStream('deflate')); }
   catch { /* fall through */ }
-  // Try raw deflate (RFC 1951) — some browsers use 'deflate-raw'
+  // Try raw deflate (RFC 1951)
   try { return await _streamTransform(input, () => new DecompressionStream('deflate-raw')); }
   catch { /* fall through */ }
   // Try stripping 2-byte zlib header and using raw deflate
@@ -146,13 +148,8 @@ export async function zlibDecompress(data) {
     try { return await _streamTransform(input.slice(2), () => new DecompressionStream('deflate-raw')); }
     catch { /* fall through */ }
   }
-  // Try adding a zlib header (78 01) if data is raw
-  try {
-    const withHeader = new Uint8Array(input.length + 2);
-    withHeader[0] = 0x78; withHeader[1] = 0x01;
-    withHeader.set(input, 2);
-    return await _streamTransform(withHeader, () => new DecompressionStream('deflate'));
-  } catch { /* fall through */ }
+  // If input is tiny (e.g. 2 bytes = just a zlib header, no data), return empty
+  if (input.length <= 2) return new Uint8Array(0);
   throw new Error('All decompression methods failed for ' + input.length + ' bytes');
 }
 
@@ -173,18 +170,34 @@ export async function parseTRE(buffer, treName) {
   const nameCompSize = r.readUint32LE();
   const nameDecompSize = r.readUint32LE();
 
-  r.seek(infoOffset);
-  const infoRaw = r.readBytes(infoCompSize);
-  const infoData = (infoCompSize !== infoDecompSize && infoCompSize > 0)
-    ? await zlibDecompress(infoRaw) : infoRaw;
+  // Empty TRE (common in patch files)
+  if (numFiles === 0) {
+    return { version, numFiles: 0, records: [], buffer };
+  }
 
-  const nameRaw = r.readBytes(nameCompSize);
-  const nameData = (nameCompSize !== nameDecompSize && nameCompSize > 0)
-    ? await zlibDecompress(nameRaw) : nameRaw;
+  r.seek(infoOffset);
+  let infoData;
+  if (infoCompSize > 0 && infoCompSize !== infoDecompSize && infoDecompSize > 0) {
+    infoData = await zlibDecompress(r.readBytes(infoCompSize));
+  } else if (infoDecompSize > 0 || infoCompSize > 0) {
+    infoData = r.readBytes(infoCompSize || infoDecompSize);
+  } else {
+    return { version, numFiles: 0, records: [], buffer };
+  }
+
+  let nameData;
+  if (nameCompSize > 0 && nameCompSize !== nameDecompSize && nameDecompSize > 0) {
+    nameData = await zlibDecompress(r.readBytes(nameCompSize));
+  } else if (nameDecompSize > 0 || nameCompSize > 0) {
+    nameData = r.readBytes(nameCompSize || nameDecompSize);
+  } else {
+    nameData = new Uint8Array(0);
+  }
 
   const records = [];
   const ir = new BinaryReader(infoData);
   for (let i = 0; i < numFiles; i++) {
+    if (ir.remaining() < 24) break;
     const checksum = ir.readUint32LE();
     const uncompLen = ir.readUint32LE();
     const offset = ir.readUint32LE();
@@ -214,18 +227,38 @@ export async function parseTRELazy(fileHandle, treName) {
   const nameCompSize = r.readUint32LE();
   const nameDecompSize = r.readUint32LE();
 
-  const infoBuf = await file.slice(infoOffset, infoOffset + infoCompSize).arrayBuffer();
-  const infoRaw = new Uint8Array(infoBuf);
-  const infoData = (infoCompSize !== infoDecompSize) ? await zlibDecompress(infoRaw) : infoRaw;
+  // Empty TRE (common in patch files) — skip decompression entirely
+  if (numFiles === 0) {
+    return { version, numFiles: 0, records: [], fileHandle, fileSize: file.size };
+  }
+
+  let infoData;
+  if (infoCompSize > 0 && infoCompSize !== infoDecompSize && infoDecompSize > 0) {
+    const infoBuf = await file.slice(infoOffset, infoOffset + infoCompSize).arrayBuffer();
+    infoData = await zlibDecompress(new Uint8Array(infoBuf));
+  } else if (infoDecompSize > 0) {
+    const infoBuf = await file.slice(infoOffset, infoOffset + (infoCompSize || infoDecompSize)).arrayBuffer();
+    infoData = new Uint8Array(infoBuf);
+  } else {
+    return { version, numFiles: 0, records: [], fileHandle, fileSize: file.size };
+  }
 
   const nameStart = infoOffset + infoCompSize;
-  const nameBuf = await file.slice(nameStart, nameStart + nameCompSize).arrayBuffer();
-  const nameRaw = new Uint8Array(nameBuf);
-  const nameData = (nameCompSize !== nameDecompSize) ? await zlibDecompress(nameRaw) : nameRaw;
+  let nameData;
+  if (nameCompSize > 0 && nameCompSize !== nameDecompSize && nameDecompSize > 0) {
+    const nameBuf = await file.slice(nameStart, nameStart + nameCompSize).arrayBuffer();
+    nameData = await zlibDecompress(new Uint8Array(nameBuf));
+  } else if (nameDecompSize > 0 || nameCompSize > 0) {
+    const nameBuf = await file.slice(nameStart, nameStart + (nameCompSize || nameDecompSize)).arrayBuffer();
+    nameData = new Uint8Array(nameBuf);
+  } else {
+    nameData = new Uint8Array(0);
+  }
 
   const records = [];
   const ir = new BinaryReader(infoData);
   for (let i = 0; i < numFiles; i++) {
+    if (ir.remaining() < 24) break;
     const checksum = ir.readUint32LE();
     const uncompLen = ir.readUint32LE();
     const offset = ir.readUint32LE();
