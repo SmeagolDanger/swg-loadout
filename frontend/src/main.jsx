@@ -2,6 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
+import { ModuleConfigProvider } from './context/ModuleConfigContext'
 import { ThemeProvider } from './context/ThemeContext'
 import App from './App'
 import './index.css'
@@ -11,7 +12,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <BrowserRouter>
       <AuthProvider>
         <ThemeProvider>
-          <App />
+          <ModuleConfigProvider>
+            <App />
+          </ModuleConfigProvider>
         </ThemeProvider>
       </AuthProvider>
     </BrowserRouter>

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { MODULE_GROUPS, useModuleConfig } from '../context/ModuleConfigContext';
 import { useTheme } from '../context/ThemeContext';
 import {
   Box,
@@ -20,6 +21,7 @@ import {
   Search,
   ScrollText,
   Shield,
+  SlidersHorizontal,
   Sparkles,
   Trophy,
   User,
@@ -78,20 +80,33 @@ function resolveSection(pathname) {
 export default function Navbar() {
   const { user, logout } = useAuth();
   const { theme, setTheme, themes } = useTheme();
+  const { isEnabled, toggle, reset } = useModuleConfig();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [modeOpen, setModeOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [modulesOpen, setModulesOpen] = useState(false);
   const userMenuRef = useRef(null);
+  const modulesRef = useRef(null);
 
   const section = useMemo(() => resolveSection(location.pathname), [location.pathname]);
-  const currentMode = FEATURE_MODES.find((mode) => mode.key === section) || FEATURE_MODES.find((mode) => mode.key === 'tools') || FEATURE_MODES[0];
+
+  const visibleFeatureModes = useMemo(
+    () => FEATURE_MODES.filter((m) => isEnabled(m.key)),
+    [isEnabled],
+  );
+
+  const currentMode =
+    visibleFeatureModes.find((mode) => mode.key === section) ||
+    visibleFeatureModes.find((mode) => mode.key === 'tools') ||
+    FEATURE_MODES.find((mode) => mode.key === section) ||
+    FEATURE_MODES[0];
 
   const navItems = useMemo(() => {
-    if (section === 'collections') return COLLECTION_NAV_ITEMS;
-    if (section === 'tools') return TOOL_NAV_ITEMS;
+    if (section === 'collections') return COLLECTION_NAV_ITEMS.filter((i) => isEnabled(`nav:${i.to}`));
+    if (section === 'tools') return TOOL_NAV_ITEMS.filter((i) => isEnabled(`nav:${i.to}`));
     return [];
-  }, [section]);
+  }, [section, isEnabled]);
 
   const sectionLabel = useMemo(() => {
     switch (section) {
@@ -120,12 +135,16 @@ export default function Navbar() {
     setModeOpen(false);
     setMobileOpen(false);
     setUserMenuOpen(false);
+    setModulesOpen(false);
   }, [location.pathname]);
 
   useEffect(() => {
     function handleClickOutside(event) {
       if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
         setUserMenuOpen(false);
+      }
+      if (modulesRef.current && !modulesRef.current.contains(event.target)) {
+        setModulesOpen(false);
       }
     }
 
@@ -164,7 +183,7 @@ export default function Navbar() {
 
             {modeOpen && (
               <div className="absolute top-12 left-0 w-72 rounded-2xl border border-hull-400/50 bg-hull-900/95 shadow-2xl p-2">
-                {FEATURE_MODES.map((mode) => (
+                {visibleFeatureModes.map((mode) => (
                   <Link
                     key={mode.key}
                     to={mode.to}
@@ -217,6 +236,56 @@ export default function Navbar() {
           )}
 
           <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+            {/* Modules config button */}
+            <div className="hidden lg:block relative" ref={modulesRef}>
+              <button
+                type="button"
+                onClick={() => { setModulesOpen((o) => !o); setUserMenuOpen(false); setModeOpen(false); }}
+                className={`inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-2 text-sm transition-colors ${modulesOpen ? 'border-plasma-400/50 text-plasma-300 bg-hull-800/80' : 'border-hull-400/50 bg-hull-800/80 text-hull-300 hover:border-plasma-400/50 hover:text-plasma-300'}`}
+                title="Configure visible modules"
+              >
+                <SlidersHorizontal size={15} />
+              </button>
+
+              {modulesOpen && (
+                <div className="absolute top-12 right-0 w-80 rounded-2xl border border-hull-400/50 bg-hull-900/95 shadow-2xl p-3 space-y-3 max-h-[80vh] overflow-y-auto">
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs font-display uppercase tracking-[0.16em] text-plasma-400">Visible Modules</div>
+                    <button
+                      type="button"
+                      onClick={reset}
+                      className="text-[11px] text-hull-400 hover:text-hull-200 transition-colors"
+                    >
+                      Reset all
+                    </button>
+                  </div>
+                  {MODULE_GROUPS.map((group) => (
+                    <div key={group.label}>
+                      <div className="mb-1.5 text-[10px] uppercase tracking-[0.14em] text-hull-400">{group.label}</div>
+                      <div className="space-y-1">
+                        {group.modules.map((mod) => {
+                          const on = isEnabled(mod.key);
+                          return (
+                            <button
+                              key={mod.key}
+                              type="button"
+                              onClick={() => toggle(mod.key)}
+                              className="flex w-full items-center justify-between rounded-lg border border-hull-500/30 bg-hull-800/60 px-3 py-1.5 text-sm transition-colors hover:bg-hull-700/60"
+                            >
+                              <span className={on ? 'text-hull-100' : 'text-hull-400 line-through'}>{mod.label}</span>
+                              <span className={`ml-2 h-4 w-7 rounded-full border transition-colors ${on ? 'border-plasma-400/60 bg-plasma-500/30' : 'border-hull-500/40 bg-hull-700/60'}`}>
+                                <span className={`block h-3 w-3 rounded-full transition-transform mt-0.5 ${on ? 'translate-x-3.5 bg-plasma-400' : 'translate-x-0.5 bg-hull-500'}`} />
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {user ? (
               <div className="hidden lg:flex items-center gap-2 shrink-0 relative" ref={userMenuRef}>
                 <button
@@ -296,7 +365,7 @@ export default function Navbar() {
       {mobileOpen && (
         <div className="mobile-drawer lg:hidden" onClick={() => setMobileOpen(false)}>
           <div className="pt-16 px-3 pb-4 space-y-2 max-h-[100dvh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            {FEATURE_MODES.map((mode) => (
+            {visibleFeatureModes.map((mode) => (
               <Link
                 key={mode.key}
                 to={mode.to}
@@ -357,6 +426,38 @@ export default function Navbar() {
                   </button>
                 ))}
               </div>
+            </div>
+
+            <div className="section-divider" />
+
+            <div className="rounded-xl border border-hull-400/40 bg-hull-800/80 px-3 py-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm font-display text-hull-100">
+                  <SlidersHorizontal size={16} className="text-plasma-400 shrink-0" />
+                  <span>Modules</span>
+                </div>
+                <button type="button" onClick={reset} className="text-[11px] text-hull-400 hover:text-hull-200">Reset</button>
+              </div>
+              {MODULE_GROUPS.map((group) => (
+                <div key={group.label}>
+                  <div className="mb-1 text-[10px] uppercase tracking-[0.14em] text-hull-400">{group.label}</div>
+                  <div className="grid grid-cols-2 gap-1">
+                    {group.modules.map((mod) => {
+                      const on = isEnabled(mod.key);
+                      return (
+                        <button
+                          key={mod.key}
+                          type="button"
+                          onClick={() => toggle(mod.key)}
+                          className={`rounded-lg border px-2.5 py-1.5 text-left text-xs transition-colors ${on ? 'border-plasma-400/40 bg-plasma-500/10 text-plasma-300' : 'border-hull-500/30 bg-hull-700/60 text-hull-400'}`}
+                        >
+                          {mod.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
 
             <div className="section-divider" />
