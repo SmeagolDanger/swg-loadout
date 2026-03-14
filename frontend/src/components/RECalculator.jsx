@@ -13,6 +13,18 @@ import {
 // A tier (#ffcc00): 1 in 10k+   — very rare
 // Unicorn (#ff69b4): ⋆ marker   — exceptional (pink, not in file)
 // Reward (#ff8080): fixed reward stat
+const TIER_COLORS = {
+  A:       '#ffcc00',
+  B:       '#f399ff',
+  C:       '#007fff',
+  D:       '#29db35',
+  unicorn: '#ff69b4',
+  reward:  '#ff8080',
+};
+function tierStyle(tier) {
+  return tier && TIER_COLORS[tier] ? { color: TIER_COLORS[tier] } : {};
+}
+
 function rarityStyle(display) {
   if (!display || display === '—') return {};
   if (display.includes('⋆')) return { color: '#ff69b4' };
@@ -255,7 +267,7 @@ export default function RECalculator() {
                   const r = result?.stats?.[i];
                   const deltaColor = r ? getDeltaColor(r.log_delta) : '';
                   const isUnicorn = r?.is_unicorn;
-                  const rStyle = rarityStyle(r?.rarity_display);
+                  const rStyle = tierStyle(r?.tier);
 
                   return (
                     <div key={i}
@@ -366,7 +378,7 @@ export default function RECalculator() {
                               {stat.match_value || '—'}
                             </span>
                             <span className={`w-[110px] shrink-0 text-sm font-mono text-right font-medium ${!hasVal ? 'text-hull-500 italic' : ''}`}
-                              style={hasVal ? rarityStyle(result.stats[i]?.rarity_display) : {}}>
+                              style={hasVal ? tierStyle(stat.tier) : {}}>
                               {stat.match_post || '—'}
                             </span>
                           </div>
