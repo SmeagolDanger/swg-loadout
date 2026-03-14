@@ -666,7 +666,17 @@ def analyze_component(
     reward_stats = sum(1 for r in rewards if r)
     if blank_stats + reward_stats == len(comp_stats):
         return _build_result(
-            comp_stats, tails, raw_stats, outputs, rarity_list, rarity_1inx, unicorns, unicorn_threshold, [], [], 0,
+            comp_stats,
+            tails,
+            raw_stats,
+            outputs,
+            rarity_list,
+            rarity_1inx,
+            unicorns,
+            unicorn_threshold,
+            [],
+            [],
+            0,
             rounding_notes=rounding_notes,
         )
     if (
@@ -675,7 +685,17 @@ def analyze_component(
         and rewards[clean_stats.index(target)]
     ):
         return _build_result(
-            comp_stats, tails, raw_stats, outputs, rarity_list, rarity_1inx, unicorns, unicorn_threshold, [], [], 0,
+            comp_stats,
+            tails,
+            raw_stats,
+            outputs,
+            rarity_list,
+            rarity_1inx,
+            unicorns,
+            unicorn_threshold,
+            [],
+            [],
+            0,
             rounding_notes=rounding_notes,
         )
 
@@ -795,7 +815,17 @@ def analyze_component(
 
     if rarity == 0:
         return _build_result(
-            comp_stats, tails, raw_stats, outputs, rarity_list, rarity_1inx, unicorns, unicorn_threshold, [], [], 0,
+            comp_stats,
+            tails,
+            raw_stats,
+            outputs,
+            rarity_list,
+            rarity_1inx,
+            unicorns,
+            unicorn_threshold,
+            [],
+            [],
+            0,
             rounding_notes=rounding_notes,
         )
 
