@@ -541,23 +541,14 @@ def _run_migrations():
             """)
             )
 
-        if "tier_thresholds" not in tables:
-            db.execute(
-                text("""
-                CREATE TABLE tier_thresholds (
-                    comp_code VARCHAR(3) PRIMARY KEY,
-                    d_threshold INTEGER NOT NULL DEFAULT 0,
-                    c_threshold INTEGER NOT NULL DEFAULT 0,
-                    b_threshold INTEGER NOT NULL DEFAULT 0,
-                    a_threshold INTEGER NOT NULL DEFAULT 0
-                )
-            """)
-            )
+        seed_count = db.execute(text("SELECT COUNT(*) FROM tier_thresholds")).scalar() or 0
+        if seed_count == 0:
             for code, (d, c, b, a) in _TIER_SEED.items():
                 db.execute(
                     text(
                         "INSERT INTO tier_thresholds (comp_code, d_threshold, c_threshold, b_threshold, a_threshold)"
                         " VALUES (:code, :d, :c, :b, :a)"
+                        " ON CONFLICT (comp_code) DO NOTHING"
                     ),
                     {"code": code, "d": d, "c": c, "b": b, "a": a},
                 )
