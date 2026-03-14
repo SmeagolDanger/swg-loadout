@@ -555,7 +555,10 @@ def discord_login(request: FastAPIRequest, platform: str | None = None):
     redirect_uri = _get_discord_redirect_uri(request)
     state = secrets.token_urlsafe(24)
     url = f"{DISCORD_AUTHORIZE_URL}?{urlencode({'client_id': os.getenv('DISCORD_CLIENT_ID', '').strip(), 'response_type': 'code', 'redirect_uri': redirect_uri, 'scope': 'identify email', 'state': state})}"
-    logger.info("discord_login_redirect_created", extra=_request_extra(request, redirect_uri=redirect_uri, platform=platform or "web"))
+    logger.info(
+        "discord_login_redirect_created",
+        extra=_request_extra(request, redirect_uri=redirect_uri, platform=platform or "web"),
+    )
     response = _with_state_cookie(RedirectResponse(url), state)
 
     # Track mobile platform so the callback knows where to redirect
