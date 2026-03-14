@@ -171,7 +171,13 @@ def update_tier_threshold(
     row.b_threshold = body.b_threshold
     row.a_threshold = body.a_threshold
     db.commit()
-    return {"comp_code": comp_code, "d_threshold": row.d_threshold, "c_threshold": row.c_threshold, "b_threshold": row.b_threshold, "a_threshold": row.a_threshold}
+    return {
+        "comp_code": comp_code,
+        "d_threshold": row.d_threshold,
+        "c_threshold": row.c_threshold,
+        "b_threshold": row.b_threshold,
+        "a_threshold": row.a_threshold,
+    }
 
 
 @router.post("/brand-table")
