@@ -270,6 +270,72 @@ class SiteConfig(Base):
 
 
 # ══════════════════════════════════════════════════════════════════════
+# RE Tier Thresholds
+# ══════════════════════════════════════════════════════════════════════
+
+
+class TierThreshold(Base):
+    __tablename__ = "tier_thresholds"
+
+    comp_code = Column(String(3), primary_key=True)  # e.g. W8, A0, S6
+    d_threshold = Column(Integer, nullable=False, default=0)
+    c_threshold = Column(Integer, nullable=False, default=0)
+    b_threshold = Column(Integer, nullable=False, default=0)
+    a_threshold = Column(Integer, nullable=False, default=0)
+
+
+# Thresholds parsed from STAJ.txt — "1 in X Odds" for each tier boundary
+_TIER_SEED: dict[str, tuple[int, int, int, int]] = {
+    # (d, c, b, a)
+    # Weapons
+    "W5": (69, 422, 4000, 63000),
+    "W6": (348, 1000, 4000, 20000),
+    "W7": (18, 74, 453, 4000),
+    "W8": (28, 161, 2000, 28000),
+    "W9": (518, 3000, 20000, 189000),
+    "W0": (98, 625, 6000, 89000),
+    # Armors
+    "A1": (13, 172, 5000, 286000),
+    "A2": (37, 123, 552, 4000),
+    "A3": (109, 250, 632, 2000),
+    "A4": (44, 101, 259, 754),
+    "A5": (105, 327, 1000, 5000),
+    "A6": (137, 806, 7000, 77000),
+    "A7": (379, 1000, 4000, 14000),
+    "A8": (509, 2000, 9000, 48000),
+    "A9": (1000, 3000, 9000, 23000),
+    "A0": (502, 2000, 13000, 34000),
+    # Shields
+    "S5": (1000, 3000, 8000, 23000),
+    "S6": (79, 522, 6000, 103000),
+    "S7": (431, 2000, 11000, 82000),
+    "S8": (65, 286, 2000, 14000),
+    "S0": (325, 1000, 7000, 43000),
+    # Capacitors
+    "C2": (33, 221, 5000, 581000),
+    "C4": (200, 2000, 27000, 1000000),
+    "C6": (2000, 4000, 9000, 24000),
+    "C8": (3000, 13000, 63000, 304000),
+    "C0": (544, 3000, 17000, 140000),
+    # Engines
+    "E4": (23, 112, 843, 10000),
+    "E6": (1000, 7000, 57000, 642000),
+    "E8": (440, 1000, 5000, 18000),
+    "E0": (170, 873, 6000, 56000),
+    # Reactors
+    "R1": (18, 56, 213, 1000),
+    "R2": (98, 518, 4000, 35000),
+    "R3": (1000, 3000, 6000, 14000),
+    "R4": (1000, 3000, 6000, 16000),
+    "R5": (169, 730, 4000, 25000),
+    "R6": (155, 619, 3000, 17000),
+    "R7": (59, 214, 958, 5000),
+    "R8": (2000, 8000, 36000, 177000),
+    "R0": (4000, 9000, 20000, 48000),
+}
+
+
+# ══════════════════════════════════════════════════════════════════════
 # Ent Buff Builds
 # ══════════════════════════════════════════════════════════════════════
 
@@ -474,6 +540,27 @@ def _run_migrations():
                 )
             """)
             )
+
+        if "tier_thresholds" not in tables:
+            db.execute(
+                text("""
+                CREATE TABLE tier_thresholds (
+                    comp_code VARCHAR(3) PRIMARY KEY,
+                    d_threshold INTEGER NOT NULL DEFAULT 0,
+                    c_threshold INTEGER NOT NULL DEFAULT 0,
+                    b_threshold INTEGER NOT NULL DEFAULT 0,
+                    a_threshold INTEGER NOT NULL DEFAULT 0
+                )
+            """)
+            )
+            for code, (d, c, b, a) in _TIER_SEED.items():
+                db.execute(
+                    text(
+                        "INSERT INTO tier_thresholds (comp_code, d_threshold, c_threshold, b_threshold, a_threshold)"
+                        " VALUES (:code, :d, :c, :b, :a)"
+                    ),
+                    {"code": code, "d": d, "c": c, "b": b, "a": a},
+                )
 
         if "ent_buff_builds" not in tables:
             db.execute(

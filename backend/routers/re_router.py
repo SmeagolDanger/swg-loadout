@@ -4,8 +4,8 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from auth import require_user
-from database import REProject, User, get_db
+from auth import require_role, require_user
+from database import REProject, TierThreshold, User, get_db
 from re_engine import COMP_TYPES, RE_MULTS, analyze_component, brand_rarity_table, get_comp_info
 
 router = APIRouter(prefix="/api/re", tags=["re-calculator"])
@@ -68,8 +68,29 @@ def get_re_stats(comp_type: str):
     return {"comp_type": comp_type, "stats": stats}
 
 
+def _get_tier(rarity_prob, threshold: TierThreshold | None) -> str | None:
+    """Convert a raw rarity probability to a tier letter using STAJ thresholds."""
+    if rarity_prob == "" or rarity_prob is None or rarity_prob == 0:
+        return None
+    if threshold is None:
+        return None
+    try:
+        one_in_x = int(1 / float(rarity_prob))
+    except (ZeroDivisionError, ValueError, TypeError):
+        return None
+    if one_in_x >= threshold.a_threshold:
+        return "A"
+    if one_in_x >= threshold.b_threshold:
+        return "B"
+    if one_in_x >= threshold.c_threshold:
+        return "C"
+    if one_in_x >= threshold.d_threshold:
+        return "D"
+    return None
+
+
 @router.post("/analyze")
-def analyze(req: AnalyzeRequest):
+def analyze(req: AnalyzeRequest, db: Session = Depends(get_db)):
     """Run full RE analysis on a component."""
     if req.comp_type not in COMP_TYPES:
         return {"error": "Invalid component type"}
@@ -94,7 +115,63 @@ def analyze(req: AnalyzeRequest):
         matching_target=req.matching_target,
         direction=req.direction,
     )
+
+    # Annotate each stat with a tier from STAJ thresholds
+    comp_code = req.comp_type[0] + str(req.level % 10)
+    threshold = db.query(TierThreshold).filter(TierThreshold.comp_code == comp_code).first()
+    for stat in result.get("stats", []):
+        display = stat.get("rarity_display", "")
+        if display == "Reward":
+            stat["tier"] = "reward"
+        elif display and "⋆" in display:
+            stat["tier"] = "unicorn"
+        else:
+            stat["tier"] = _get_tier(stat.get("rarity"), threshold)
+
     return result
+
+
+@router.get("/tier-thresholds")
+def get_tier_thresholds(db: Session = Depends(get_db)):
+    """Return all tier thresholds."""
+    rows = db.query(TierThreshold).order_by(TierThreshold.comp_code).all()
+    return [
+        {
+            "comp_code": r.comp_code,
+            "d_threshold": r.d_threshold,
+            "c_threshold": r.c_threshold,
+            "b_threshold": r.b_threshold,
+            "a_threshold": r.a_threshold,
+        }
+        for r in rows
+    ]
+
+
+class TierThresholdUpdate(BaseModel):
+    d_threshold: int
+    c_threshold: int
+    b_threshold: int
+    a_threshold: int
+
+
+@router.put("/tier-thresholds/{comp_code}")
+def update_tier_threshold(
+    comp_code: str,
+    body: TierThresholdUpdate,
+    _admin=Depends(require_role("admin")),
+    db: Session = Depends(get_db),
+):
+    """Update tier thresholds for a component code (admin only)."""
+    row = db.query(TierThreshold).filter(TierThreshold.comp_code == comp_code).first()
+    if not row:
+        row = TierThreshold(comp_code=comp_code)
+        db.add(row)
+    row.d_threshold = body.d_threshold
+    row.c_threshold = body.c_threshold
+    row.b_threshold = body.b_threshold
+    row.a_threshold = body.a_threshold
+    db.commit()
+    return {"comp_code": comp_code, "d_threshold": row.d_threshold, "c_threshold": row.c_threshold, "b_threshold": row.b_threshold, "a_threshold": row.a_threshold}
 
 
 @router.post("/brand-table")

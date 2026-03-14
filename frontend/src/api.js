@@ -192,6 +192,8 @@ export const api = {
   getREProjects: () => request('/re/projects'),
   saveREProject: (data) => request('/re/projects', { method: 'POST', body: JSON.stringify(data) }),
   deleteREProject: (id) => request(`/re/projects/${id}`, { method: 'DELETE' }),
+  getRETierThresholds: () => request('/re/tier-thresholds'),
+  updateRETierThreshold: (compCode, data) => request(`/re/tier-thresholds/${encodeURIComponent(compCode)}`, { method: 'PUT', body: JSON.stringify(data) }),
 
   // Site config
   getModuleConfig: () => request('/config/modules'),
