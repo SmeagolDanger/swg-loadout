@@ -229,3 +229,17 @@ jobs:
         run: |
           echo "Deployed ${{ github.ref_name }} to production"
           echo "Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}"
+
+      - name: Notify Discord
+        if: always()
+        uses: sarisia/actions-status-discord@v1
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          status: ${{ job.status }}
+          title: "SWG:L Deployment"
+          description: |
+            **Ref:** `${{ github.ref_name }}`
+            **Commit:** ${{ github.event.head_commit.message }}
+          color: ${{ job.status == 'success' && '0x29db35' || '0xf87171' }}
+          username: "SWG:L CI"
+          nodetail: true
