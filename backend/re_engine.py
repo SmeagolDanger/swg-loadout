@@ -511,10 +511,12 @@ def analyze_component(
 
     # Compute post-RE or reverse outputs
     outputs = []
+    rounding_notes = []
     for i in range(len(comp_stats)):
         input_val = _tf(raw_stats[i]) if raw_stats[i] != "" else 0
         if input_val == 0 or raw_stats[i] == "" or i >= len(tails):
             outputs.append("")
+            rounding_notes.append("")
             continue
 
         tail = tails[i]
@@ -529,30 +531,46 @@ def analyze_component(
                 outputs.append(
                     f"{min(round(iv / multiplier, 3) + 0.001, round(iv / multiplier + 0.005, 2) - 0.004):.3f}"
                 )
+                rounding_notes.append("")
             else:
-                outputs.append(
-                    f"{max(round(round(input_val, 2) * multiplier, 2), round(input_val * multiplier, 2)):.3f}"
-                )
+                pre_rounded = round(round(input_val, 2) * multiplier, 2)
+                direct = round(input_val * multiplier, 2)
+                outputs.append(f"{max(pre_rounded, direct):.3f}")
+                if pre_rounded > direct:
+                    rounding_notes.append("round")
+                elif direct > pre_rounded:
+                    rounding_notes.append("no_round")
+                else:
+                    rounding_notes.append("none")
         elif stat_name == "Refire Rate:":
             if d != 1:
                 iv = round(input_val, 2) + 0.00499999
                 outputs.append(
                     f"{max(round(iv / multiplier, 3) - 0.001, round(iv / multiplier - 0.00499999, 2) + 0.004):.3f}"
                 )
+                rounding_notes.append("")
             else:
-                outputs.append(
-                    f"{min(round(round(input_val, 2) * multiplier, 2), round(input_val * multiplier, 2)):.3f}"
-                )
+                pre_rounded = round(round(input_val, 2) * multiplier, 2)
+                direct = round(input_val * multiplier, 2)
+                outputs.append(f"{min(pre_rounded, direct):.3f}")
+                if pre_rounded < direct:
+                    rounding_notes.append("round")
+                elif direct < pre_rounded:
+                    rounding_notes.append("no_round")
+                else:
+                    rounding_notes.append("none")
         elif stat_name == "Recharge:" and comp_type == "Shield":
             if d != 1:
                 outputs.append(f"{round(input_val / multiplier, 2):.2f}")
             else:
                 outputs.append(f"{round(input_val * multiplier, 2):.2f}")
+            rounding_notes.append("")
         else:
             if d != 1:
                 outputs.append(f"{round(input_val / multiplier, 1):.1f}")
             else:
                 outputs.append(f"{round(input_val * multiplier, 1):.1f}")
+            rounding_notes.append("")
 
     # Determine effective raw stats for rarity calculation
     effective_stats = []
@@ -648,7 +666,8 @@ def analyze_component(
     reward_stats = sum(1 for r in rewards if r)
     if blank_stats + reward_stats == len(comp_stats):
         return _build_result(
-            comp_stats, tails, raw_stats, outputs, rarity_list, rarity_1inx, unicorns, unicorn_threshold, [], [], 0
+            comp_stats, tails, raw_stats, outputs, rarity_list, rarity_1inx, unicorns, unicorn_threshold, [], [], 0,
+            rounding_notes=rounding_notes,
         )
     if (
         target not in ["Average Rarity", "Best Stat", "Worst Stat"]
@@ -656,7 +675,8 @@ def analyze_component(
         and rewards[clean_stats.index(target)]
     ):
         return _build_result(
-            comp_stats, tails, raw_stats, outputs, rarity_list, rarity_1inx, unicorns, unicorn_threshold, [], [], 0
+            comp_stats, tails, raw_stats, outputs, rarity_list, rarity_1inx, unicorns, unicorn_threshold, [], [], 0,
+            rounding_notes=rounding_notes,
         )
 
     next_best_stats = []
@@ -775,7 +795,8 @@ def analyze_component(
 
     if rarity == 0:
         return _build_result(
-            comp_stats, tails, raw_stats, outputs, rarity_list, rarity_1inx, unicorns, unicorn_threshold, [], [], 0
+            comp_stats, tails, raw_stats, outputs, rarity_list, rarity_1inx, unicorns, unicorn_threshold, [], [], 0,
+            rounding_notes=rounding_notes,
         )
 
     # Account for weird rounding behavior on vs/refire matching
@@ -912,6 +933,7 @@ def analyze_component(
         rarity,
         log_deltas,
         matches_raw,
+        rounding_notes=rounding_notes,
     )
 
 
@@ -929,6 +951,7 @@ def _build_result(
     target_rarity,
     log_deltas=None,
     matches_raw=None,
+    rounding_notes=None,
 ) -> dict:
     stats = []
     for i in range(len(comp_stats)):
@@ -944,6 +967,7 @@ def _build_result(
             "match_value": matches[i] if i < len(matches) else "",
             "match_post": post_re[i] if i < len(post_re) else "",
             "log_delta": log_deltas[i] if log_deltas and i < len(log_deltas) else "",
+            "rounding_note": rounding_notes[i] if rounding_notes and i < len(rounding_notes) else "",
         }
         stats.append(stat)
 

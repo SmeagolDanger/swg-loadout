@@ -193,6 +193,17 @@ function renderRECard({ compType, level, statDefs, inputs, result, matchTarget, 
     ctx.fillStyle = hasInput ? C.text1 : C.muted;
     ctx.fillText(hasInput ? String(inputVal) : '—', x_in, ry);
 
+    // rounding badge before post-re value
+    if (r?.rounding_note && r.rounding_note !== 'none' && r.rounding_note !== '') {
+      const badge = r.rounding_note === 'round' ? 'R' : 'N';
+      const badgeColor = r.rounding_note === 'round' ? '#f59e0b' : '#60a5fa';
+      const valText = r?.output || '—';
+      const valW = ctx.measureText(valText).width;
+      ctx.font = '700 8px Rajdhani, sans-serif';
+      ctx.fillStyle = badgeColor;
+      ctx.fillText(badge, x_pr - valW - 4, ry);
+      ctx.font = F.value;
+    }
     ctx.fillStyle = r?.output ? C.text1 : C.muted;
     ctx.fillText(r?.output || '—', x_pr, ry);
 
