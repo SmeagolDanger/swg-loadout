@@ -298,18 +298,28 @@ export default function RECalculator() {
                       </div>
 
                       {/* Post-RE / Raw */}
-                      <span className="w-[52px] sm:w-[72px] shrink-0 text-sm font-mono text-right text-hull-200 flex items-center justify-end gap-0.5">
-                        {r?.rounding_note && r.rounding_note !== 'none' && r.rounding_note !== '' && (
-                          <span
-                            className="text-[9px] font-display font-bold shrink-0 leading-none"
-                            title={r.rounding_note === 'round' ? 'Round your input for this result' : 'Keep full precision for this result'}
-                            style={{ color: r.rounding_note === 'round' ? '#f59e0b' : '#60a5fa' }}
-                          >
-                            {r.rounding_note === 'round' ? 'R' : 'N'}
+                      {r?.rounding_note && r.rounding_note !== 'none' && r.rounding_note !== '' ? (() => {
+                        const worse = r.rounding_note === 'round' ? r.rounding_dir : r.rounding_pre;
+                        const better = r.output;
+                        const doRound = r.rounding_note === 'round';
+                        const tipText = doRound
+                          ? `PRE-ROUND your input before REing.\nRounding first: ${better}\nFull precision: ${worse?.toFixed(3)}`
+                          : `DO NOT PRE-ROUND before REing.\nFull precision: ${better}\nIf pre-rounded: ${worse?.toFixed(3)}`;
+                        return (
+                          <span className="w-[52px] sm:w-[72px] shrink-0 flex flex-col items-end gap-0 cursor-help" title={tipText}>
+                            <span className="text-[10px] font-mono leading-tight font-semibold" style={{ color: doRound ? '#f59e0b' : '#60a5fa' }}>
+                              {better}
+                            </span>
+                            <span className="text-[9px] font-mono leading-tight text-hull-500 line-through">
+                              {worse?.toFixed(3)}
+                            </span>
                           </span>
-                        )}
-                        {r?.output || '—'}
-                      </span>
+                        );
+                      })() : (
+                        <span className="w-[52px] sm:w-[72px] shrink-0 text-sm font-mono text-right text-hull-200">
+                          {r?.output || '—'}
+                        </span>
+                      )}
 
                       {/* Rarity */}
                       <span className="flex-1 text-sm font-mono text-right font-medium" style={rStyle}>

@@ -512,11 +512,15 @@ def analyze_component(
     # Compute post-RE or reverse outputs
     outputs = []
     rounding_notes = []
+    rounding_pre_vals = []   # pre-rounded result (game rounds input to 2dp first)
+    rounding_dir_vals = []   # direct result (game uses full precision input)
     for i in range(len(comp_stats)):
         input_val = _tf(raw_stats[i]) if raw_stats[i] != "" else 0
         if input_val == 0 or raw_stats[i] == "" or i >= len(tails):
             outputs.append("")
             rounding_notes.append("")
+            rounding_pre_vals.append(None)
+            rounding_dir_vals.append(None)
             continue
 
         tail = tails[i]
@@ -532,10 +536,14 @@ def analyze_component(
                     f"{min(round(iv / multiplier, 3) + 0.001, round(iv / multiplier + 0.005, 2) - 0.004):.3f}"
                 )
                 rounding_notes.append("")
+                rounding_pre_vals.append(None)
+                rounding_dir_vals.append(None)
             else:
                 pre_rounded = round(round(input_val, 2) * multiplier, 2)
                 direct = round(input_val * multiplier, 2)
                 outputs.append(f"{max(pre_rounded, direct):.3f}")
+                rounding_pre_vals.append(pre_rounded)
+                rounding_dir_vals.append(direct)
                 if pre_rounded > direct:
                     rounding_notes.append("round")
                 elif direct > pre_rounded:
@@ -549,10 +557,14 @@ def analyze_component(
                     f"{max(round(iv / multiplier, 3) - 0.001, round(iv / multiplier - 0.00499999, 2) + 0.004):.3f}"
                 )
                 rounding_notes.append("")
+                rounding_pre_vals.append(None)
+                rounding_dir_vals.append(None)
             else:
                 pre_rounded = round(round(input_val, 2) * multiplier, 2)
                 direct = round(input_val * multiplier, 2)
                 outputs.append(f"{min(pre_rounded, direct):.3f}")
+                rounding_pre_vals.append(pre_rounded)
+                rounding_dir_vals.append(direct)
                 if pre_rounded < direct:
                     rounding_notes.append("round")
                 elif direct < pre_rounded:
@@ -565,12 +577,16 @@ def analyze_component(
             else:
                 outputs.append(f"{round(input_val * multiplier, 2):.2f}")
             rounding_notes.append("")
+            rounding_pre_vals.append(None)
+            rounding_dir_vals.append(None)
         else:
             if d != 1:
                 outputs.append(f"{round(input_val / multiplier, 1):.1f}")
             else:
                 outputs.append(f"{round(input_val * multiplier, 1):.1f}")
             rounding_notes.append("")
+            rounding_pre_vals.append(None)
+            rounding_dir_vals.append(None)
 
     # Determine effective raw stats for rarity calculation
     effective_stats = []
@@ -678,6 +694,8 @@ def analyze_component(
             [],
             0,
             rounding_notes=rounding_notes,
+            rounding_pre_vals=rounding_pre_vals,
+            rounding_dir_vals=rounding_dir_vals,
         )
     if (
         target not in ["Average Rarity", "Best Stat", "Worst Stat"]
@@ -697,6 +715,8 @@ def analyze_component(
             [],
             0,
             rounding_notes=rounding_notes,
+            rounding_pre_vals=rounding_pre_vals,
+            rounding_dir_vals=rounding_dir_vals,
         )
 
     next_best_stats = []
@@ -827,6 +847,8 @@ def analyze_component(
             [],
             0,
             rounding_notes=rounding_notes,
+            rounding_pre_vals=rounding_pre_vals,
+            rounding_dir_vals=rounding_dir_vals,
         )
 
     # Account for weird rounding behavior on vs/refire matching
@@ -982,6 +1004,8 @@ def _build_result(
     log_deltas=None,
     matches_raw=None,
     rounding_notes=None,
+    rounding_pre_vals=None,
+    rounding_dir_vals=None,
 ) -> dict:
     stats = []
     for i in range(len(comp_stats)):
@@ -998,6 +1022,8 @@ def _build_result(
             "match_post": post_re[i] if i < len(post_re) else "",
             "log_delta": log_deltas[i] if log_deltas and i < len(log_deltas) else "",
             "rounding_note": rounding_notes[i] if rounding_notes and i < len(rounding_notes) else "",
+            "rounding_pre": rounding_pre_vals[i] if rounding_pre_vals and i < len(rounding_pre_vals) else None,
+            "rounding_dir": rounding_dir_vals[i] if rounding_dir_vals and i < len(rounding_dir_vals) else None,
         }
         stats.append(stat)
 

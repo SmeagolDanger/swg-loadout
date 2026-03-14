@@ -31,7 +31,7 @@ const RE_BONUS = [2, 3, 3, 4, 4, 5, 5, 6, 7, 7];
 const W          = 900;
 const PAD        = 16;
 const GAP        = 12;
-const ROW_H      = 16;
+const ROW_H      = 18;
 const HEAD_H     = 22;  // card title band
 const COL_H      = 18;  // column-header row height
 const CARD_PAD   = 8;
@@ -193,19 +193,19 @@ function renderRECard({ compType, level, statDefs, inputs, result, matchTarget, 
     ctx.fillStyle = hasInput ? C.text1 : C.muted;
     ctx.fillText(hasInput ? String(inputVal) : '—', x_in, ry);
 
-    // rounding badge before post-re value
     if (r?.rounding_note && r.rounding_note !== 'none' && r.rounding_note !== '') {
-      const badge = r.rounding_note === 'round' ? 'R' : 'N';
-      const badgeColor = r.rounding_note === 'round' ? '#f59e0b' : '#60a5fa';
-      const valText = r?.output || '—';
-      const valW = ctx.measureText(valText).width;
-      ctx.font = '700 8px Rajdhani, sans-serif';
-      ctx.fillStyle = badgeColor;
-      ctx.fillText(badge, x_pr - valW - 4, ry);
+      const doRound = r.rounding_note === 'round';
+      const worse = doRound ? r.rounding_dir : r.rounding_pre;
+      ctx.fillStyle = doRound ? '#f59e0b' : '#60a5fa';
+      ctx.fillText(r?.output || '—', x_pr, ry - 3);
+      ctx.font = '500 8px "JetBrains Mono", monospace';
+      ctx.fillStyle = C.muted;
+      ctx.fillText(worse != null ? worse.toFixed(3) : '—', x_pr, ry + 5);
       ctx.font = F.value;
+    } else {
+      ctx.fillStyle = r?.output ? C.text1 : C.muted;
+      ctx.fillText(r?.output || '—', x_pr, ry);
     }
-    ctx.fillStyle = r?.output ? C.text1 : C.muted;
-    ctx.fillText(r?.output || '—', x_pr, ry);
 
     const rc = tierColor(r);
     ctx.fillStyle = rc || (r?.rarity_display ? C.text2 : C.muted);
