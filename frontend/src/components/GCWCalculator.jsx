@@ -64,14 +64,14 @@ export default function GCWCalculator() {
           </p>
         </div>
 
-        <div className="card px-4 py-3 min-w-[18rem]">
-          <div className="text-[11px] font-display tracking-[0.18em] uppercase text-hull-300 mb-2">Quick weekly point presets</div>
-          <div className="flex flex-wrap gap-2">
+        <div className="card px-4 py-2 min-w-[18rem]">
+          <div className="text-[11px] font-display tracking-[0.18em] uppercase text-hull-300 mb-1.5">Quick weekly point presets</div>
+          <div className="flex flex-wrap gap-1">
             {QUICK_POINTS.map((value) => (
               <button
                 key={value}
                 type="button"
-                className="btn-ghost text-xs"
+                className="btn-ghost text-xs px-2 py-0.5"
                 onClick={() => setGcwPoints(String(value))}
               >
                 {value.toLocaleString()}
