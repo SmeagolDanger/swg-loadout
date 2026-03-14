@@ -30,6 +30,9 @@ from database import User, get_db
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 logger = logging.getLogger(__name__)
 
+DISCORD_PLATFORM_COOKIE = "discord_oauth_platform"
+MOBILE_APP_SCHEME = "swgspacetools"
+
 DISCORD_AUTHORIZE_URL = "https://discord.com/oauth2/authorize"
 DISCORD_TOKEN_URL = "https://discord.com/api/oauth2/token"
 DISCORD_ME_URL = "https://discord.com/api/users/@me"
@@ -544,7 +547,7 @@ def logout(response: Response):
 
 
 @router.get("/discord/login")
-def discord_login(request: FastAPIRequest):
+def discord_login(request: FastAPIRequest, platform: str | None = None):
     if not _discord_enabled(request):
         logger.warning("discord_login_unavailable", extra=_request_extra(request))
         raise HTTPException(status_code=503, detail="Discord login is not configured")
@@ -552,8 +555,22 @@ def discord_login(request: FastAPIRequest):
     redirect_uri = _get_discord_redirect_uri(request)
     state = secrets.token_urlsafe(24)
     url = f"{DISCORD_AUTHORIZE_URL}?{urlencode({'client_id': os.getenv('DISCORD_CLIENT_ID', '').strip(), 'response_type': 'code', 'redirect_uri': redirect_uri, 'scope': 'identify email', 'state': state})}"
-    logger.info("discord_login_redirect_created", extra=_request_extra(request, redirect_uri=redirect_uri))
-    return _with_state_cookie(RedirectResponse(url), state)
+    logger.info("discord_login_redirect_created", extra=_request_extra(request, redirect_uri=redirect_uri, platform=platform or "web"))
+    response = _with_state_cookie(RedirectResponse(url), state)
+
+    # Track mobile platform so the callback knows where to redirect
+    if platform == "mobile":
+        response.set_cookie(
+            DISCORD_PLATFORM_COOKIE,
+            "mobile",
+            max_age=DISCORD_STATE_MAX_AGE,
+            httponly=True,
+            secure=_cookie_secure(),
+            samesite="lax",
+            path="/",
+        )
+
+    return response
 
 
 @router.get("/discord/callback", name="discord_callback", response_model=None)
@@ -658,6 +675,17 @@ def discord_callback(
 
     token = create_user_access_token(user)
     logger.info("auth_session_created", extra=_request_extra(request, user_id=user.id, auth_provider="discord"))
+
+    # Check if this was a mobile-initiated OAuth flow
+    is_mobile = request.cookies.get(DISCORD_PLATFORM_COOKIE) == "mobile"
+
+    if is_mobile:
+        # Redirect to the mobile app's custom URL scheme with the token
+        mobile_url = f"{MOBILE_APP_SCHEME}://auth/callback?token={token}"
+        response = RedirectResponse(mobile_url)
+        response.delete_cookie(DISCORD_PLATFORM_COOKIE, path="/", samesite="lax")
+        return _with_state_cookie(response, clear=True)
+
     return _set_session_cookie(_redirect_frontend(), token)
 
 
