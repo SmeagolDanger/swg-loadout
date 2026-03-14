@@ -267,7 +267,7 @@ export default function RECalculator() {
                   const r = result?.stats?.[i];
                   const deltaColor = r ? getDeltaColor(r.log_delta) : '';
                   const isUnicorn = r?.is_unicorn;
-                  const rStyle = tierStyle(r?.tier);
+                  const rStyle = r?.tier ? tierStyle(r.tier) : rarityStyle(r?.rarity_display);
 
                   return (
                     <div key={i}
@@ -378,7 +378,7 @@ export default function RECalculator() {
                               {stat.match_value || '—'}
                             </span>
                             <span className={`w-[110px] shrink-0 text-sm font-mono text-right font-medium ${!hasVal ? 'text-hull-500 italic' : ''}`}
-                              style={hasVal ? tierStyle(stat.tier) : {}}>
+                              style={hasVal ? (stat.tier ? tierStyle(stat.tier) : rarityStyle(result.stats[i]?.rarity_display)) : {}}>
                               {stat.match_post || '—'}
                             </span>
                           </div>
