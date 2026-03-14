@@ -6,21 +6,26 @@ import {
   Info, BarChart3, ChevronDown, ChevronUp,
 } from 'lucide-react';
 
-// ── Rarity tier coloring ─────────────────────────────────────
-function getRarityColor(display) {
-  if (!display || display === '—') return 'text-hull-500';
-  if (display.includes('⋆')) return 'text-laser-yellow';
-  if (display === 'Reward') return 'text-green-400';
-  if (display.toLowerCase().includes('improbable')) return 'text-red-400';
+// ── Rarity tier colors from STAJ.txt in-game macro scheme ────
+// D tier (#29db35): < 1 in 100  — common
+// C tier (#007fff): 1 in 100–1k — uncommon
+// B tier (#f399ff): 1 in 1k–10k — rare
+// A tier (#ffcc00): 1 in 10k+   — very rare
+// Unicorn (#ff69b4): ⋆ marker   — exceptional (pink, not in file)
+// Reward (#ff8080): fixed reward stat
+function rarityStyle(display) {
+  if (!display || display === '—') return {};
+  if (display.includes('⋆')) return { color: '#ff69b4' };
+  if (display === 'Reward') return { color: '#ff8080' };
+  if (display.toLowerCase().includes('improbable')) return { color: '#ffcc00' };
   const match = display.match(/1 in ([\d.]+)([BMk]?)/);
-  if (!match) return 'text-hull-300';
+  if (!match) return {};
   const suffix = match[2];
   const num = parseFloat(match[1]) * (suffix === 'B' ? 1e9 : suffix === 'M' ? 1e6 : suffix === 'k' ? 1e3 : 1);
-  if (num >= 1_000_000) return 'text-red-400';
-  if (num >= 100_000)   return 'text-orange-400';
-  if (num >= 10_000)    return 'text-yellow-300';
-  if (num >= 1_000)     return 'text-sky-300';
-  return 'text-hull-300';
+  if (num >= 10_000) return { color: '#ffcc00' }; // A — gold
+  if (num >= 1_000)  return { color: '#f399ff' }; // B — purple-pink
+  if (num >= 100)    return { color: '#007fff' }; // C — blue
+  return { color: '#29db35' };                    // D — green
 }
 
 function getDeltaColor(delta) {
@@ -123,7 +128,7 @@ export default function RECalculator() {
   const matchTargetOptions = ['Average Rarity', 'Best Stat', 'Worst Stat', ...statDefs.map(s => s.name)];
 
   return (
-    <div className="px-4 md:px-6 lg:px-8 py-5 md:py-7">
+    <div className="max-w-7xl mx-auto px-3 md:px-6 py-4 md:py-6">
       {/* Page header */}
       <div className="flex items-center gap-3 mb-6">
         <FlaskConical size={22} className="text-plasma-400" />
@@ -250,15 +255,16 @@ export default function RECalculator() {
                   const r = result?.stats?.[i];
                   const deltaColor = r ? getDeltaColor(r.log_delta) : '';
                   const isUnicorn = r?.is_unicorn;
-                  const rarityColor = getRarityColor(r?.rarity_display);
+                  const rStyle = rarityStyle(r?.rarity_display);
 
                   return (
                     <div key={i}
                       className="flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-hull-700/50 transition-colors group">
                       {/* Stat name */}
-                      <span className={`w-28 shrink-0 text-sm font-medium flex items-center gap-1 ${isUnicorn ? 'text-laser-yellow' : 'text-hull-200'}`}>
-                        {isUnicorn && <Star size={11} className="text-laser-yellow shrink-0" />}
-                        <span className="truncate">{stat.name}</span>
+                      <span className="w-28 shrink-0 text-sm font-medium flex items-center gap-1"
+                        style={isUnicorn ? { color: '#ff69b4' } : {}}>
+                        {isUnicorn && <Star size={11} style={{ color: '#ff69b4' }} className="shrink-0" />}
+                        <span className={`truncate ${isUnicorn ? '' : 'text-hull-200'}`}>{stat.name}</span>
                       </span>
 
                       {/* Input */}
@@ -277,7 +283,7 @@ export default function RECalculator() {
                       </span>
 
                       {/* Rarity */}
-                      <span className={`flex-1 text-sm font-mono text-right font-medium ${rarityColor}`}>
+                      <span className="flex-1 text-sm font-mono text-right font-medium" style={rStyle}>
                         {r?.rarity_display || '—'}
                       </span>
 
@@ -312,7 +318,7 @@ export default function RECalculator() {
                     </div>
                     <div>
                       <p className="text-[10px] font-display text-hull-400 tracking-[0.14em] mb-1">UNICORN THRESHOLD</p>
-                      <p className="font-display text-xl font-bold text-laser-yellow">
+                      <p className="font-display text-xl font-bold" style={{ color: '#ff69b4' }}>
                         ⋆{result.unicorn_threshold || '—'}⋆
                       </p>
                     </div>
@@ -359,13 +365,8 @@ export default function RECalculator() {
                             <span className={`w-[100px] shrink-0 text-sm font-mono text-right ${hasVal ? 'text-hull-100' : 'text-hull-500 italic'}`}>
                               {stat.match_value || '—'}
                             </span>
-                            <span className={`w-[110px] shrink-0 text-sm font-mono text-right font-medium ${
-                              hasVal
-                                ? getRarityColor(result.stats[i]?.rarity_display) !== 'text-hull-500'
-                                  ? getRarityColor(result.stats[i]?.rarity_display)
-                                  : 'text-plasma-300'
-                                : 'text-hull-500 italic'
-                            }`}>
+                            <span className={`w-[110px] shrink-0 text-sm font-mono text-right font-medium ${!hasVal ? 'text-hull-500 italic' : ''}`}
+                              style={hasVal ? rarityStyle(result.stats[i]?.rarity_display) : {}}>
                               {stat.match_post || '—'}
                             </span>
                           </div>
@@ -413,7 +414,8 @@ export default function RECalculator() {
                           {brandTable.table.map((col, i) => {
                             const rarity = col.brands[j]?.rarity || '—';
                             return (
-                              <td key={i} className={`py-1.5 px-2 text-right font-mono ${getRarityColor(rarity)}`}>
+                              <td key={i} className="py-1.5 px-2 text-right font-mono"
+                                style={rarityStyle(rarity)}>
                                 {rarity}
                               </td>
                             );
