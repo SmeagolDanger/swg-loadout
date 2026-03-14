@@ -2,19 +2,38 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import {
-  FlaskConical, ChevronDown, ChevronRight, ArrowLeftRight, Save,
-  FolderOpen, Trash2, Star, Info, BarChart3
+  FlaskConical, ArrowLeftRight, Save, FolderOpen, Trash2, Star,
+  Info, BarChart3, ChevronDown, ChevronUp,
 } from 'lucide-react';
+
+// ── Rarity tier coloring ─────────────────────────────────────
+function getRarityColor(display) {
+  if (!display || display === '—') return 'text-hull-500';
+  if (display.includes('⋆')) return 'text-laser-yellow';
+  if (display === 'Reward') return 'text-green-400';
+  if (display.toLowerCase().includes('improbable')) return 'text-red-400';
+  const match = display.match(/1 in ([\d.]+)([BMk]?)/);
+  if (!match) return 'text-hull-300';
+  const suffix = match[2];
+  const num = parseFloat(match[1]) * (suffix === 'B' ? 1e9 : suffix === 'M' ? 1e6 : suffix === 'k' ? 1e3 : 1);
+  if (num >= 1_000_000) return 'text-red-400';
+  if (num >= 100_000)   return 'text-orange-400';
+  if (num >= 10_000)    return 'text-yellow-300';
+  if (num >= 1_000)     return 'text-sky-300';
+  return 'text-hull-300';
+}
 
 function getDeltaColor(delta) {
   if (delta === '' || delta === null || delta === undefined) return '';
   const d = Math.abs(parseFloat(delta));
-  if (d <= 0.08) return '#00ff00';
-  if (d <= 0.33) return '#88ff00';
-  if (d <= 0.5) return '#ffff00';
-  if (d <= 0.67) return '#ff8800';
-  return '#ff3344';
+  if (d <= 0.08) return '#4ade80';
+  if (d <= 0.33) return '#a3e635';
+  if (d <= 0.5)  return '#facc15';
+  if (d <= 0.67) return '#fb923c';
+  return '#f87171';
 }
+
+const RE_BONUS = [2, 3, 3, 4, 4, 5, 5, 6, 7, 7];
 
 export default function RECalculator() {
   const { user } = useAuth();
@@ -22,7 +41,7 @@ export default function RECalculator() {
   const [level, setLevel] = useState('');
   const [statDefs, setStatDefs] = useState([]);
   const [inputs, setInputs] = useState({});
-  const [direction, setDirection] = useState(1); // 1=raw→post, -1=post→raw
+  const [direction, setDirection] = useState(1);
   const [matchTarget, setMatchTarget] = useState('Average Rarity');
   const [result, setResult] = useState(null);
   const [brandTable, setBrandTable] = useState(null);
@@ -32,12 +51,10 @@ export default function RECalculator() {
   const [showProjects, setShowProjects] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Load projects
   useEffect(() => {
     if (user) api.getREProjects().then(setProjects).catch(() => {});
   }, [user]);
 
-  // Load stat definitions when component type changes
   useEffect(() => {
     if (!compType) { setStatDefs([]); setResult(null); return; }
     api.getREStats(compType).then(data => {
@@ -48,51 +65,36 @@ export default function RECalculator() {
     }).catch(console.error);
   }, [compType]);
 
-  // Analyze when inputs change
   const analyze = useCallback(() => {
     if (!compType || !level || statDefs.length === 0) { setResult(null); return; }
-
-    const rawStats = statDefs.map((s, i) => {
+    const rawStats = statDefs.map((_, i) => {
       const val = inputs[`stat${i}`];
       return val !== undefined && val !== '' ? val : '';
     });
-
-    // Skip if all empty
     if (rawStats.every(s => s === '')) { setResult(null); return; }
 
     setLoading(true);
-    api.analyzeRE({
-      comp_type: compType,
-      level: parseInt(level),
-      raw_stats: rawStats,
-      matching_target: matchTarget,
-      direction,
-    }).then(data => {
-      setResult(data);
-      setLoading(false);
-    }).catch(e => { console.error(e); setLoading(false); });
+    api.analyzeRE({ comp_type: compType, level: parseInt(level), raw_stats: rawStats, matching_target: matchTarget, direction })
+      .then(data => { setResult(data); setLoading(false); })
+      .catch(e => { console.error(e); setLoading(false); });
   }, [compType, level, inputs, matchTarget, direction, statDefs]);
 
   useEffect(() => {
-    const timer = setTimeout(analyze, 300);
-    return () => clearTimeout(timer);
+    const t = setTimeout(analyze, 300);
+    return () => clearTimeout(t);
   }, [analyze]);
 
   const fetchBrandTable = () => {
     if (!compType || !level) return;
-    const rawStats = statDefs.map((s, i) => inputs[`stat${i}`] || '');
-    api.getBrandTable({
-      comp_type: compType, level: parseInt(level), raw_stats: rawStats, direction,
-    }).then(data => { setBrandTable(data); setShowBrands(true); }).catch(console.error);
-  };
-
-  const handleInputChange = (idx, val) => {
-    setInputs(prev => ({ ...prev, [`stat${idx}`]: val }));
+    const rawStats = statDefs.map((_, i) => inputs[`stat${i}`] || '');
+    api.getBrandTable({ comp_type: compType, level: parseInt(level), raw_stats: rawStats, direction })
+      .then(data => { setBrandTable(data); setShowBrands(true); })
+      .catch(console.error);
   };
 
   const handleSave = async () => {
     if (!user || !projectName || !compType || !level) return;
-    const stats = statDefs.map((s, i) => parseFloat(inputs[`stat${i}`]) || 0);
+    const stats = statDefs.map((_, i) => parseFloat(inputs[`stat${i}`]) || 0);
     await api.saveREProject({ name: projectName, comp_type: compType, re_level: parseInt(level), stats });
     const p = await api.getREProjects();
     setProjects(p);
@@ -102,7 +104,6 @@ export default function RECalculator() {
     setCompType(project.comp_type);
     setLevel(project.re_level.toString());
     setProjectName(project.name);
-    // Defer setting inputs until statDefs load
     setTimeout(() => {
       const newInputs = {};
       project.stats.forEach((v, i) => { if (v) newInputs[`stat${i}`] = v; });
@@ -118,78 +119,92 @@ export default function RECalculator() {
     setProjectName('');
   };
 
-  const matchTargetOptions = ['Average Rarity', 'Best Stat', 'Worst Stat',
-    ...statDefs.map(s => s.name)];
-
   const hasInput = Object.values(inputs).some(v => v !== '' && v !== undefined);
+  const matchTargetOptions = ['Average Rarity', 'Best Stat', 'Worst Stat', ...statDefs.map(s => s.name)];
 
   return (
-    <div className="max-w-7xl mx-auto px-3 md:px-6 py-4 md:py-6">
-      <h1 className="font-display text-2xl font-bold tracking-wider text-hull-100 flex items-center gap-2 mb-6">
-        <FlaskConical size={24} className="text-plasma-400" /> RE CALCULATOR
-      </h1>
+    <div className="px-4 md:px-6 lg:px-8 py-5 md:py-7">
+      {/* Page header */}
+      <div className="flex items-center gap-3 mb-6">
+        <FlaskConical size={22} className="text-plasma-400" />
+        <h1 className="font-display text-2xl font-bold tracking-wider text-hull-100">RE CALCULATOR</h1>
+      </div>
 
-      {/* Top bar: Component type, level, project */}
-      <div className="card mb-4">
+      {/* Controls bar */}
+      <div className="card mb-5">
         <div className="p-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <div>
-              <label className="block text-xs font-display text-hull-200 tracking-wider mb-1">COMPONENT TYPE</label>
+          <div className="flex flex-wrap items-end gap-3">
+            {/* Component type */}
+            <div className="flex-1 min-w-[160px]">
+              <label className="block text-[10px] font-display text-hull-300 tracking-[0.14em] mb-1.5">COMPONENT TYPE</label>
               <select value={compType} onChange={e => { setCompType(e.target.value); setLevel(''); }}
-                className="w-full">
+                className="w-full text-sm">
                 <option value="">Select...</option>
-                {['Armor', 'Booster', 'Capacitor', 'Droid Interface', 'Engine', 'Reactor', 'Shield', 'Weapon'].map(t =>
+                {['Armor','Booster','Capacitor','Droid Interface','Engine','Reactor','Shield','Weapon'].map(t =>
                   <option key={t} value={t}>{t}</option>
                 )}
               </select>
             </div>
-            <div>
-              <label className="block text-xs font-display text-hull-200 tracking-wider mb-1">RE LEVEL</label>
+
+            {/* RE Level */}
+            <div className="flex-1 min-w-[160px]">
+              <label className="block text-[10px] font-display text-hull-300 tracking-[0.14em] mb-1.5">RE LEVEL</label>
               <select value={level} onChange={e => setLevel(e.target.value)}
-                className="w-full" disabled={!compType}>
+                className="w-full text-sm" disabled={!compType}>
                 <option value="">Select...</option>
                 {[1,2,3,4,5,6,7,8,9,10].map(l =>
-                  <option key={l} value={l}>Level {l} ({[2,3,3,4,4,5,5,6,7,7][l-1]}%)</option>
+                  <option key={l} value={l}>Level {l} ({RE_BONUS[l-1]}%)</option>
                 )}
               </select>
             </div>
+
+            {/* Project (logged in) */}
             {user && (
-              <div>
-                <label className="block text-xs font-display text-hull-200 tracking-wider mb-1">PROJECT</label>
+              <div className="flex-1 min-w-[200px]">
+                <label className="block text-[10px] font-display text-hull-300 tracking-[0.14em] mb-1.5">PROJECT</label>
                 <div className="flex gap-1">
                   <input value={projectName} onChange={e => setProjectName(e.target.value)}
-                    placeholder="Project name..." className="flex-1 text-sm" />
+                    placeholder="Project name…" className="flex-1 text-sm" />
                   <button onClick={handleSave} disabled={!projectName || !compType}
-                    className="p-2 rounded hover:bg-hull-600 text-hull-200 hover:text-plasma-400" title="Save">
-                    <Save size={16} />
+                    title="Save" className="p-2 rounded hover:bg-hull-600 text-hull-300 hover:text-plasma-400 disabled:opacity-40">
+                    <Save size={15} />
                   </button>
-                  <button onClick={() => setShowProjects(!showProjects)}
-                    className="p-2 rounded hover:bg-hull-600 text-hull-200 hover:text-plasma-400" title="Load">
-                    <FolderOpen size={16} />
+                  <button onClick={() => setShowProjects(v => !v)}
+                    title="Load" className="p-2 rounded hover:bg-hull-600 text-hull-300 hover:text-plasma-400">
+                    <FolderOpen size={15} />
                   </button>
                 </div>
               </div>
             )}
-            <div className="flex items-end gap-2">
+
+            {/* Direction + Clear */}
+            <div className="flex items-center gap-2 pb-0.5">
               <button onClick={() => setDirection(d => d === 1 ? -1 : 1)}
-                className="btn-ghost text-xs flex items-center gap-1" disabled={!compType}>
-                <ArrowLeftRight size={14} />
-                {direction === 1 ? 'Raw → Post' : 'Post → Raw'}
+                disabled={!compType}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-hull-500/50 bg-hull-700/60 text-xs font-medium text-hull-200 hover:text-plasma-300 hover:border-plasma-500/40 disabled:opacity-40 transition-colors">
+                <ArrowLeftRight size={13} />
+                {direction === 1 ? 'RAW → POST' : 'POST → RAW'}
               </button>
-              <button onClick={handleClear} className="btn-ghost text-xs">Clear</button>
+              <button onClick={handleClear}
+                className="px-3 py-2 rounded-lg border border-hull-500/50 bg-hull-700/60 text-xs font-medium text-hull-300 hover:text-hull-100 hover:border-hull-400/50 transition-colors">
+                CLEAR
+              </button>
             </div>
           </div>
 
-          {/* Project list */}
+          {/* Saved projects list */}
           {showProjects && projects.length > 0 && (
-            <div className="mt-3 pt-3 border-t border-hull-500/30 animate-slide-up space-y-1">
+            <div className="mt-3 pt-3 border-t border-hull-500/30 space-y-0.5">
               {projects.map(p => (
-                <div key={p.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-hull-600 cursor-pointer"
+                <div key={p.id}
+                  className="flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-hull-600/60 cursor-pointer"
                   onClick={() => handleLoad(p)}>
                   <span className="text-sm text-hull-100 flex-1">{p.name}</span>
-                  <span className="text-xs text-hull-400">{p.comp_type} L{p.re_level}</span>
-                  <button onClick={e => { e.stopPropagation(); api.deleteREProject(p.id).then(() => api.getREProjects().then(setProjects)); }}
-                    className="p-1 rounded hover:bg-hull-500 text-hull-400 hover:text-laser-red">
+                  <span className="text-xs text-hull-400">{p.comp_type} · L{p.re_level}</span>
+                  <button onClick={e => {
+                    e.stopPropagation();
+                    api.deleteREProject(p.id).then(() => api.getREProjects().then(setProjects));
+                  }} className="p-1 rounded hover:bg-hull-500/60 text-hull-400 hover:text-red-400 transition-colors">
                     <Trash2 size={12} />
                   </button>
                 </div>
@@ -199,91 +214,112 @@ export default function RECalculator() {
         </div>
       </div>
 
-      {!compType || !level ? (
-        <div className="text-center py-16">
-          <FlaskConical size={48} className="text-hull-500 mx-auto mb-4" />
-          <p className="text-hull-200">Select a component type and RE level to begin analysis</p>
+      {/* Empty state */}
+      {(!compType || !level) && (
+        <div className="text-center py-20">
+          <FlaskConical size={44} className="text-hull-600 mx-auto mb-4" />
+          <p className="text-hull-400 text-sm">Select a component type and RE level to begin analysis</p>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-          {/* Left: Input stats + output */}
-          <div className="lg:col-span-5">
-            <div className="card">
+      )}
+
+      {/* Main analysis layout */}
+      {compType && level && (
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-5">
+
+          {/* ── LEFT: Stat input table ── */}
+          <div className="xl:col-span-5 2xl:col-span-5">
+            <div className="card h-full">
               <div className="card-header">
                 {direction === 1 ? 'INPUT RAW STATS' : 'INPUT POST-RE STATS'}
               </div>
-              <div className="p-3">
-                <div className="space-y-1">
-                  <div className="grid grid-cols-12 gap-1 text-[10px] font-display text-hull-300 tracking-wider px-1 mb-1">
-                    <span className="col-span-3">STAT</span>
-                    <span className="col-span-2 text-center">INPUT</span>
-                    <span className="col-span-2 text-center">{direction === 1 ? 'POST-RE' : 'RAW'}</span>
-                    <span className="col-span-3 text-center">RARITY</span>
-                    <span className="col-span-2 text-center">LOG Δ</span>
-                  </div>
-                  {statDefs.map((stat, i) => {
-                    const r = result?.stats?.[i];
-                    const deltaColor = r ? getDeltaColor(r.log_delta) : '';
-                    return (
-                      <div key={i} className="grid grid-cols-12 gap-1 items-center py-0.5">
-                        <span className={`col-span-3 text-xs font-medium truncate ${r?.is_unicorn ? 'text-laser-yellow' : 'text-hull-200'}`}>
-                          {r?.is_unicorn && <Star size={10} className="inline mr-0.5 text-laser-yellow" />}
-                          {stat.name}
-                        </span>
-                        <div className="col-span-2">
-                          <input
-                            type="number" step="any"
-                            value={inputs[`stat${i}`] ?? ''}
-                            onChange={e => handleInputChange(i, e.target.value)}
-                            className="w-full text-xs font-mono text-center py-0.5 px-1 !bg-hull-800"
-                          />
-                        </div>
-                        <span className="col-span-2 text-xs font-mono text-center text-hull-200">
-                          {r?.output || '—'}
-                        </span>
-                        <span className={`col-span-3 text-[11px] font-mono text-center ${
-                          r?.rarity_display?.includes('⋆') ? 'text-laser-yellow' :
-                          r?.rarity_display === 'Reward' ? 'text-laser-green' : 'text-hull-200'
-                        }`}>
-                          {r?.rarity_display || '—'}
-                        </span>
-                        <span className="col-span-2 text-xs font-mono text-center" style={{ color: deltaColor || undefined }}>
-                          {r?.log_delta !== '' && r?.log_delta !== undefined
-                            ? `${parseFloat(r.log_delta) >= 0 ? '+' : ''}${parseFloat(r.log_delta).toFixed(2)}`
-                            : '—'}
-                        </span>
-                      </div>
-                    );
-                  })}
+
+              {/* Column headers */}
+              <div className="px-4 pt-3 pb-1">
+                <div className="flex items-center gap-2 text-[10px] font-display text-hull-400 tracking-[0.14em]">
+                  <span className="w-28 shrink-0">STAT</span>
+                  <span className="w-[88px] shrink-0 text-center">INPUT</span>
+                  <span className="w-[72px] shrink-0 text-right">{direction === 1 ? 'POST-RE' : 'RAW'}</span>
+                  <span className="flex-1 text-right">RARITY</span>
+                  <span className="w-[52px] shrink-0 text-right">LOG Δ</span>
                 </div>
+              </div>
+
+              {/* Stat rows */}
+              <div className="px-2 pb-3 space-y-0.5">
+                {statDefs.map((stat, i) => {
+                  const r = result?.stats?.[i];
+                  const deltaColor = r ? getDeltaColor(r.log_delta) : '';
+                  const isUnicorn = r?.is_unicorn;
+                  const rarityColor = getRarityColor(r?.rarity_display);
+
+                  return (
+                    <div key={i}
+                      className="flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-hull-700/50 transition-colors group">
+                      {/* Stat name */}
+                      <span className={`w-28 shrink-0 text-sm font-medium flex items-center gap-1 ${isUnicorn ? 'text-laser-yellow' : 'text-hull-200'}`}>
+                        {isUnicorn && <Star size={11} className="text-laser-yellow shrink-0" />}
+                        <span className="truncate">{stat.name}</span>
+                      </span>
+
+                      {/* Input */}
+                      <div className="w-[88px] shrink-0">
+                        <input
+                          type="number" step="any"
+                          value={inputs[`stat${i}`] ?? ''}
+                          onChange={e => setInputs(prev => ({ ...prev, [`stat${i}`]: e.target.value }))}
+                          className="w-full text-sm font-mono text-right py-1.5 px-2 !bg-hull-800/80 focus:!bg-hull-800"
+                        />
+                      </div>
+
+                      {/* Post-RE / Raw */}
+                      <span className="w-[72px] shrink-0 text-sm font-mono text-right text-hull-200">
+                        {r?.output || '—'}
+                      </span>
+
+                      {/* Rarity */}
+                      <span className={`flex-1 text-sm font-mono text-right font-medium ${rarityColor}`}>
+                        {r?.rarity_display || '—'}
+                      </span>
+
+                      {/* Log delta */}
+                      <span className="w-[52px] shrink-0 text-xs font-mono text-right tabular-nums"
+                        style={{ color: deltaColor || '#6b7280' }}>
+                        {r?.log_delta !== '' && r?.log_delta !== undefined && r?.log_delta !== null
+                          ? `${parseFloat(r.log_delta) >= 0 ? '+' : ''}${parseFloat(r.log_delta).toFixed(2)}`
+                          : '—'}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
 
-          {/* Right: Matching + summary */}
-          <div className="lg:col-span-7 space-y-4">
-            {/* Summary card */}
+          {/* ── RIGHT: Summary + Matching ── */}
+          <div className="xl:col-span-7 2xl:col-span-7 space-y-4">
+
+            {/* Analysis summary */}
             {result && (
               <div className="card">
-                <div className="card-header"><Info size={16} /> ANALYSIS SUMMARY</div>
-                <div className="p-3">
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <div className="card-header"><Info size={15} /> ANALYSIS SUMMARY</div>
+                <div className="px-5 py-4">
+                  <div className="grid grid-cols-3 gap-4">
                     <div>
-                      <span className="text-[10px] font-display text-hull-300 tracking-wider">TARGET RARITY</span>
-                      <p className="text-lg font-mono text-hull-100 font-bold">
+                      <p className="text-[10px] font-display text-hull-400 tracking-[0.14em] mb-1">TARGET RARITY</p>
+                      <p className="font-display text-xl font-bold text-hull-100">
                         {result.target_rarity_display || '—'}
                       </p>
                     </div>
                     <div>
-                      <span className="text-[10px] font-display text-hull-300 tracking-wider">UNICORN THRESHOLD</span>
-                      <p className="text-lg font-mono text-laser-yellow">
+                      <p className="text-[10px] font-display text-hull-400 tracking-[0.14em] mb-1">UNICORN THRESHOLD</p>
+                      <p className="font-display text-xl font-bold text-laser-yellow">
                         ⋆{result.unicorn_threshold || '—'}⋆
                       </p>
                     </div>
                     <div>
-                      <span className="text-[10px] font-display text-hull-300 tracking-wider">RE BONUS</span>
-                      <p className="text-lg font-mono text-plasma-400">
-                        {[2,3,3,4,4,5,5,6,7,7][parseInt(level)-1]}%
+                      <p className="text-[10px] font-display text-hull-400 tracking-[0.14em] mb-1">RE BONUS</p>
+                      <p className="font-display text-xl font-bold text-plasma-400">
+                        {RE_BONUS[parseInt(level) - 1]}%
                       </p>
                     </div>
                   </div>
@@ -291,87 +327,93 @@ export default function RECalculator() {
               </div>
             )}
 
-            {/* Matching config + results */}
+            {/* Stat matching */}
             <div className="card">
-              <div className="card-header"><BarChart3 size={16} /> STAT MATCHING</div>
-              <div className="p-3">
-                <div className="mb-3">
-                  <label className="block text-xs font-display text-hull-200 tracking-wider mb-1">MATCHING TARGET</label>
+              <div className="card-header"><BarChart3 size={15} /> STAT MATCHING</div>
+              <div className="px-4 py-3">
+                <div className="mb-4">
+                  <label className="block text-[10px] font-display text-hull-300 tracking-[0.14em] mb-1.5">MATCHING TARGET</label>
                   <select value={matchTarget} onChange={e => setMatchTarget(e.target.value)}
-                    className="w-full sm:w-64 text-sm" disabled={!hasInput}>
+                    className="w-full sm:w-72 text-sm" disabled={!hasInput}>
                     {matchTargetOptions.map(o => <option key={o} value={o}>{o}</option>)}
                   </select>
                 </div>
 
-                {result?.stats && hasInput && (
-                  <div className="space-y-0.5">
-                    <div className="grid grid-cols-3 gap-2 text-[10px] font-display text-hull-300 tracking-wider px-1 mb-1">
-                      <span>STAT</span>
-                      <span className="text-center">MATCH RAW</span>
-                      <span className="text-center">MATCH POST-RE</span>
+                {result?.stats && hasInput ? (
+                  <>
+                    {/* Column headers */}
+                    <div className="flex items-center gap-3 text-[10px] font-display text-hull-400 tracking-[0.14em] px-2 mb-1">
+                      <span className="flex-1">STAT</span>
+                      <span className="w-[100px] shrink-0 text-right">MATCH RAW</span>
+                      <span className="w-[110px] shrink-0 text-right">MATCH POST-RE</span>
                     </div>
-                    {result.stats.map((stat, i) => (
-                      <div key={i} className="grid grid-cols-3 gap-2 items-center py-0.5 px-1">
-                        <span className="text-xs text-hull-200 font-medium">{stat.name}</span>
-                        <span className={`text-xs font-mono text-center ${
-                          stat.input !== '' ? 'text-hull-100' : 'text-hull-400 italic'
-                        }`}>
-                          {stat.match_value || '—'}
-                        </span>
-                        <span className={`text-xs font-mono text-center ${
-                          stat.input !== '' ? 'text-hull-100' : 'text-hull-400 italic'
-                        }`}>
-                          {stat.match_post || '—'}
-                        </span>
-                      </div>
-                    ))}
+                    <div className="space-y-0.5">
+                      {result.stats.map((stat, i) => {
+                        const hasVal = stat.input !== '' && stat.input !== undefined;
+                        return (
+                          <div key={i}
+                            className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-hull-700/50 transition-colors">
+                            <span className={`flex-1 text-sm font-medium ${hasVal ? 'text-hull-200' : 'text-hull-500'}`}>
+                              {stat.name}
+                            </span>
+                            <span className={`w-[100px] shrink-0 text-sm font-mono text-right ${hasVal ? 'text-hull-100' : 'text-hull-500 italic'}`}>
+                              {stat.match_value || '—'}
+                            </span>
+                            <span className={`w-[110px] shrink-0 text-sm font-mono text-right font-medium ${
+                              hasVal
+                                ? getRarityColor(result.stats[i]?.rarity_display) !== 'text-hull-500'
+                                  ? getRarityColor(result.stats[i]?.rarity_display)
+                                  : 'text-plasma-300'
+                                : 'text-hull-500 italic'
+                            }`}>
+                              {stat.match_post || '—'}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-hull-500 text-sm">Enter at least one stat value to see matching results</p>
                   </div>
-                )}
-
-                {!hasInput && (
-                  <p className="text-hull-500 text-sm text-center py-4">
-                    Enter at least one stat value to see matching results
-                  </p>
                 )}
               </div>
             </div>
 
-            {/* Brand rarity table toggle */}
+            {/* Brand breakdown toggle */}
             {hasInput && (
-              <button onClick={fetchBrandTable}
-                className="btn-primary w-full flex items-center justify-center gap-2">
-                <BarChart3 size={16} /> Show Brand Rarity Breakdown
+              <button
+                onClick={showBrands ? () => setShowBrands(false) : fetchBrandTable}
+                className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl border border-hull-500/40 bg-hull-800/60 text-xs font-display font-semibold tracking-[0.14em] text-hull-300 hover:text-hull-100 hover:border-hull-400/60 transition-colors">
+                <BarChart3 size={14} />
+                {showBrands ? 'HIDE' : 'SHOW'} BRAND RARITY BREAKDOWN
+                {showBrands ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
               </button>
             )}
 
             {/* Brand table */}
             {showBrands && brandTable && (
               <div className="card animate-slide-up">
-                <div className="card-header cursor-pointer" onClick={() => setShowBrands(false)}>
-                  <BarChart3 size={16} /> BRAND RARITY TABLE
-                  <ChevronDown size={14} className="ml-auto text-hull-400" />
-                </div>
+                <div className="card-header"><BarChart3 size={15} /> BRAND RARITY TABLE</div>
                 <div className="p-3 overflow-x-auto">
-                  <table className="w-full text-xs">
+                  <table className="w-full text-xs min-w-[400px]">
                     <thead>
-                      <tr className="text-hull-300 font-display tracking-wider">
-                        <th className="text-left py-1 px-1 sticky left-0 bg-hull-700">Brand</th>
+                      <tr className="text-hull-400 font-display tracking-wider">
+                        <th className="text-left py-1.5 px-2 sticky left-0 bg-hull-700 font-medium">Brand</th>
                         {brandTable.table.map((col, i) => (
-                          <th key={i} className="text-center py-1 px-2 whitespace-nowrap">{col.stat}</th>
+                          <th key={i} className="text-right py-1.5 px-2 whitespace-nowrap font-medium">{col.stat}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
                       {brandTable.brand_names.map((name, j) => (
-                        <tr key={j} className="border-t border-hull-600/30 hover:bg-hull-600/20">
-                          <td className="py-1 px-1 text-hull-200 font-medium sticky left-0 bg-hull-700 whitespace-nowrap">
-                            {name}
-                          </td>
+                        <tr key={j} className="border-t border-hull-600/30 hover:bg-hull-600/20 transition-colors">
+                          <td className="py-1.5 px-2 text-hull-200 font-medium sticky left-0 bg-hull-700 whitespace-nowrap">{name}</td>
                           {brandTable.table.map((col, i) => {
-                            const brand = col.brands[j];
-                            const rarity = brand?.rarity || '-';
+                            const rarity = col.brands[j]?.rarity || '—';
                             return (
-                              <td key={i} className="py-1 px-2 text-center font-mono text-hull-200">
+                              <td key={i} className={`py-1.5 px-2 text-right font-mono ${getRarityColor(rarity)}`}>
                                 {rarity}
                               </td>
                             );
@@ -387,10 +429,11 @@ export default function RECalculator() {
         </div>
       )}
 
+      {/* Loading indicator */}
       {loading && (
-        <div className="fixed bottom-4 right-4 bg-hull-700 border border-hull-500 rounded-lg px-3 py-2 text-xs text-hull-200 flex items-center gap-2 shadow-lg">
-          <div className="w-3 h-3 border border-plasma-500 border-t-transparent rounded-full animate-spin" />
-          Calculating...
+        <div className="fixed bottom-5 right-5 bg-hull-700 border border-hull-500/60 rounded-xl px-3 py-2 text-xs text-hull-200 flex items-center gap-2 shadow-xl">
+          <div className="w-3 h-3 border border-plasma-400 border-t-transparent rounded-full animate-spin" />
+          Calculating…
         </div>
       )}
     </div>
