@@ -52,6 +52,7 @@ PASSWORD_RESET_EXPIRY_MINUTES = 60
 # Allowed URL schemes for mobile OAuth redirects (security: prevent open redirects)
 MOBILE_ALLOWED_SCHEMES = {"swgspacetools", "exp"}
 
+
 class DiscordOAuthError(Exception):
     def __init__(self, code: str):
         super().__init__(code)
@@ -267,12 +268,14 @@ def _unique_username(base: str, db: Session) -> str:
         counter += 1
     return candidate
 
+
 def _validate_mobile_redirect(url: str) -> bool:
     """Validate that a mobile redirect URL uses an allowed scheme."""
     if not url:
         return False
     scheme = url.split("://")[0].lower() if "://" in url else ""
     return scheme in MOBILE_ALLOWED_SCHEMES
+
 
 def _load_json(req: URLRequest, *, error_code: str, context: str, request_id: str | None = None) -> dict:
     start = time.perf_counter()
@@ -567,7 +570,10 @@ def discord_login(
     redirect_uri = _get_discord_redirect_uri(request)
     state = secrets.token_urlsafe(24)
     url = f"{DISCORD_AUTHORIZE_URL}?{urlencode({'client_id': os.getenv('DISCORD_CLIENT_ID', '').strip(), 'response_type': 'code', 'redirect_uri': redirect_uri, 'scope': 'identify email', 'state': state})}"
-    logger.info("discord_login_redirect_created", extra=_request_extra(request, redirect_uri=redirect_uri, platform=platform or "web"))
+    logger.info(
+        "discord_login_redirect_created",
+        extra=_request_extra(request, redirect_uri=redirect_uri, platform=platform or "web"),
+    )
     response = _with_state_cookie(RedirectResponse(url), state)
 
     # If this is a mobile OAuth flow, store the app's redirect URL in a cookie
