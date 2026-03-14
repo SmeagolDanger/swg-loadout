@@ -512,8 +512,8 @@ def analyze_component(
     # Compute post-RE or reverse outputs
     outputs = []
     rounding_notes = []
-    rounding_pre_vals = []   # pre-rounded result (game rounds input to 2dp first)
-    rounding_dir_vals = []   # direct result (game uses full precision input)
+    rounding_pre_vals = []  # pre-rounded result (game rounds input to 2dp first)
+    rounding_dir_vals = []  # direct result (game uses full precision input)
     for i in range(len(comp_stats)):
         input_val = _tf(raw_stats[i]) if raw_stats[i] != "" else 0
         if input_val == 0 or raw_stats[i] == "" or i >= len(tails):
