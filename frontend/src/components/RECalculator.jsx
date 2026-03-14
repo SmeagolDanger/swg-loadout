@@ -302,15 +302,22 @@ export default function RECalculator() {
                         const worse = r.rounding_note === 'round' ? r.rounding_dir : r.rounding_pre;
                         const better = r.output;
                         const doRound = r.rounding_note === 'round';
+                        const badgeColor = doRound ? '#f59e0b' : '#60a5fa';
+                        const betterUp = r.tail > 0; // higher is better for Vs. Shields/Armor
                         const tipText = doRound
                           ? `PRE-ROUND your input before REing.\nRounding first: ${better}\nFull precision: ${worse?.toFixed(3)}`
                           : `DO NOT PRE-ROUND before REing.\nFull precision: ${better}\nIf pre-rounded: ${worse?.toFixed(3)}`;
                         return (
-                          <span className="w-[52px] sm:w-[72px] shrink-0 flex flex-col items-end gap-0 cursor-help" title={tipText}>
-                            <span className="text-[10px] font-mono leading-tight font-semibold" style={{ color: doRound ? '#f59e0b' : '#60a5fa' }}>
-                              {better}
+                          <span className="w-[52px] sm:w-[72px] shrink-0 flex flex-col items-end gap-px cursor-help" title={tipText}>
+                            <span className="flex items-center gap-0.5">
+                              {betterUp
+                                ? <ChevronUp size={10} style={{ color: badgeColor }} className="shrink-0" />
+                                : <ChevronDown size={10} style={{ color: badgeColor }} className="shrink-0" />}
+                              <span className="text-sm font-mono leading-tight" style={{ color: badgeColor }}>
+                                {better}
+                              </span>
                             </span>
-                            <span className="text-[9px] font-mono leading-tight text-hull-500 line-through">
+                            <span className="text-[9px] font-mono leading-tight text-hull-500 line-through text-right w-full">
                               {worse?.toFixed(3)}
                             </span>
                           </span>
