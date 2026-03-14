@@ -252,12 +252,12 @@ export default function RECalculator() {
 
               {/* Column headers */}
               <div className="px-4 pt-3 pb-1">
-                <div className="flex items-center gap-2 text-[10px] font-display text-hull-400 tracking-[0.14em]">
-                  <span className="w-28 shrink-0">STAT</span>
-                  <span className="w-[88px] shrink-0 text-center">INPUT</span>
-                  <span className="w-[72px] shrink-0 text-right">{direction === 1 ? 'POST-RE' : 'RAW'}</span>
+                <div className="flex items-center gap-1 sm:gap-2 text-[10px] font-display text-hull-400 tracking-[0.14em]">
+                  <span className="w-14 sm:w-28 shrink-0">STAT</span>
+                  <span className="w-[66px] sm:w-[88px] shrink-0 text-center">INPUT</span>
+                  <span className="w-[52px] sm:w-[72px] shrink-0 text-right">{direction === 1 ? 'POST-RE' : 'RAW'}</span>
                   <span className="flex-1 text-right">RARITY</span>
-                  <span className="w-[52px] shrink-0 text-right">LOG Δ</span>
+                  <span className="w-[42px] sm:w-[52px] shrink-0 text-right">LOG Δ</span>
                 </div>
               </div>
 
@@ -271,16 +271,16 @@ export default function RECalculator() {
 
                   return (
                     <div key={i}
-                      className="flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-hull-700/50 transition-colors group">
+                      className="flex items-center gap-1 sm:gap-2 px-2 py-2 rounded-lg hover:bg-hull-700/50 transition-colors group">
                       {/* Stat name */}
-                      <span className="w-28 shrink-0 text-sm font-medium flex items-center gap-1"
+                      <span className="w-14 sm:w-28 shrink-0 text-sm font-medium flex items-center gap-1"
                         style={isUnicorn ? { color: '#ff69b4' } : {}}>
                         {isUnicorn && <Star size={11} style={{ color: '#ff69b4' }} className="shrink-0" />}
                         <span className={`truncate ${isUnicorn ? '' : 'text-hull-200'}`}>{stat.name}</span>
                       </span>
 
                       {/* Input */}
-                      <div className="w-[88px] shrink-0">
+                      <div className="w-[66px] sm:w-[88px] shrink-0">
                         <input
                           type="number" step="any"
                           value={inputs[`stat${i}`] ?? ''}
@@ -290,7 +290,7 @@ export default function RECalculator() {
                       </div>
 
                       {/* Post-RE / Raw */}
-                      <span className="w-[72px] shrink-0 text-sm font-mono text-right text-hull-200">
+                      <span className="w-[52px] sm:w-[72px] shrink-0 text-sm font-mono text-right text-hull-200">
                         {r?.output || '—'}
                       </span>
 
@@ -300,7 +300,7 @@ export default function RECalculator() {
                       </span>
 
                       {/* Log delta */}
-                      <span className="w-[52px] shrink-0 text-xs font-mono text-right tabular-nums"
+                      <span className="w-[42px] sm:w-[52px] shrink-0 text-xs font-mono text-right tabular-nums"
                         style={{ color: deltaColor || '#6b7280' }}>
                         {r?.log_delta !== '' && r?.log_delta !== undefined && r?.log_delta !== null
                           ? `${parseFloat(r.log_delta) >= 0 ? '+' : ''}${parseFloat(r.log_delta).toFixed(2)}`
@@ -321,7 +321,7 @@ export default function RECalculator() {
               <div className="card">
                 <div className="card-header"><Info size={15} /> ANALYSIS SUMMARY</div>
                 <div className="px-5 py-4">
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-3 gap-2 sm:gap-4">
                     <div>
                       <p className="text-[10px] font-display text-hull-400 tracking-[0.14em] mb-1">TARGET RARITY</p>
                       <p className="font-display text-xl font-bold text-hull-100">
@@ -360,24 +360,24 @@ export default function RECalculator() {
                 {result?.stats && hasInput ? (
                   <>
                     {/* Column headers */}
-                    <div className="flex items-center gap-3 text-[10px] font-display text-hull-400 tracking-[0.14em] px-2 mb-1">
+                    <div className="flex items-center gap-2 sm:gap-3 text-[10px] font-display text-hull-400 tracking-[0.14em] px-2 mb-1">
                       <span className="flex-1">STAT</span>
-                      <span className="w-[100px] shrink-0 text-right">MATCH RAW</span>
-                      <span className="w-[110px] shrink-0 text-right">MATCH POST-RE</span>
+                      <span className="w-[82px] sm:w-[100px] shrink-0 text-right">MATCH RAW</span>
+                      <span className="w-[90px] sm:w-[110px] shrink-0 text-right">MATCH POST-RE</span>
                     </div>
                     <div className="space-y-0.5">
                       {result.stats.map((stat, i) => {
                         const hasVal = stat.input !== '' && stat.input !== undefined;
                         return (
                           <div key={i}
-                            className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-hull-700/50 transition-colors">
+                            className="flex items-center gap-2 sm:gap-3 px-2 py-2 rounded-lg hover:bg-hull-700/50 transition-colors">
                             <span className={`flex-1 text-sm font-medium ${hasVal ? 'text-hull-200' : 'text-hull-500'}`}>
                               {stat.name}
                             </span>
-                            <span className={`w-[100px] shrink-0 text-sm font-mono text-right ${hasVal ? 'text-hull-100' : 'text-hull-500 italic'}`}>
+                            <span className={`w-[82px] sm:w-[100px] shrink-0 text-sm font-mono text-right ${hasVal ? 'text-hull-100' : 'text-hull-500 italic'}`}>
                               {stat.match_value || '—'}
                             </span>
-                            <span className={`w-[110px] shrink-0 text-sm font-mono text-right font-medium ${!hasVal ? 'text-hull-500 italic' : ''}`}
+                            <span className={`w-[90px] sm:w-[110px] shrink-0 text-sm font-mono text-right font-medium ${!hasVal ? 'text-hull-500 italic' : ''}`}
                               style={hasVal ? (stat.tier ? tierStyle(stat.tier) : rarityStyle(result.stats[i]?.rarity_display)) : {}}>
                               {stat.match_post || '—'}
                             </span>
