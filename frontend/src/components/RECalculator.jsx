@@ -5,6 +5,7 @@ import {
   FlaskConical, ArrowLeftRight, Save, FolderOpen, Trash2, Star,
   Info, BarChart3, ChevronDown, ChevronUp,
 } from 'lucide-react';
+import RECalculatorExport from './RECalculatorExport';
 
 // ── Rarity tier colors from STAJ.txt in-game macro scheme ────
 // D tier (#29db35): < 1 in 100  — common
@@ -145,6 +146,13 @@ export default function RECalculator() {
       <div className="flex items-center gap-3 mb-6">
         <FlaskConical size={22} className="text-plasma-400" />
         <h1 className="font-display text-2xl font-bold tracking-wider text-hull-100">RE CALCULATOR</h1>
+        {result && (
+          <RECalculatorExport
+            compType={compType} level={level} statDefs={statDefs}
+            inputs={inputs} result={result} matchTarget={matchTarget}
+            projectName={projectName}
+          />
+        )}
       </div>
 
       {/* Controls bar */}
