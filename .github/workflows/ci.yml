@@ -43,7 +43,8 @@ jobs:
         run: ruff format --check backend/
 
       - name: Pyright type check
-        run: pyright backend/
+        working-directory: backend
+        run: pyright .
         continue-on-error: true  # Advisory for now, don't block
 
   backend-test:
