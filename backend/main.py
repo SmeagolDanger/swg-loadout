@@ -43,6 +43,7 @@ from routers.loadout_router import router as loadout_router
 from routers.mods_router import admin_router as admin_mods_router
 from routers.mods_router import router as mods_router
 from routers.re_router import router as re_router
+from routers.ocr_router import router as ocr_router
 
 logger = logging.getLogger("slt")
 APP_VERSION = "3.0.0"
@@ -408,6 +409,7 @@ app.include_router(loadout_router)
 app.include_router(mods_router)
 app.include_router(admin_mods_router)
 app.include_router(re_router)
+app.include_router(ocr_router)
 
 
 @app.get("/api/health")
