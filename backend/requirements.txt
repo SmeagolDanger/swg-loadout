@@ -11,3 +11,4 @@ alembic==1.13.2
 email-validator>=2.0.0
 prometheus-client==0.21.1
 Pillow>=10.0.0
+pillow-heif>=0.18.0
