@@ -118,119 +118,134 @@ export default function RECalculator() {
     setProjects(p);
   };
 
-  const handleLoad = (proj) => {
-    setProjectName(proj.name);
-    setCompType(proj.comp_type);
-    setLevel(String(proj.re_level));
-    const newInputs = {};
-    proj.stats.forEach((v, i) => { if (v) newInputs[`stat${i}`] = String(v); });
-    setInputs(newInputs);
+  const handleLoad = (project) => {
+    setCompType(project.comp_type);
+    setLevel(project.re_level.toString());
+    setProjectName(project.name);
+    setTimeout(() => {
+      const newInputs = {};
+      project.stats.forEach((v, i) => { if (v) newInputs[`stat${i}`] = v; });
+      setInputs(newInputs);
+    }, 300);
     setShowProjects(false);
   };
 
-  const handleDelete = async (id) => {
-    await api.deleteREProject(id);
-    setProjects(projects.filter(p => p.id !== id));
+  const handleClear = () => {
+    setInputs({});
+    setResult(null);
+    setBrandTable(null);
+    setProjectName('');
   };
 
-  const targetOptions = ['Average Rarity', 'Best Stat', 'Worst Stat', ...statDefs.map(s => s.name)];
+  const hasInput = Object.values(inputs).some(v => v !== '' && v !== undefined);
+  const matchTargetOptions = ['Average Rarity', 'Best Stat', 'Worst Stat', ...statDefs.map(s => s.name)];
 
   return (
-    <div className="space-y-4 animate-slide-up">
-      {/* Header */}
-      <div className="card p-4 sm:p-5">
-        <div className="flex flex-col lg:flex-row gap-4 lg:items-end lg:justify-between">
-          <div className="space-y-3 flex-1 min-w-0">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-plasma-500/10 border border-plasma-500/20">
-              <FlaskConical className="w-4 h-4 text-plasma-400" />
-              <span className="text-sm font-display tracking-[0.16em] text-plasma-300">
-                RE CALCULATOR
-              </span>
+    <div className="max-w-7xl mx-auto px-3 md:px-6 py-4 md:py-6">
+      {/* Page header */}
+      <div className="flex items-center gap-3 mb-6">
+        <FlaskConical size={22} className="text-plasma-400" />
+        <h1 className="font-display text-2xl font-bold tracking-wider text-hull-100">RE CALCULATOR</h1>
+        {result && (
+          <RECalculatorExport
+            compType={compType} level={level} statDefs={statDefs}
+            inputs={inputs} result={result} matchTarget={matchTarget}
+            projectName={projectName}
+          />
+        )}
+      </div>
+
+      {/* Controls bar */}
+      <div className="card mb-5">
+        <div className="p-4">
+          <div className="flex flex-wrap items-end gap-3">
+            {/* Component type */}
+            <div className="flex-1 min-w-[160px]">
+              <label className="block text-[10px] font-display text-hull-300 tracking-[0.14em] mb-1.5">COMPONENT TYPE</label>
+              <select value={compType} onChange={e => { setCompType(e.target.value); setLevel(''); }}
+                className="w-full text-sm">
+                <option value="">Select...</option>
+                {['Armor','Booster','Capacitor','Droid Interface','Engine','Reactor','Shield','Weapon'].map(t =>
+                  <option key={t} value={t}>{t}</option>
+                )}
+              </select>
             </div>
-            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-              <div className="col-span-2 lg:col-span-1">
-                <label className="block text-xs font-display tracking-[0.14em] text-hull-400 mb-1.5">COMPONENT</label>
-                <select value={compType} onChange={e => setCompType(e.target.value)}>
-                  <option value="">Select type</option>
-                  {api.componentTypes.map(type => <option key={type} value={type}>{type}</option>)}
-                </select>
+
+            {/* RE Level */}
+            <div className="flex-1 min-w-[160px]">
+              <label className="block text-[10px] font-display text-hull-300 tracking-[0.14em] mb-1.5">RE LEVEL</label>
+              <select value={level} onChange={e => setLevel(e.target.value)}
+                className="w-full text-sm" disabled={!compType}>
+                <option value="">Select...</option>
+                {[1,2,3,4,5,6,7,8,9,10].map(l =>
+                  <option key={l} value={l}>Level {l} ({RE_BONUS[l-1]}%)</option>
+                )}
+              </select>
+            </div>
+
+            {/* Project (logged in) */}
+            {user && (
+              <div className="flex-1 min-w-[200px]">
+                <label className="block text-[10px] font-display text-hull-300 tracking-[0.14em] mb-1.5">PROJECT</label>
+                <div className="flex gap-1">
+                  <input value={projectName} onChange={e => setProjectName(e.target.value)}
+                    placeholder="Project name…" className="flex-1 text-sm" />
+                  <button onClick={handleSave} disabled={!projectName || !compType}
+                    title="Save" className="p-2 rounded hover:bg-hull-600 text-hull-300 hover:text-plasma-400 disabled:opacity-40">
+                    <Save size={15} />
+                  </button>
+                  <button onClick={() => setShowProjects(v => !v)}
+                    title="Load" className="p-2 rounded hover:bg-hull-600 text-hull-300 hover:text-plasma-400">
+                    <FolderOpen size={15} />
+                  </button>
+                </div>
               </div>
-              <div>
-                <label className="block text-xs font-display tracking-[0.14em] text-hull-400 mb-1.5">RE LEVEL</label>
-                <select value={level} onChange={e => setLevel(e.target.value)}>
-                  <option value="">Level</option>
-                  {Array.from({ length: 10 }, (_, i) => i + 1).map(l =>
-                    <option key={l} value={l}>{l} (+{RE_BONUS[l - 1]}%)</option>
-                  )}
-                </select>
-              </div>
-              <div className="col-span-2 lg:col-span-2">
-                <label className="block text-xs font-display tracking-[0.14em] text-hull-400 mb-1.5">MATCH TARGET</label>
-                <select value={matchTarget} onChange={e => setMatchTarget(e.target.value)}>
-                  {targetOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-display tracking-[0.14em] text-hull-400 mb-1.5">DIRECTION</label>
-                <button
-                  className="w-full btn-secondary py-2.5"
-                  onClick={() => setDirection(direction === 1 ? -1 : 1)}
-                  title="Toggle input/output direction"
-                >
-                  <ArrowLeftRight className="w-4 h-4" />
-                  <span className="text-xs">{direction === 1 ? 'Raw → Post-RE' : 'Post-RE → Raw'}</span>
-                </button>
-              </div>
+            )}
+
+            {/* Direction + Clear */}
+            <div className="flex items-center gap-2 pb-0.5">
+              <button onClick={() => setDirection(d => d === 1 ? -1 : 1)}
+                disabled={!compType}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-hull-500/50 bg-hull-700/60 text-xs font-medium text-hull-200 hover:text-plasma-300 hover:border-plasma-500/40 disabled:opacity-40 transition-colors">
+                <ArrowLeftRight size={13} />
+                {direction === 1 ? 'RAW → POST' : 'POST → RAW'}
+              </button>
+              <button onClick={handleClear}
+                className="px-3 py-2 rounded-lg border border-hull-500/50 bg-hull-700/60 text-xs font-medium text-hull-300 hover:text-hull-100 hover:border-hull-400/50 transition-colors">
+                CLEAR
+              </button>
             </div>
           </div>
 
-          {/* Save / load projects */}
-          {user && (
-            <div className="w-full lg:w-auto flex flex-col gap-2">
-              <label className="block text-xs font-display tracking-[0.14em] text-hull-400">SAVE PROJECT</label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={projectName}
-                  onChange={e => setProjectName(e.target.value)}
-                  placeholder="Project name"
-                  className="min-w-0 w-full lg:w-44"
-                />
-                <button className="btn-primary" onClick={handleSave} disabled={!projectName}>
-                  <Save className="w-4 h-4" />
-                </button>
-                <button className="btn-secondary" onClick={() => setShowProjects(!showProjects)}>
-                  <FolderOpen className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Project dropdown */}
-        {showProjects && user && (
-          <div className="mt-4 pt-4 border-t border-hull-700/60">
-            <div className="space-y-2 max-h-56 overflow-auto pr-1">
-              {projects.length === 0 && (
-                <p className="text-sm text-hull-500">No saved projects yet</p>
-              )}
-              {projects.map(proj => (
-                <div key={proj.id} className="flex items-center gap-2 p-2 rounded-lg bg-hull-800/60 border border-hull-700/60">
-                  <button className="flex-1 text-left min-w-0" onClick={() => handleLoad(proj)}>
-                    <div className="text-sm font-medium text-hull-100 truncate">{proj.name}</div>
-                    <div className="text-xs text-hull-400">
-                      {proj.comp_type} • L{proj.re_level}
-                    </div>
-                  </button>
-                  <button className="btn-ghost p-2" onClick={() => handleDelete(proj.id)}>
-                    <Trash2 className="w-4 h-4" />
+          {/* Saved projects list */}
+          {showProjects && projects.length > 0 && (
+            <div className="mt-3 pt-3 border-t border-hull-500/30 space-y-0.5">
+              {projects.map(p => (
+                <div key={p.id}
+                  className="flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-hull-600/60 cursor-pointer"
+                  onClick={() => handleLoad(p)}>
+                  <span className="text-sm text-hull-100 flex-1">{p.name}</span>
+                  <span className="text-xs text-hull-400">{p.comp_type} · L{p.re_level}</span>
+                  <button onClick={e => {
+                    e.stopPropagation();
+                    api.deleteREProject(p.id).then(() => api.getREProjects().then(setProjects));
+                  }} className="p-1 rounded hover:bg-hull-500/60 text-hull-400 hover:text-red-400 transition-colors">
+                    <Trash2 size={12} />
                   </button>
                 </div>
               ))}
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
+
+      {/* Empty state */}
+      {(!compType || !level) && (
+        <div className="text-center py-20">
+          <FlaskConical size={44} className="text-hull-600 mx-auto mb-4" />
+          <p className="text-hull-400 text-sm">Select a component type and RE level to begin analysis</p>
+        </div>
+      )}
 
       {/* Main analysis layout */}
       {compType && level && (
@@ -259,17 +274,17 @@ export default function RECalculator() {
                 {statDefs.map((stat, i) => {
                   const r = result?.stats?.[i];
                   const deltaColor = r ? getDeltaColor(r.log_delta) : '';
-                  const isUnicorn = Boolean(r?.is_unicorn);
+                  const isUnicorn = r?.is_unicorn;
                   const rStyle = r?.tier ? tierStyle(r.tier) : rarityStyle(r?.rarity_display);
-                  const nameStyle = r?.tier ? tierStyle(r.tier) : { color: '#e5e7eb' };
 
                   return (
                     <div key={i}
                       className="flex items-center gap-1 sm:gap-2 px-2 py-2 rounded-lg hover:bg-hull-700/50 transition-colors group">
                       {/* Stat name */}
-                      <span className="w-14 sm:w-28 shrink-0 text-sm font-medium flex items-center gap-1" style={nameStyle}>
+                      <span className="w-14 sm:w-28 shrink-0 text-sm font-medium flex items-center gap-1"
+                        style={isUnicorn ? { color: '#ff69b4' } : {}}>
                         {isUnicorn && <Star size={11} style={{ color: '#ff69b4' }} className="shrink-0" />}
-                        <span className="truncate">{stat.name}</span>
+                        <span className={`truncate ${isUnicorn ? '' : 'text-hull-200'}`}>{stat.name}</span>
                       </span>
 
                       {/* Input */}
@@ -329,83 +344,51 @@ export default function RECalculator() {
             </div>
           </div>
 
-          {/* ── CENTER: Summary ── */}
-          <div className="xl:col-span-3 2xl:col-span-3">
-            <div className="card h-full">
-              <div className="card-header">ANALYSIS SUMMARY</div>
+          {/* ── RIGHT: Summary + Matching ── */}
+          <div className="xl:col-span-7 2xl:col-span-7 space-y-4">
 
-              {loading && (
-                <div className="p-6 text-center text-sm text-hull-400">Analyzing…</div>
-              )}
-
-              {!loading && result && (
-                <div className="p-4 space-y-4">
-                  {/* Summary metrics */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="rounded-xl border border-hull-700/60 bg-hull-800/60 p-3">
-                      <div className="text-[11px] font-display tracking-[0.14em] text-hull-400 mb-1">TARGET RARITY</div>
-                      <div className="text-xl font-display font-semibold" style={result.target_tier ? tierStyle(result.target_tier) : rarityStyle(result.target_rarity_display)}>
+            {/* Analysis summary */}
+            {result && (
+              <div className="card">
+                <div className="card-header"><Info size={15} /> ANALYSIS SUMMARY</div>
+                <div className="px-5 py-4">
+                  <div className="grid grid-cols-3 gap-2 sm:gap-4">
+                    <div>
+                      <p className="text-[10px] font-display text-hull-400 tracking-[0.14em] mb-1">TARGET RARITY</p>
+                      <p className="font-display text-xl font-bold text-hull-100">
                         {result.target_rarity_display || '—'}
-                      </div>
+                      </p>
                     </div>
-                    <div className="rounded-xl border border-hull-700/60 bg-hull-800/60 p-3">
-                      <div className="text-[11px] font-display tracking-[0.14em] text-hull-400 mb-1">UNICORN THRESHOLD</div>
-                      <div className="text-xl font-display font-semibold" style={{ color: '#ff69b4' }}>
+                    <div>
+                      <p className="text-[10px] font-display text-hull-400 tracking-[0.14em] mb-1">UNICORN THRESHOLD</p>
+                      <p className="font-display text-xl font-bold" style={{ color: '#ff69b4' }}>
                         ⋆{result.unicorn_threshold || '—'}⋆
-                      </div>
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-display text-hull-400 tracking-[0.14em] mb-1">RE BONUS</p>
+                      <p className="font-display text-xl font-bold text-plasma-400">
+                        {RE_BONUS[parseInt(level) - 1]}%
+                      </p>
                     </div>
                   </div>
-
-                  {/* Quick legend */}
-                  <div className="rounded-xl border border-hull-700/60 bg-hull-800/40 p-3 space-y-2">
-                    <div className="text-[11px] font-display tracking-[0.14em] text-hull-400">STAJ TIERS</div>
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      <div><span style={{ color: '#ffcc00' }}>A</span> <span className="text-hull-300">10k+</span></div>
-                      <div><span style={{ color: '#f399ff' }}>B</span> <span className="text-hull-300">1k+</span></div>
-                      <div><span style={{ color: '#007fff' }}>C</span> <span className="text-hull-300">100+</span></div>
-                      <div><span style={{ color: '#29db35' }}>D</span> <span className="text-hull-300">&lt;100</span></div>
-                    </div>
-                    <div className="text-sm">
-                      <span style={{ color: '#ff69b4' }}>⋆ Unicorn</span>
-                      <span className="text-hull-400"> • separate from STAJ tier</span>
-                    </div>
-                  </div>
-
-                  {/* Export */}
-                  <RECalculatorExport
-                    compType={compType}
-                    level={level}
-                    statDefs={statDefs}
-                    inputs={inputs}
-                    result={result}
-                    direction={direction}
-                    matchTarget={matchTarget}
-                  />
                 </div>
-              )}
+              </div>
+            )}
 
-              {!loading && !result && (
-                <div className="p-6 text-center text-sm text-hull-500">
-                  Enter one or more stat values to begin analysis.
+            {/* Stat matching */}
+            <div className="card">
+              <div className="card-header"><BarChart3 size={15} /> STAT MATCHING</div>
+              <div className="px-4 py-3">
+                <div className="mb-4">
+                  <label className="block text-[10px] font-display text-hull-300 tracking-[0.14em] mb-1.5">MATCHING TARGET</label>
+                  <select value={matchTarget} onChange={e => setMatchTarget(e.target.value)}
+                    className="w-full sm:w-72 text-sm" disabled={!hasInput}>
+                    {matchTargetOptions.map(o => <option key={o} value={o}>{o}</option>)}
+                  </select>
                 </div>
-              )}
-            </div>
-          </div>
 
-          {/* ── RIGHT: Matching values ── */}
-          <div className="xl:col-span-4 2xl:col-span-4">
-            <div className="card h-full">
-              <button
-                type="button"
-                className="card-header w-full flex items-center justify-between"
-                onClick={() => setShowBrands(v => !v)}
-              >
-                <span>MATCHING VALUES</span>
-                {showBrands ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-              </button>
-
-              <div className="p-3">
-                {result ? (
+                {result?.stats && hasInput ? (
                   <>
                     {/* Column headers */}
                     <div className="flex items-center gap-2 sm:gap-3 text-[10px] font-display text-hull-400 tracking-[0.14em] px-2 mb-1">
@@ -425,12 +408,9 @@ export default function RECalculator() {
                             <span className={`w-[82px] sm:w-[100px] shrink-0 text-sm font-mono text-right ${hasVal ? 'text-hull-100' : 'text-hull-500 italic'}`}>
                               {stat.match_value || '—'}
                             </span>
-                            <span
-                              className={`w-[90px] sm:w-[110px] shrink-0 text-sm font-mono text-right font-medium flex items-center justify-end gap-1 ${!hasVal ? 'text-hull-500 italic' : ''}`}
-                              style={hasVal ? (stat.tier ? tierStyle(stat.tier) : rarityStyle(result.stats[i]?.rarity_display)) : {}}
-                            >
-                              {stat.is_unicorn && <Star size={11} style={{ color: '#ff69b4' }} className="shrink-0" />}
-                              <span>{stat.match_post || '—'}</span>
+                            <span className={`w-[90px] sm:w-[110px] shrink-0 text-sm font-mono text-right font-medium ${!hasVal ? 'text-hull-500 italic' : ''}`}
+                              style={hasVal ? (stat.tier ? tierStyle(stat.tier) : rarityStyle(result.stats[i]?.rarity_display)) : {}}>
+                              {stat.match_post || '—'}
                             </span>
                           </div>
                         );
@@ -446,35 +426,59 @@ export default function RECalculator() {
             </div>
 
             {/* Brand breakdown toggle */}
-            <div className="mt-4">
-              <button className="btn-secondary w-full" onClick={fetchBrandTable}>
-                <BarChart3 className="w-4 h-4" />
-                <span>Show Brand Breakdown</span>
+            {hasInput && (
+              <button
+                onClick={showBrands ? () => setShowBrands(false) : fetchBrandTable}
+                className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl border border-hull-500/40 bg-hull-800/60 text-xs font-display font-semibold tracking-[0.14em] text-hull-300 hover:text-hull-100 hover:border-hull-400/60 transition-colors">
+                <BarChart3 size={14} />
+                {showBrands ? 'HIDE' : 'SHOW'} BRAND RARITY BREAKDOWN
+                {showBrands ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
               </button>
-            </div>
+            )}
 
+            {/* Brand table */}
             {showBrands && brandTable && (
-              <div className="card mt-4">
-                <div className="card-header">BRAND RARITY BREAKDOWN</div>
-                <div className="p-3 space-y-4 max-h-[32rem] overflow-auto">
-                  {brandTable.table.map((row, idx) => (
-                    <div key={idx} className="space-y-2">
-                      <div className="text-sm font-medium text-hull-100">{row.stat}</div>
-                      <div className="grid grid-cols-2 gap-2">
-                        {row.brands.map((b, j) => (
-                          <div key={j} className="rounded-lg border border-hull-700/60 bg-hull-800/50 px-2 py-1.5">
-                            <div className="text-xs text-hull-400 truncate">{b.name}</div>
-                            <div className="text-sm font-mono" style={rarityStyle(b.rarity)}>{b.rarity}</div>
-                          </div>
+              <div className="card animate-slide-up">
+                <div className="card-header"><BarChart3 size={15} /> BRAND RARITY TABLE</div>
+                <div className="p-3 overflow-x-auto">
+                  <table className="w-full text-xs min-w-[400px]">
+                    <thead>
+                      <tr className="text-hull-400 font-display tracking-wider">
+                        <th className="text-left py-1.5 px-2 sticky left-0 bg-hull-700 font-medium">Brand</th>
+                        {brandTable.table.map((col, i) => (
+                          <th key={i} className="text-right py-1.5 px-2 whitespace-nowrap font-medium">{col.stat}</th>
                         ))}
-                      </div>
-                    </div>
-                  ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {brandTable.brand_names.map((name, j) => (
+                        <tr key={j} className="border-t border-hull-600/30 hover:bg-hull-600/20 transition-colors">
+                          <td className="py-1.5 px-2 text-hull-200 font-medium sticky left-0 bg-hull-700 whitespace-nowrap">{name}</td>
+                          {brandTable.table.map((col, i) => {
+                            const rarity = col.brands[j]?.rarity || '—';
+                            return (
+                              <td key={i} className="py-1.5 px-2 text-right font-mono"
+                                style={rarityStyle(rarity)}>
+                                {rarity}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             )}
           </div>
+        </div>
+      )}
 
+      {/* Loading indicator */}
+      {loading && (
+        <div className="fixed bottom-5 right-5 bg-hull-700 border border-hull-500/60 rounded-xl px-3 py-2 text-xs text-hull-200 flex items-center gap-2 shadow-xl">
+          <div className="w-3 h-3 border border-plasma-400 border-t-transparent rounded-full animate-spin" />
+          Calculating…
         </div>
       )}
     </div>
