@@ -93,16 +93,25 @@ STAT_ALIASES = {
 # Internal stat name → stat position index per component type
 # Position matches stat1..stat8 in the database
 COMP_STAT_ORDER = {
-    "reactor":                ["mass", "generation"],
-    "engine":                 ["drain", "mass", "pitch", "yaw", "roll", "top speed"],
-    "booster":                ["drain", "mass", "energy", "recharge rate", "consumption", "acceleration", "top speed"],
-    "shield":                 ["drain", "mass", "hp", "recharge rate"],
-    "armor":                  ["hp", "mass"],
-    "capacitor":              ["drain", "mass", "cap energy", "cap recharge"],
-    "droidinterface":         ["drain", "mass", "cmd speed"],
-    "cargohold":              ["mass"],
-    "weapon":                 ["drain", "mass", "min damage", "max damage", "vs shields", "vs armor", "energy/shot", "refire rate"],
-    "ordnancelauncher":       ["drain", "mass", "min damage", "max damage", "vs shields", "vs armor", "ammo", "pve multiplier"],
+    "reactor": ["mass", "generation"],
+    "engine": ["drain", "mass", "pitch", "yaw", "roll", "top speed"],
+    "booster": ["drain", "mass", "energy", "recharge rate", "consumption", "acceleration", "top speed"],
+    "shield": ["drain", "mass", "hp", "recharge rate"],
+    "armor": ["hp", "mass"],
+    "capacitor": ["drain", "mass", "cap energy", "cap recharge"],
+    "droidinterface": ["drain", "mass", "cmd speed"],
+    "cargohold": ["mass"],
+    "weapon": ["drain", "mass", "min damage", "max damage", "vs shields", "vs armor", "energy/shot", "refire rate"],
+    "ordnancelauncher": [
+        "drain",
+        "mass",
+        "min damage",
+        "max damage",
+        "vs shields",
+        "vs armor",
+        "ammo",
+        "pve multiplier",
+    ],
     "countermeasurelauncher": ["drain", "mass", "ammo"],
 }
 
