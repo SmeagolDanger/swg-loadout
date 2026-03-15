@@ -145,9 +145,9 @@ def _run_tesseract(image_path: str) -> str:
             raise RuntimeError(f"Tesseract failed: {result.stderr[:200]}")
         return result.stdout
     except FileNotFoundError:
-        raise RuntimeError("Tesseract is not installed on the server")
+        raise RuntimeError("Tesseract is not installed on the server") from None
     except subprocess.TimeoutExpired:
-        raise RuntimeError("OCR timed out")
+        raise RuntimeError("OCR timed out") from None
 
 
 def _clean_value(raw: str) -> float | None:
@@ -200,7 +200,6 @@ def _parse_stats(text: str, comp_type: str) -> dict:
     if not stat_order:
         return {}
 
-    text_lower = text.lower()
     found_stats = {}
 
     # Find all "Label: Value" patterns
@@ -270,7 +269,7 @@ async def parse_component_image(file: UploadFile = File(...)):
     try:
         raw_text = _run_tesseract(tmp_path)
     except RuntimeError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
     finally:
         Path(tmp_path).unlink(missing_ok=True)
 
@@ -279,7 +278,7 @@ async def parse_component_image(file: UploadFile = File(...)):
 
     logger.info("ocr_text_extracted", extra={"char_count": len(raw_text)})
 
-    lines = [l.strip() for l in raw_text.strip().split("\n") if l.strip()]
+    lines = [line.strip() for line in raw_text.strip().split("\n") if line.strip()]
     text_lower = raw_text.lower()
 
     # Guess component type
