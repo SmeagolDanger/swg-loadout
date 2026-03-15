@@ -18,6 +18,7 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from PIL import Image
 
 pillow_heif.register_heif_opener()
+
 router = APIRouter(prefix="/api/ocr", tags=["ocr"])
 logger = logging.getLogger(__name__)
 
@@ -137,12 +138,16 @@ TYPE_HINTS: dict[str, list[str]] = {
 
 
 def _convert_to_png(contents: bytes) -> bytes:
-    """Convert any image format to PNG using Pillow."""
+    """Convert any image format to a reasonably sized PNG."""
     try:
         img = Image.open(io.BytesIO(contents))
-        # Convert to RGB if necessary (handles RGBA, palette, etc.)
         if img.mode not in ("RGB", "L"):
             img = img.convert("RGB")
+        # Resize if too large — Tesseract works best around 1000-1500px wide
+        max_width = 1500
+        if img.width > max_width:
+            ratio = max_width / img.width
+            img = img.resize((max_width, int(img.height * ratio)), Image.LANCZOS)
         buf = io.BytesIO()
         img.save(buf, format="PNG")
         return buf.getvalue()
