@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pillow_heif
 from fastapi import APIRouter, File, HTTPException, UploadFile
-from PIL import Image
+from PIL import Image, ImageEnhance, ImageOps
 
 pillow_heif.register_heif_opener()
 
@@ -80,18 +80,26 @@ STAT_ALIASES: dict[str, str] = {
     # Weapon — SWG shows "Damage - Minimum" and "Damage - Maximum"
     "damage - minimum": "min damage",
     "damage-minimum": "min damage",
+    "damage -minimum": "min damage",
+    "damage- minimum": "min damage",
     "minimum damage": "min damage",
     "min damage": "min damage",
     "damage - maximum": "max damage",
     "damage-maximum": "max damage",
+    "damage -maximum": "max damage",
+    "damage- maximum": "max damage",
     "maximum damage": "max damage",
     "max damage": "max damage",
     "vs. shields": "vs shields",
     "vs shields": "vs shields",
+    "vs, shields": "vs shields",
     "vs. armor": "vs armor",
     "vs armor": "vs armor",
+    "vs, armor": "vs armor",
     "energy per shot": "energy/shot",
     "energy/shot": "energy/shot",
+    "energy/ shot": "energy/shot",
+    "energy /shot": "energy/shot",
     "refire rate": "refire rate",
     "refire": "refire rate",
     # Ordnance
@@ -141,15 +149,39 @@ TYPE_STAT_SIGNATURES: dict[str, set[str]] = {
 
 
 def _convert_to_png(contents: bytes) -> bytes:
-    """Convert any image format to a reasonably sized PNG."""
+    """Convert image to OCR-optimized grayscale PNG.
+
+    SWG's examine window has colored text (yellow, white, cyan, magenta)
+    on a dark teal background. We convert to grayscale, boost contrast,
+    and apply sharpening to make text crisp for Tesseract.
+    """
     try:
         img = Image.open(io.BytesIO(contents))
-        if img.mode not in ("RGB", "L"):
+        if img.mode != "RGB":
             img = img.convert("RGB")
-        max_width = 1500
-        if img.width > max_width:
-            ratio = max_width / img.width
-            img = img.resize((max_width, int(img.height * ratio)), Image.LANCZOS)
+
+        # Resize to a consistent width for OCR (too large = slow, too small = illegible)
+        target_width = 1200
+        if img.width != target_width:
+            ratio = target_width / img.width
+            img = img.resize((target_width, int(img.height * ratio)), Image.LANCZOS)
+
+        # Convert to grayscale
+        img = img.convert("L")
+
+        # Boost contrast — makes text stand out from background
+        img = ImageEnhance.Contrast(img).enhance(2.5)
+        img = ImageEnhance.Sharpness(img).enhance(2.0)
+
+        # Apply adaptive-style threshold: pixels above threshold become white, below become black
+        # SWG text is bright on dark background, so text becomes white
+        # We invert so text is black on white (what Tesseract prefers)
+        threshold = 120
+        img = img.point(lambda px: 255 if px > threshold else 0)
+
+        # Invert: black text on white background
+        img = ImageOps.invert(img)
+
         buf = io.BytesIO()
         img.save(buf, format="PNG")
         return buf.getvalue()
@@ -158,10 +190,20 @@ def _convert_to_png(contents: bytes) -> bytes:
 
 
 def _run_tesseract(image_path: str) -> str:
-    """Run Tesseract OCR on an image file and return extracted text."""
+    """Run Tesseract OCR on a preprocessed image."""
     try:
         result = subprocess.run(
-            ["tesseract", image_path, "stdout", "--psm", "3", "-l", "eng"],
+            [
+                "tesseract",
+                image_path,
+                "stdout",
+                "--psm",
+                "4",  # Assume single column of variable-sized text
+                "-l",
+                "eng",
+                "-c",
+                "tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.:/-() ,*",
+            ],
             capture_output=True,
             text=True,
             timeout=30,
@@ -186,10 +228,11 @@ def _clean_value(raw: str) -> float | None:
       "592.4/592.4"      → 592.4  (takes first number)
       ">0.676"           → 0.676
       "33,433.2"         → 33433.2
+      "1756.4 *"         → 1756.4
     """
     raw = raw.strip()
     # Strip tier info: "1596.3 (B Tier)" → "1596.3"
-    raw = re.sub(r"\s*\([^)]*\)\s*$", "", raw)
+    raw = re.sub(r"\s*\([^)]*\)\s*", " ", raw)
     # Take first value from "592.4/592.4" format
     if "/" in raw:
         raw = raw.split("/")[0]
@@ -197,10 +240,12 @@ def _clean_value(raw: str) -> float | None:
     raw = raw.lstrip("><")
     # Remove commas
     raw = raw.replace(",", "")
-    # Remove any trailing non-numeric chars (OCR artifacts like *)
-    raw = re.sub(r"[^0-9.\-]", "", raw)
+    # Extract the first number-like thing (handles trailing junk from OCR)
+    num_match = re.search(r"-?\d+\.?\d*", raw)
+    if not num_match:
+        return None
     try:
-        return float(raw)
+        return float(num_match.group())
     except ValueError:
         return None
 
@@ -216,14 +261,45 @@ def _normalize_label(label: str) -> str:
 
 
 def _match_stat(label: str) -> str | None:
-    """Match a normalized label to an internal stat name."""
-    # Exact match first
+    """Match a normalized label to an internal stat name.
+
+    Uses exact match first, then substring matching, then
+    keyword-based matching for OCR-corrupted text.
+    """
+    # Exact match
     if label in STAT_ALIASES:
         return STAT_ALIASES[label]
-    # Substring match — check if any alias is contained in the label or vice versa
+
+    # Substring match — check both directions
     for alias, internal in STAT_ALIASES.items():
         if alias in label or label in alias:
             return internal
+
+    # Keyword-based fallback for heavily corrupted OCR
+    # Check if key distinguishing words appear
+    if "damage" in label and "min" in label:
+        return "min damage"
+    if "damage" in label and "max" in label:
+        return "max damage"
+    if "shield" in label and ("vs" in label or "v." in label):
+        return "vs shields"
+    if "armor" in label and ("vs" in label or "v." in label):
+        return "vs armor"
+    if "energy" in label and "shot" in label:
+        return "energy/shot"
+    if "refire" in label or "re fire" in label:
+        return "refire rate"
+    if "energy" in label and "drain" in label:
+        return "drain"
+    if "generation" in label:
+        return "generation"
+    if "pitch" in label:
+        return "pitch"
+    if "yaw" in label:
+        return "yaw"
+    if "roll" in label and "cargo" not in label:
+        return "roll"
+
     return None
 
 
@@ -271,20 +347,41 @@ def _extract_name(lines: list[str]) -> str:
 
 
 def _parse_all_stats(text: str) -> dict[str, float]:
-    """Parse all stat values from OCR text, returning {internal_name: value}."""
+    """Parse all stat values from OCR text, returning {internal_name: value}.
+
+    Handles common OCR artifacts in SWG screenshots:
+    - Mangled dashes in "Damage - Minimum"
+    - Asterisks/special chars from SWG icons: "Damage - Minimum*:"
+    - Tier annotations: "1596.3 (B Tier)"
+    - Current/max format: "592.4/592.4"
+    - Colon variations and missing colons
+    """
     found: dict[str, float] = {}
 
+    # Pre-clean the entire text block
+    cleaned_lines = []
     for line in text.split("\n"):
         line = line.strip()
         if not line:
             continue
+        # Normalize various dash types to standard dash
+        line = line.replace("—", "-").replace("–", "-").replace("~", "-")
+        # Remove common OCR artifacts that appear next to text
+        line = re.sub(r"[*°™©®†‡]+", "", line)
+        # Normalize multiple spaces
+        line = re.sub(r"\s+", " ", line)
+        cleaned_lines.append(line)
 
-        # Try multiple patterns for "Label: Value"
-        # Pattern 1: "Label: Value" (standard)
+    for line in cleaned_lines:
+        # Try multiple extraction patterns
+
+        # Pattern 1: "Label: Value" or "Label: Value (Tier info)"
         match = re.match(r"^(.+?):\s*(.+)$", line)
+
+        # Pattern 2: "Label Value" with 2+ spaces as separator
         if not match:
-            # Pattern 2: "Label Value" (OCR drops colon)
             match = re.match(r"^(.+?)\s{2,}(.+)$", line)
+
         if not match:
             continue
 
@@ -292,6 +389,9 @@ def _parse_all_stats(text: str) -> dict[str, float]:
         value_raw = match.group(2)
 
         label = _normalize_label(label_raw)
+        if not label or len(label) < 2:
+            continue
+
         internal = _match_stat(label)
         if not internal:
             continue
@@ -300,9 +400,10 @@ def _parse_all_stats(text: str) -> dict[str, float]:
         if value is None:
             continue
 
-        # Don't overwrite if we already found this stat
+        # Don't overwrite — first match wins (avoids Armor/Hitpoints overwriting each other)
         if internal not in found:
             found[internal] = value
+            logger.debug("ocr_stat_matched", extra={"label": label, "internal": internal, "value": value})
 
     return found
 
@@ -356,7 +457,7 @@ async def parse_component_image(file: UploadFile = File(...)):
     if not raw_text.strip():
         raise HTTPException(status_code=422, detail="No text could be extracted from the image")
 
-    logger.info("ocr_text_extracted", extra={"char_count": len(raw_text), "preview": raw_text[:300]})
+    logger.info("ocr_text_extracted", extra={"char_count": len(raw_text), "preview": raw_text[:500]})
 
     lines = [line.strip() for line in raw_text.strip().split("\n") if line.strip()]
 
@@ -368,6 +469,24 @@ async def parse_component_image(file: UploadFile = File(...)):
 
     # Guess type from what stats we found (more reliable than keyword matching)
     guessed_type = _guess_type_from_stats(found_stats)
+
+    # Build ordered stat array for the guessed type
+    stat_labels: list[str] = []
+    stats: list[float] = []
+    if guessed_type:
+        stat_labels = COMP_STAT_ORDER.get(guessed_type, [])
+        stats = [found_stats.get(s, 0) for s in stat_labels]
+
+    logger.info(
+        "ocr_parse_result",
+        extra={
+            "guessed_type": guessed_type,
+            "guessed_name": guessed_name,
+            "found_count": len(found_stats),
+            "found_stats": {k: v for k, v in found_stats.items()},
+            "missed_stats": [s for s in stat_labels if s not in found_stats] if stat_labels else [],
+        },
+    )
 
     # Build ordered stat array for the guessed type
     stat_labels: list[str] = []
