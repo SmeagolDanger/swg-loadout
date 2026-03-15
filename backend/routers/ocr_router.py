@@ -172,7 +172,7 @@ def _guess_component_type(text_lower: str) -> str | None:
             scores[comp_type] = score
     if not scores:
         return None
-    return max(scores, key=scores.get)
+    return max(scores, key=lambda k: scores[k])
 
 
 def _extract_name(lines: list[str]) -> str:
