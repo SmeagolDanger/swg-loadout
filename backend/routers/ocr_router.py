@@ -409,13 +409,15 @@ def _parse_all_stats(text: str) -> dict[str, float]:
         # Check if this line contains fragments of known stat names
         lower = line.lower()
 
-        if "max" in lower and "damage" not in lower and "max damage" not in found and value > 100:  # damage values are large
-                found["max damage"] = value
-                continue
+        if (
+            "max" in lower and "damage" not in lower and "max damage" not in found and value > 100
+        ):  # damage values are large
+            found["max damage"] = value
+            continue
 
         if "shield" in lower and "vs shields" not in found and value < 2:  # vs shields is always < 2
-                found["vs shields"] = value
-                continue
+            found["vs shields"] = value
+            continue
 
     # ── Third pass: positional recovery for weapon stats ────────────
     # If we found min damage but not max damage, look for a standalone
