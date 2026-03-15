@@ -13,9 +13,10 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+import pillow_heif
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from PIL import Image
-import pillow_heif
+
 pillow_heif.register_heif_opener()
 router = APIRouter(prefix="/api/ocr", tags=["ocr"])
 logger = logging.getLogger(__name__)
