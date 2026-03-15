@@ -1,10 +1,12 @@
 """OCR-based component parsing from screenshots.
 
-Accepts an image of an SWG component examine window, runs Tesseract OCR,
-and attempts to extract the component type, name, and stat values.
+Accepts an image of an SWG component examine window, converts it to
+a clean PNG via Pillow, runs Tesseract OCR, and attempts to extract
+the component type, name, and stat values.
 Returns structured data for the user to review before saving.
 """
 
+import io
 import logging
 import re
 import subprocess
@@ -12,6 +14,7 @@ import tempfile
 from pathlib import Path
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
+from PIL import Image
 
 router = APIRouter(prefix="/api/ocr", tags=["ocr"])
 logger = logging.getLogger(__name__)
@@ -20,7 +23,7 @@ logger = logging.getLogger(__name__)
 # SWG displays stats with varying names. This maps all known variants
 # to the internal stat name used by the app. Stats may appear in any order.
 
-STAT_ALIASES = {
+STAT_ALIASES: dict[str, str] = {
     # Drain
     "energy drain": "drain",
     "energy maintenance": "drain",
@@ -92,7 +95,7 @@ STAT_ALIASES = {
 
 # Internal stat name → stat position index per component type
 # Position matches stat1..stat8 in the database
-COMP_STAT_ORDER = {
+COMP_STAT_ORDER: dict[str, list[str]] = {
     "reactor": ["mass", "generation"],
     "engine": ["drain", "mass", "pitch", "yaw", "roll", "top speed"],
     "booster": ["drain", "mass", "energy", "recharge rate", "consumption", "acceleration", "top speed"],
@@ -116,7 +119,7 @@ COMP_STAT_ORDER = {
 }
 
 # Keywords in the examine window that hint at the component type
-TYPE_HINTS = {
+TYPE_HINTS: dict[str, list[str]] = {
     "reactor": ["reactor", "energy generation"],
     "engine": ["engine", "pitch rate", "yaw rate", "roll rate"],
     "booster": ["booster"],
@@ -131,18 +134,35 @@ TYPE_HINTS = {
 }
 
 
+def _convert_to_png(contents: bytes) -> bytes:
+    """Convert any image format to PNG using Pillow."""
+    try:
+        img = Image.open(io.BytesIO(contents))
+        # Convert to RGB if necessary (handles RGBA, palette, etc.)
+        if img.mode not in ("RGB", "L"):
+            img = img.convert("RGB")
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        return buf.getvalue()
+    except Exception as exc:
+        raise RuntimeError(f"Could not process image: {exc}") from exc
+
+
 def _run_tesseract(image_path: str) -> str:
     """Run Tesseract OCR on an image file and return extracted text."""
     try:
         result = subprocess.run(
-            ["tesseract", image_path, "stdout", "--psm", "6", "-l", "eng"],
+            ["tesseract", image_path, "stdout", "--psm", "3", "-l", "eng"],
             capture_output=True,
             text=True,
-            timeout=15,
+            timeout=30,
         )
         if result.returncode != 0:
-            logger.warning("tesseract_failed", extra={"stderr": result.stderr[:500]})
-            raise RuntimeError(f"Tesseract failed: {result.stderr[:200]}")
+            stderr = result.stderr.strip()
+            logger.warning("tesseract_failed", extra={"stderr": stderr[:500], "returncode": result.returncode})
+            raise RuntimeError(
+                f"Tesseract failed: {stderr[:200]}" if stderr else "Tesseract failed: Error during processing"
+            )
         return result.stdout
     except FileNotFoundError:
         raise RuntimeError("Tesseract is not installed on the server") from None
@@ -153,9 +173,7 @@ def _run_tesseract(image_path: str) -> str:
 def _clean_value(raw: str) -> float | None:
     """Parse a stat value string, handling SWG's > and < prefixes."""
     raw = raw.strip()
-    # Remove > and < prefixes (SWG uses >0.676 for vs. shields etc.)
     raw = raw.lstrip("><")
-    # Remove commas in large numbers
     raw = raw.replace(",", "")
     try:
         return float(raw)
@@ -165,7 +183,7 @@ def _clean_value(raw: str) -> float | None:
 
 def _guess_component_type(text_lower: str) -> str | None:
     """Guess the component type from OCR text based on keyword hints."""
-    scores = {}
+    scores: dict[str, int] = {}
     for comp_type, keywords in TYPE_HINTS.items():
         score = sum(1 for kw in keywords if kw in text_lower)
         if score > 0:
@@ -177,19 +195,14 @@ def _guess_component_type(text_lower: str) -> str | None:
 
 def _extract_name(lines: list[str]) -> str:
     """Try to extract the component name from the first few lines."""
-    # The component name is usually the first non-empty line or a line
-    # that doesn't look like a stat (no colon with a number after it)
     for line in lines[:5]:
         stripped = line.strip()
         if not stripped:
             continue
-        # Skip lines that look like stats
         if re.match(r"^.+:\s*[\d<>.]", stripped):
             continue
-        # Skip very short lines (likely OCR noise)
         if len(stripped) < 3:
             continue
-        # This is likely the component name
         return stripped
     return ""
 
@@ -200,10 +213,8 @@ def _parse_stats(text: str, comp_type: str) -> dict:
     if not stat_order:
         return {}
 
-    found_stats = {}
+    found_stats: dict[str, float] = {}
 
-    # Find all "Label: Value" patterns
-    # Also handle "Label Value" without colon (OCR sometimes drops colons)
     for line in text.split("\n"):
         line = line.strip()
         if not line:
@@ -223,10 +234,8 @@ def _parse_stats(text: str, comp_type: str) -> dict:
         if value is None:
             continue
 
-        # Find which internal stat this label maps to
         internal_name = STAT_ALIASES.get(label)
         if not internal_name:
-            # Try partial matching for OCR typos
             for alias, internal in STAT_ALIASES.items():
                 if alias in label or label in alias:
                     internal_name = internal
@@ -235,8 +244,7 @@ def _parse_stats(text: str, comp_type: str) -> dict:
         if internal_name and internal_name in stat_order:
             found_stats[internal_name] = value
 
-    # Build the stat array in the correct order
-    stats = []
+    stats: list[float] = []
     for stat_name in stat_order:
         stats.append(found_stats.get(stat_name, 0))
 
@@ -250,45 +258,46 @@ def _parse_stats(text: str, comp_type: str) -> dict:
 @router.post("/parse-component")
 async def parse_component_image(file: UploadFile = File(...)):
     """Accept an image upload, run OCR, and return parsed component data."""
-    # Validate file type
     content_type = file.content_type or ""
     if not content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="File must be an image")
 
-    # Limit file size (10MB)
     contents = await file.read()
     if len(contents) > 10 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="Image too large (max 10MB)")
 
-    # Write to temp file for Tesseract
-    suffix = ".png" if "png" in content_type else ".jpg"
-    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
-        tmp.write(contents)
+    logger.info("ocr_upload_received", extra={"content_type": content_type, "size": len(contents)})
+
+    # Convert to clean PNG via Pillow (handles HEIC, JPEG, etc.)
+    try:
+        png_bytes = _convert_to_png(contents)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    # Write PNG to temp file for Tesseract
+    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
+        tmp.write(png_bytes)
         tmp_path = tmp.name
 
     try:
         raw_text = _run_tesseract(tmp_path)
-    except RuntimeError as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+    except RuntimeError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
     finally:
         Path(tmp_path).unlink(missing_ok=True)
 
     if not raw_text.strip():
         raise HTTPException(status_code=422, detail="No text could be extracted from the image")
 
-    logger.info("ocr_text_extracted", extra={"char_count": len(raw_text)})
+    logger.info("ocr_text_extracted", extra={"char_count": len(raw_text), "preview": raw_text[:200]})
 
     lines = [line.strip() for line in raw_text.strip().split("\n") if line.strip()]
     text_lower = raw_text.lower()
 
-    # Guess component type
     guessed_type = _guess_component_type(text_lower)
-
-    # Extract name
     guessed_name = _extract_name(lines)
 
-    # Parse stats (try guessed type, or return raw text if we can't determine type)
-    parsed = {}
+    parsed: dict = {}
     if guessed_type:
         parsed = _parse_stats(raw_text, guessed_type)
 
