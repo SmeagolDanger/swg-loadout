@@ -28,10 +28,15 @@ logger = logging.getLogger(__name__)
 # Keys are lowercase. SWG uses many different label formats.
 STAT_ALIASES: dict[str, str] = {
     # Drain — SWG shows "Reactor Energy Drain"
+    # Tesseract often misreads "Drain" as "Orain" or "Dain"
     "reactor energy drain": "drain",
+    "reactor energy orain": "drain",
+    "reactor energy dain": "drain",
     "energy drain": "drain",
+    "energy orain": "drain",
     "energy maintenance": "drain",
     "drain": "drain",
+    "orain": "drain",
     # Mass
     "mass": "mass",
     # Generation (reactor)
@@ -228,9 +233,17 @@ def _clean_value(raw: str) -> float | None:
 def _normalize_label(label: str) -> str:
     """Clean up an OCR'd stat label for matching."""
     label = label.strip().lower()
+    # Replace unicode dashes/quotes with ASCII equivalents
+    label = label.replace("\u2014", "-")  # em-dash
+    label = label.replace("\u2013", "-")  # en-dash
+    label = label.replace("\u2018", "")  # left single quote
+    label = label.replace("\u2019", "")  # right single quote
+    label = label.replace("\u201c", "")  # left double quote
+    label = label.replace("\u201d", "")  # right double quote
     # Remove OCR artifacts: ~, ^, *, trailing colons
-    label = re.sub(r"[~^*°]+", "", label)
+    label = re.sub(r"[~^*°'\"]+", "", label)
     label = label.rstrip(":")
+    label = label.rstrip("-")
     label = label.strip()
     return label
 
@@ -264,7 +277,7 @@ def _match_stat(label: str) -> str | None:
         return "energy/shot"
     if "refire" in label or "re fire" in label:
         return "refire rate"
-    if "energy" in label and "drain" in label:
+    if "energy" in label and ("drain" in label or "orain" in label or "dain" in label):
         return "drain"
     if "generation" in label:
         return "generation"
@@ -330,6 +343,7 @@ def _parse_all_stats(text: str) -> dict[str, float]:
     - Tier annotations: "1596.3 (B Tier)"
     - Current/max format: "592.4/592.4"
     - Colon variations and missing colons
+    - Unicode smart quotes and em-dashes
     """
     found: dict[str, float] = {}
 
@@ -339,6 +353,10 @@ def _parse_all_stats(text: str) -> dict[str, float]:
         line = line.strip()
         if not line:
             continue
+        # Replace unicode chars
+        line = line.replace("\u2014", "-").replace("\u2013", "-")
+        line = line.replace("\u2018", "").replace("\u2019", "")
+        line = line.replace("\u201c", "").replace("\u201d", "")
         # Normalize various dash types to standard dash
         line = line.replace("—", "-").replace("–", "-").replace("~", "-")
         # Remove common OCR artifacts that appear next to text
@@ -348,8 +366,6 @@ def _parse_all_stats(text: str) -> dict[str, float]:
         cleaned_lines.append(line)
 
     for line in cleaned_lines:
-        # Try multiple extraction patterns
-
         # Pattern 1: "Label: Value" or "Label: Value (Tier info)"
         match = re.match(r"^(.+?):\s*(.+)$", line)
 
@@ -375,10 +391,59 @@ def _parse_all_stats(text: str) -> dict[str, float]:
         if value is None:
             continue
 
-        # Don't overwrite — first match wins (avoids Armor/Hitpoints overwriting each other)
         if internal not in found:
             found[internal] = value
             logger.debug("ocr_stat_matched", extra={"label": label, "internal": internal, "value": value})
+
+    # ── Second pass: recover orphan values ──────────────────────────
+    # Look for lines that have a number but whose label didn't match.
+    # Try to assign them to well-known stats that are missing.
+    # Common case: "Damage - Maximum" gets garbled but 2790.8 is still there.
+    for line in cleaned_lines:
+        # Find any line with a number that we haven't already matched
+        num_match = re.search(r"(\d+\.?\d*)", line)
+        if not num_match:
+            continue
+        value = float(num_match.group(1))
+
+        # Check if this line contains fragments of known stat names
+        lower = line.lower()
+
+        if "max" in lower and "damage" not in lower and "max damage" not in found:
+            # Garbled "Maximum" near damage context
+            if value > 100:  # damage values are large
+                found["max damage"] = value
+                continue
+
+        if "shield" in lower and "vs shields" not in found:
+            if value < 2:  # vs shields is always < 2
+                found["vs shields"] = value
+                continue
+
+    # ── Third pass: positional recovery for weapon stats ────────────
+    # If we found min damage but not max damage, look for a standalone
+    # number on the line right after min damage in the original text
+    if "min damage" in found and "max damage" not in found:
+        lines_with_numbers = []
+        for line in cleaned_lines:
+            nums = re.findall(r"[\d,]+\.?\d*", line)
+            if nums:
+                lines_with_numbers.append((line, nums))
+
+        # Find the line that had min damage, then check the next line
+        for idx, (line, nums) in enumerate(lines_with_numbers):
+            if str(found["min damage"]) in line or (
+                nums and abs(float(nums[-1].replace(",", "")) - found["min damage"]) < 0.1
+            ):
+                # Check next line for a standalone large number (max damage)
+                if idx + 1 < len(lines_with_numbers):
+                    next_line, next_nums = lines_with_numbers[idx + 1]
+                    for num_str in next_nums:
+                        candidate = float(num_str.replace(",", ""))
+                        if candidate > found["min damage"] and candidate < found["min damage"] * 5:
+                            found["max damage"] = candidate
+                            break
+                break
 
     return found
 
