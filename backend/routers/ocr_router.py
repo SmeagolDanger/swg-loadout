@@ -1,9 +1,11 @@
-"""OCR-based component parsing from screenshots.
+"""OCR-based component parsing from SWG screenshots.
 
-Accepts an image of an SWG component examine window, converts it to
-a clean PNG via Pillow, runs Tesseract OCR, and attempts to extract
-the component type, name, and stat values.
-Returns structured data for the user to review before saving.
+Handles the actual SWG examine window format:
+  - "Damage - Minimum": 1756.4
+  - "Reactor Energy Drain": 1596.3 (B Tier)
+  - "Armor": 592.4/592.4
+  - "Vs. Shields": 0.624
+  - "Energy/Shot": 36.5
 """
 
 import io
@@ -22,12 +24,11 @@ pillow_heif.register_heif_opener()
 router = APIRouter(prefix="/api/ocr", tags=["ocr"])
 logger = logging.getLogger(__name__)
 
-# ─── In-game stat names → internal stat mapping ─────────────────────
-# SWG displays stats with varying names. This maps all known variants
-# to the internal stat name used by the app. Stats may appear in any order.
-
+# ─── SWG stat label → internal stat name ─────────────────────────────
+# Keys are lowercase. SWG uses many different label formats.
 STAT_ALIASES: dict[str, str] = {
-    # Drain
+    # Drain — SWG shows "Reactor Energy Drain"
+    "reactor energy drain": "drain",
     "energy drain": "drain",
     "energy maintenance": "drain",
     "drain": "drain",
@@ -76,9 +77,13 @@ STAT_ALIASES: dict[str, str] = {
     "droid command speed": "cmd speed",
     "command speed": "cmd speed",
     "cmd speed": "cmd speed",
-    # Weapon
+    # Weapon — SWG shows "Damage - Minimum" and "Damage - Maximum"
+    "damage - minimum": "min damage",
+    "damage-minimum": "min damage",
     "minimum damage": "min damage",
     "min damage": "min damage",
+    "damage - maximum": "max damage",
+    "damage-maximum": "max damage",
     "maximum damage": "max damage",
     "max damage": "max damage",
     "vs. shields": "vs shields",
@@ -96,8 +101,6 @@ STAT_ALIASES: dict[str, str] = {
     "pve damage multiplier": "pve multiplier",
 }
 
-# Internal stat name → stat position index per component type
-# Position matches stat1..stat8 in the database
 COMP_STAT_ORDER: dict[str, list[str]] = {
     "reactor": ["mass", "generation"],
     "engine": ["drain", "mass", "pitch", "yaw", "roll", "top speed"],
@@ -121,19 +124,19 @@ COMP_STAT_ORDER: dict[str, list[str]] = {
     "countermeasurelauncher": ["drain", "mass", "ammo"],
 }
 
-# Keywords in the examine window that hint at the component type
-TYPE_HINTS: dict[str, list[str]] = {
-    "reactor": ["reactor", "energy generation"],
-    "engine": ["engine", "pitch rate", "yaw rate", "roll rate"],
-    "booster": ["booster"],
-    "shield": ["shield", "front shield", "shield hit points"],
-    "armor": ["armor"],
-    "capacitor": ["capacitor"],
-    "droidinterface": ["droid interface", "droid command"],
-    "weapon": ["weapon", "energy per shot", "refire rate", "vs. shields", "vs. armor", "min damage", "max damage"],
-    "ordnancelauncher": ["ordnance", "launcher", "pve multiplier", "ammunition"],
-    "countermeasurelauncher": ["countermeasure"],
-    "cargohold": ["cargo"],
+# Type detection based on which stats are present (more reliable than keyword matching)
+TYPE_STAT_SIGNATURES: dict[str, set[str]] = {
+    "weapon": {"min damage", "max damage", "energy/shot", "refire rate"},
+    "ordnancelauncher": {"min damage", "max damage", "ammo"},
+    "engine": {"pitch", "yaw", "roll"},
+    "booster": {"acceleration", "consumption"},
+    "shield": {"hp", "recharge rate", "drain"},
+    "capacitor": {"cap energy", "cap recharge"},
+    "reactor": {"generation"},
+    "armor": {"hp"},
+    "droidinterface": {"cmd speed"},
+    "countermeasurelauncher": {"ammo"},
+    "cargohold": {"mass"},
 }
 
 
@@ -143,7 +146,6 @@ def _convert_to_png(contents: bytes) -> bytes:
         img = Image.open(io.BytesIO(contents))
         if img.mode not in ("RGB", "L"):
             img = img.convert("RGB")
-        # Resize if too large — Tesseract works best around 1000-1500px wide
         max_width = 1500
         if img.width > max_width:
             ratio = max_width / img.width
@@ -167,9 +169,8 @@ def _run_tesseract(image_path: str) -> str:
         if result.returncode != 0:
             stderr = result.stderr.strip()
             logger.warning("tesseract_failed", extra={"stderr": stderr[:500], "returncode": result.returncode})
-            raise RuntimeError(
-                f"Tesseract failed: {stderr[:200]}" if stderr else "Tesseract failed: Error during processing"
-            )
+            msg = f"Tesseract failed: {stderr[:200]}" if stderr else "Tesseract failed: Error during processing"
+            raise RuntimeError(msg)
         return result.stdout
     except FileNotFoundError:
         raise RuntimeError("Tesseract is not installed on the server") from None
@@ -178,88 +179,149 @@ def _run_tesseract(image_path: str) -> str:
 
 
 def _clean_value(raw: str) -> float | None:
-    """Parse a stat value string, handling SWG's > and < prefixes."""
+    """Extract a numeric value from SWG stat text.
+
+    Handles formats like:
+      "1596.3 (B Tier)"  → 1596.3
+      "592.4/592.4"      → 592.4  (takes first number)
+      ">0.676"           → 0.676
+      "33,433.2"         → 33433.2
+    """
     raw = raw.strip()
+    # Strip tier info: "1596.3 (B Tier)" → "1596.3"
+    raw = re.sub(r"\s*\([^)]*\)\s*$", "", raw)
+    # Take first value from "592.4/592.4" format
+    if "/" in raw:
+        raw = raw.split("/")[0]
+    # Strip comparison operators
     raw = raw.lstrip("><")
+    # Remove commas
     raw = raw.replace(",", "")
+    # Remove any trailing non-numeric chars (OCR artifacts like *)
+    raw = re.sub(r"[^0-9.\-]", "", raw)
     try:
         return float(raw)
     except ValueError:
         return None
 
 
-def _guess_component_type(text_lower: str) -> str | None:
-    """Guess the component type from OCR text based on keyword hints."""
-    scores: dict[str, int] = {}
-    for comp_type, keywords in TYPE_HINTS.items():
-        score = sum(1 for kw in keywords if kw in text_lower)
-        if score > 0:
-            scores[comp_type] = score
-    if not scores:
-        return None
-    return max(scores, key=lambda k: scores[k])
+def _normalize_label(label: str) -> str:
+    """Clean up an OCR'd stat label for matching."""
+    label = label.strip().lower()
+    # Remove OCR artifacts: ~, ^, *, trailing colons
+    label = re.sub(r"[~^*°]+", "", label)
+    label = label.rstrip(":")
+    label = label.strip()
+    return label
+
+
+def _match_stat(label: str) -> str | None:
+    """Match a normalized label to an internal stat name."""
+    # Exact match first
+    if label in STAT_ALIASES:
+        return STAT_ALIASES[label]
+    # Substring match — check if any alias is contained in the label or vice versa
+    for alias, internal in STAT_ALIASES.items():
+        if alias in label or label in alias:
+            return internal
+    return None
 
 
 def _extract_name(lines: list[str]) -> str:
-    """Try to extract the component name from the first few lines."""
-    for line in lines[:5]:
+    """Extract the component name from OCR text.
+
+    In SWG the name is typically the first bold line, like "Certified"
+    before "Level 8 Ship Equipment Certification".
+    """
+    for line in lines[:8]:
         stripped = line.strip()
-        if not stripped:
+        if not stripped or len(stripped) < 3:
             continue
-        if re.match(r"^.+:\s*[\d<>.]", stripped):
+        # Skip lines that look like stats (contain : followed by numbers)
+        if re.search(r":\s*[\d<>.]", stripped):
             continue
-        if len(stripped) < 3:
+        # Skip known SWG boilerplate
+        lower = stripped.lower()
+        if any(
+            kw in lower
+            for kw in [
+                "ship component",
+                "guaranteed",
+                "item attributes",
+                "reverse engineering",
+                "volume:",
+                "projectile style",
+                "component style",
+                "level 8",
+                "level 7",
+                "level 6",
+                "level 5",
+                "level 4",
+                "level 3",
+                "level 2",
+                "level 1",
+                "certification",
+                "looted space",
+                "part notes",
+            ]
+        ):
             continue
         return stripped
     return ""
 
 
-def _parse_stats(text: str, comp_type: str) -> dict:
-    """Parse stat values from OCR text for a given component type."""
-    stat_order = COMP_STAT_ORDER.get(comp_type, [])
-    if not stat_order:
-        return {}
-
-    found_stats: dict[str, float] = {}
+def _parse_all_stats(text: str) -> dict[str, float]:
+    """Parse all stat values from OCR text, returning {internal_name: value}."""
+    found: dict[str, float] = {}
 
     for line in text.split("\n"):
         line = line.strip()
         if not line:
             continue
 
-        # Try "Label: Value" first
-        match = re.match(r"^(.+?):\s*([\d<>.,]+)", line)
+        # Try multiple patterns for "Label: Value"
+        # Pattern 1: "Label: Value" (standard)
+        match = re.match(r"^(.+?):\s*(.+)$", line)
         if not match:
-            # Try "Label Value" where value starts with digit or > or <
-            match = re.match(r"^(.+?)\s+([<>]?[\d.,]+)$", line)
+            # Pattern 2: "Label Value" (OCR drops colon)
+            match = re.match(r"^(.+?)\s{2,}(.+)$", line)
         if not match:
             continue
 
-        label = match.group(1).strip().lower()
-        value_str = match.group(2).strip()
-        value = _clean_value(value_str)
+        label_raw = match.group(1)
+        value_raw = match.group(2)
+
+        label = _normalize_label(label_raw)
+        internal = _match_stat(label)
+        if not internal:
+            continue
+
+        value = _clean_value(value_raw)
         if value is None:
             continue
 
-        internal_name = STAT_ALIASES.get(label)
-        if not internal_name:
-            for alias, internal in STAT_ALIASES.items():
-                if alias in label or label in alias:
-                    internal_name = internal
-                    break
+        # Don't overwrite if we already found this stat
+        if internal not in found:
+            found[internal] = value
 
-        if internal_name and internal_name in stat_order:
-            found_stats[internal_name] = value
+    return found
 
-    stats: list[float] = []
-    for stat_name in stat_order:
-        stats.append(found_stats.get(stat_name, 0))
 
-    return {
-        "stats": stats,
-        "found": found_stats,
-        "stat_labels": stat_order,
-    }
+def _guess_type_from_stats(found_stats: dict[str, float]) -> str | None:
+    """Guess component type based on which stats were found."""
+    stat_names = set(found_stats.keys())
+    if not stat_names:
+        return None
+
+    best_type = None
+    best_score = 0
+    for comp_type, signature in TYPE_STAT_SIGNATURES.items():
+        overlap = len(stat_names & signature)
+        if overlap > best_score:
+            best_score = overlap
+            best_type = comp_type
+
+    return best_type
 
 
 @router.post("/parse-component")
@@ -275,13 +337,11 @@ async def parse_component_image(file: UploadFile = File(...)):
 
     logger.info("ocr_upload_received", extra={"content_type": content_type, "size": len(contents)})
 
-    # Convert to clean PNG via Pillow (handles HEIC, JPEG, etc.)
     try:
         png_bytes = _convert_to_png(contents)
     except RuntimeError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-    # Write PNG to temp file for Tesseract
     with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
         tmp.write(png_bytes)
         tmp_path = tmp.name
@@ -296,23 +356,31 @@ async def parse_component_image(file: UploadFile = File(...)):
     if not raw_text.strip():
         raise HTTPException(status_code=422, detail="No text could be extracted from the image")
 
-    logger.info("ocr_text_extracted", extra={"char_count": len(raw_text), "preview": raw_text[:200]})
+    logger.info("ocr_text_extracted", extra={"char_count": len(raw_text), "preview": raw_text[:300]})
 
     lines = [line.strip() for line in raw_text.strip().split("\n") if line.strip()]
-    text_lower = raw_text.lower()
 
-    guessed_type = _guess_component_type(text_lower)
+    # Extract name
     guessed_name = _extract_name(lines)
 
-    parsed: dict = {}
+    # Parse all recognizable stats from the text
+    found_stats = _parse_all_stats(raw_text)
+
+    # Guess type from what stats we found (more reliable than keyword matching)
+    guessed_type = _guess_type_from_stats(found_stats)
+
+    # Build ordered stat array for the guessed type
+    stat_labels: list[str] = []
+    stats: list[float] = []
     if guessed_type:
-        parsed = _parse_stats(raw_text, guessed_type)
+        stat_labels = COMP_STAT_ORDER.get(guessed_type, [])
+        stats = [found_stats.get(s, 0) for s in stat_labels]
 
     return {
         "raw_text": raw_text,
         "guessed_type": guessed_type,
         "guessed_name": guessed_name,
-        "stats": parsed.get("stats", []),
-        "found_stats": parsed.get("found", {}),
-        "stat_labels": parsed.get("stat_labels", []),
+        "stats": stats,
+        "found_stats": {k: v for k, v in found_stats.items()},
+        "stat_labels": stat_labels,
     }
