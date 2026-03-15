@@ -409,14 +409,11 @@ def _parse_all_stats(text: str) -> dict[str, float]:
         # Check if this line contains fragments of known stat names
         lower = line.lower()
 
-        if "max" in lower and "damage" not in lower and "max damage" not in found:
-            # Garbled "Maximum" near damage context
-            if value > 100:  # damage values are large
+        if "max" in lower and "damage" not in lower and "max damage" not in found and value > 100:  # damage values are large
                 found["max damage"] = value
                 continue
 
-        if "shield" in lower and "vs shields" not in found:
-            if value < 2:  # vs shields is always < 2
+        if "shield" in lower and "vs shields" not in found and value < 2:  # vs shields is always < 2
                 found["vs shields"] = value
                 continue
 
