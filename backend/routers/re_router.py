@@ -97,7 +97,6 @@ def analyze(req: AnalyzeRequest, db: Session = Depends(get_db)):
     if req.level < 1 or req.level > 10:
         return {"error": "Level must be 1-10"}
 
-    # Convert incoming stats - preserve empty strings, convert numbers
     clean_stats = []
     for s in req.raw_stats:
         if s == "" or s is None:
@@ -116,17 +115,20 @@ def analyze(req: AnalyzeRequest, db: Session = Depends(get_db)):
         direction=req.direction,
     )
 
-    # Annotate each stat with a tier from STAJ thresholds
     comp_code = req.comp_type[0] + str(req.level % 10)
     threshold = db.query(TierThreshold).filter(TierThreshold.comp_code == comp_code).first()
+
     for stat in result.get("stats", []):
         display = stat.get("rarity_display", "")
+
         if display == "Reward":
             stat["tier"] = "reward"
-        elif display and "⋆" in display:
-            stat["tier"] = "unicorn"
         else:
+            # Keep STAJ tier based on odds even if the stat is also marked unicorn.
             stat["tier"] = _get_tier(stat.get("rarity"), threshold)
+
+        # Preserve unicorn information separately instead of overwriting STAJ tier.
+        stat["is_unicorn_tier"] = bool(display and "⋆" in display)
 
     return result
 
@@ -199,9 +201,6 @@ def get_brand_table(req: AnalyzeRequest):
     return brand_rarity_table(req.comp_type, req.level, clean_stats)
 
 
-# ── RE Project Save/Load ────────────────────────────────────
-
-
 @router.get("/projects")
 def list_projects(user: User = Depends(require_user), db: Session = Depends(get_db)):
     projects = db.query(REProject).filter(REProject.user_id == user.id).order_by(REProject.name).all()
@@ -219,7 +218,6 @@ def list_projects(user: User = Depends(require_user), db: Session = Depends(get_
 
 @router.post("/projects")
 def save_project(req: ProjectSave, user: User = Depends(require_user), db: Session = Depends(get_db)):
-    # Pad stats to 9
     stats = list(req.stats) + [0.0] * (9 - len(req.stats))
 
     existing = db.query(REProject).filter(REProject.user_id == user.id, REProject.name == req.name).first()
