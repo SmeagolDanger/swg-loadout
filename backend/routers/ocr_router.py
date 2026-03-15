@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pillow_heif
 from fastapi import APIRouter, File, HTTPException, UploadFile
-from PIL import Image, ImageEnhance
+from PIL import Image
 
 pillow_heif.register_heif_opener()
 
@@ -149,30 +149,16 @@ TYPE_STAT_SIGNATURES: dict[str, set[str]] = {
 
 
 def _convert_to_png(contents: bytes) -> bytes:
-    """Convert image to OCR-optimized grayscale PNG.
-
-    SWG's examine window has colored text (yellow, white, cyan, magenta)
-    on a dark teal background. We convert to grayscale and boost contrast
-    to make text stand out for Tesseract.
-    """
+    """Convert image to a reasonably sized PNG for Tesseract."""
     try:
         img = Image.open(io.BytesIO(contents))
-        if img.mode != "RGB":
+        if img.mode not in ("RGB", "L"):
             img = img.convert("RGB")
-
-        # Resize to consistent width
-        target_width = 1200
-        if img.width != target_width:
-            ratio = target_width / img.width
-            img = img.resize((target_width, int(img.height * ratio)), Image.LANCZOS)
-
-        # Convert to grayscale
-        img = img.convert("L")
-
-        # Boost contrast and sharpness
-        img = ImageEnhance.Contrast(img).enhance(2.0)
-        img = ImageEnhance.Sharpness(img).enhance(1.5)
-
+        # Resize large images so Tesseract doesn't choke
+        max_width = 1500
+        if img.width > max_width:
+            ratio = max_width / img.width
+            img = img.resize((max_width, int(img.height * ratio)), Image.LANCZOS)
         buf = io.BytesIO()
         img.save(buf, format="PNG")
         return buf.getvalue()
