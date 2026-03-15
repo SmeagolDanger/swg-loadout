@@ -75,7 +75,7 @@ def _get_tier(rarity_prob, threshold: TierThreshold | None) -> str | None:
     if threshold is None:
         return None
     try:
-        one_in_x = int(1 / float(rarity_prob))
+        one_in_x = int(round(1 / float(rarity_prob)))
     except (ZeroDivisionError, ValueError, TypeError):
         return None
     if one_in_x >= threshold.a_threshold:
