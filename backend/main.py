@@ -42,8 +42,8 @@ from routers.import_router import router as import_router
 from routers.loadout_router import router as loadout_router
 from routers.mods_router import admin_router as admin_mods_router
 from routers.mods_router import router as mods_router
-from routers.re_router import router as re_router
 from routers.ocr_router import router as ocr_router
+from routers.re_router import router as re_router
 
 logger = logging.getLogger("slt")
 APP_VERSION = "3.0.0"
