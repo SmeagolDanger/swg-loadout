@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pillow_heif
 from fastapi import APIRouter, File, HTTPException, UploadFile
-from PIL import Image, ImageEnhance, ImageOps
+from PIL import Image, ImageEnhance
 
 pillow_heif.register_heif_opener()
 
@@ -152,15 +152,15 @@ def _convert_to_png(contents: bytes) -> bytes:
     """Convert image to OCR-optimized grayscale PNG.
 
     SWG's examine window has colored text (yellow, white, cyan, magenta)
-    on a dark teal background. We convert to grayscale, boost contrast,
-    and apply sharpening to make text crisp for Tesseract.
+    on a dark teal background. We convert to grayscale and boost contrast
+    to make text stand out for Tesseract.
     """
     try:
         img = Image.open(io.BytesIO(contents))
         if img.mode != "RGB":
             img = img.convert("RGB")
 
-        # Resize to a consistent width for OCR (too large = slow, too small = illegible)
+        # Resize to consistent width
         target_width = 1200
         if img.width != target_width:
             ratio = target_width / img.width
@@ -169,18 +169,9 @@ def _convert_to_png(contents: bytes) -> bytes:
         # Convert to grayscale
         img = img.convert("L")
 
-        # Boost contrast — makes text stand out from background
-        img = ImageEnhance.Contrast(img).enhance(2.5)
-        img = ImageEnhance.Sharpness(img).enhance(2.0)
-
-        # Apply adaptive-style threshold: pixels above threshold become white, below become black
-        # SWG text is bright on dark background, so text becomes white
-        # We invert so text is black on white (what Tesseract prefers)
-        threshold = 120
-        img = img.point(lambda px: 255 if px > threshold else 0)
-
-        # Invert: black text on white background
-        img = ImageOps.invert(img)
+        # Boost contrast and sharpness
+        img = ImageEnhance.Contrast(img).enhance(2.0)
+        img = ImageEnhance.Sharpness(img).enhance(1.5)
 
         buf = io.BytesIO()
         img.save(buf, format="PNG")
@@ -198,11 +189,9 @@ def _run_tesseract(image_path: str) -> str:
                 image_path,
                 "stdout",
                 "--psm",
-                "4",  # Assume single column of variable-sized text
+                "3",  # Fully automatic page segmentation
                 "-l",
                 "eng",
-                "-c",
-                "tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.:/-() ,*",
             ],
             capture_output=True,
             text=True,
